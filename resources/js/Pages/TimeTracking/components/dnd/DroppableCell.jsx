@@ -1,6 +1,5 @@
 import React from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Box } from "@mui/material";
 
 export default function DroppableCell({ employee, date, children }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -9,18 +8,17 @@ export default function DroppableCell({ employee, date, children }) {
   });
 
   return (
-    <Box
+    <div
       ref={setNodeRef}
-      sx={{
-        border: isOver ? "2px dashed #1976d2" : "1px solid #e0e0e0",
-        minHeight: 64,
-        borderRadius: 1,
-        p: 0.5,
-        bgcolor: isOver ? "action.hover" : "transparent",
-        transition: "0.1s",
-      }}
+      className={`
+        min-h-[80px] rounded-lg transition-all duration-200 p-1
+        ${isOver 
+          ? 'bg-primary-100 border-2 border-primary-400 border-dashed scale-105' 
+          : 'border-2 border-transparent'
+        }
+      `}
     >
       {children}
-    </Box>
+    </div>
   );
 }
