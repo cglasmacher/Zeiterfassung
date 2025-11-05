@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/Compon
 import Button from '@/Components/ui/Button';
 import Input from '@/Components/ui/Input';
 import Badge from '@/Components/ui/Badge';
+import { useToast } from '@/Components/ui/Toast';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
@@ -23,6 +24,8 @@ export default function DailyOverview() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const toast = useToast();
 
   useEffect(() => {
     loadData();
@@ -30,11 +33,19 @@ export default function DailyOverview() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await axios.get(`/api/summary/daily/1/${date}`);
       setData([res.data]);
     } catch (error) {
       console.error('Error loading daily summary:', error);
+      if (error.response?.status === 404) {
+        setError('Keine Daten für diesen Tag vorhanden');
+        setData([]);
+      } else {
+        setError('Fehler beim Laden der Daten');
+        toast.error('Fehler beim Laden der Tagesübersicht');
+      }
       setData([]);
     } finally {
       setLoading(false);
@@ -170,11 +181,14 @@ export default function DailyOverview() {
               <p className="text-neutral-600">Lade Daten...</p>
             </div>
           </div>
-        ) : data.length === 0 ? (
+        ) : data.length === 0 || error ? (
           <Card>
             <CardBody className="p-12 text-center">
               <Calendar className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
-              <p className="text-neutral-600">Keine Daten für diesen Tag verfügbar</p>
+              <p className="text-neutral-600">{error || 'Keine Daten für diesen Tag verfügbar'}</p>
+              <p className="text-sm text-neutral-500 mt-2">
+                Für {dayjs(date).format('DD.MM.YYYY')} wurden noch keine Zeiteinträge erfasst.
+              </p>
             </CardBody>
           </Card>
         ) : (

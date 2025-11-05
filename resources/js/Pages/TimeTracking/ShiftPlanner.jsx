@@ -8,6 +8,7 @@ import axios from "axios";
 import dayjs from "dayjs";
 import 'dayjs/locale/de';
 import isBetween from 'dayjs/plugin/isBetween';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
 import ShiftGridMUI from "./components/ShiftGridMUI";
 import { 
   ChevronLeft, 
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 
 dayjs.extend(isBetween);
+dayjs.extend(weekOfYear);
 dayjs.locale('de');
 
 export default function ShiftPlanner() {
