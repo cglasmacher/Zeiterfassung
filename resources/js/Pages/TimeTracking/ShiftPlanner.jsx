@@ -18,7 +18,10 @@ import {
   Plus,
   Calendar as CalendarIcon,
   Filter,
-  Save
+  Save,
+  Users,
+  ChefHat,
+  UtensilsCrossed
 } from 'lucide-react';
 
 dayjs.extend(isBetween);
@@ -30,6 +33,7 @@ export default function ShiftPlanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
+  const [viewMode, setViewMode] = useState('employees'); // 'employees' | 'kitchen' | 'service'
   const toast = useToast();
 
   const loadData = async () => {
@@ -75,6 +79,73 @@ export default function ShiftPlanner() {
 
     return { totalShifts, totalHours, openShifts, conflicts: Math.floor(conflicts / 2) };
   }, [data]);
+
+  // Gruppiere Zeilen basierend auf viewMode
+  const groupedRows = useMemo(() => {
+    if (!data || !data.employees) return [];
+    
+    switch(viewMode) {
+      case 'employees':
+        // Standard: Alle Mitarbeiter als flache Liste
+        return data.employees;
+        
+      case 'kitchen':
+        // Gruppiere nach Küchen-Positionen
+        const kitchenPositions = [
+          { id: 'chef', name: 'Küchenchef', icon: '👨‍🍳', keywords: ['chef', 'küchenchef'] },
+          { id: 'sous_chef', name: 'Sous Chef', icon: '👨‍🍳', keywords: ['sous', 'stellvertretend'] },
+          { id: 'cook', name: 'Koch', icon: '🍳', keywords: ['koch', 'cook'] },
+          { id: 'prep_cook', name: 'Vorbereitungskoch', icon: '🔪', keywords: ['vorbereitung', 'prep'] },
+          { id: 'dishwasher', name: 'Spüler', icon: '🧽', keywords: ['spül', 'dish'] },
+          { id: 'other_kitchen', name: 'Sonstige Küche', icon: '🍽️', keywords: [] },
+        ];
+        
+        return kitchenPositions.map(pos => ({
+          ...pos,
+          type: 'position',
+          employees: data.employees.filter(e => {
+            const position = (e.position || '').toLowerCase();
+            if (pos.id === 'other_kitchen') {
+              // Alle die in keine andere Kategorie passen
+              return !kitchenPositions.slice(0, -1).some(p => 
+                p.keywords.some(kw => position.includes(kw))
+              );
+            }
+            return pos.keywords.some(kw => position.includes(kw));
+          })
+        })).filter(pos => pos.employees.length > 0); // Nur Positionen mit Mitarbeitern
+        
+      case 'service':
+        // Gruppiere nach Service-Bereichen
+        const serviceAreas = [
+          { id: 'station_1', name: 'Station 1', icon: '1️⃣', keywords: ['station 1', 'bereich 1'] },
+          { id: 'station_2', name: 'Station 2', icon: '2️⃣', keywords: ['station 2', 'bereich 2'] },
+          { id: 'station_3', name: 'Station 3', icon: '3️⃣', keywords: ['station 3', 'bereich 3'] },
+          { id: 'bar', name: 'Bar', icon: '🍸', keywords: ['bar', 'barkeeper', 'bartender'] },
+          { id: 'reception', name: 'Empfang', icon: '🎫', keywords: ['empfang', 'host', 'reception'] },
+          { id: 'service', name: 'Service Allgemein', icon: '🍽️', keywords: ['service', 'kellner', 'waiter'] },
+          { id: 'other_service', name: 'Sonstige Service', icon: '👔', keywords: [] },
+        ];
+        
+        return serviceAreas.map(area => ({
+          ...area,
+          type: 'area',
+          employees: data.employees.filter(e => {
+            const position = (e.position || '').toLowerCase();
+            if (area.id === 'other_service') {
+              // Alle die in keine andere Kategorie passen
+              return !serviceAreas.slice(0, -1).some(a => 
+                a.keywords.some(kw => position.includes(kw))
+              );
+            }
+            return area.keywords.some(kw => position.includes(kw));
+          })
+        })).filter(area => area.employees.length > 0); // Nur Bereiche mit Mitarbeitern
+        
+      default:
+        return data.employees;
+    }
+  }, [data, viewMode]);
 
   // Filtere Mitarbeiter nach Abteilung
   const filteredData = useMemo(() => {
@@ -123,6 +194,49 @@ export default function ShiftPlanner() {
             </Button>
           </div>
         </div>
+
+        {/* View Mode Toggle */}
+        <Card glass>
+          <CardBody className="p-2">
+            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-lg">
+              <button 
+                onClick={() => setViewMode('employees')}
+                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
+                  viewMode === 'employees' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Mitarbeiter</span>
+              </button>
+              
+              <button 
+                onClick={() => setViewMode('kitchen')}
+                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
+                  viewMode === 'kitchen' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <ChefHat className="w-4 h-4" />
+                <span>Küche</span>
+              </button>
+              
+              <button 
+                onClick={() => setViewMode('service')}
+                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
+                  viewMode === 'service' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                <span>Service</span>
+              </button>
+            </div>
+          </CardBody>
+        </Card>
 
         {/* Week Navigation */}
         <Card glass>
@@ -255,7 +369,14 @@ export default function ShiftPlanner() {
                 </div>
               </div>
             ) : filteredData ? (
-              <ShiftGridMUI {...filteredData} reload={loadData} weekStart={weekStart} toast={toast} />
+              <ShiftGridMUI 
+                {...filteredData} 
+                reload={loadData} 
+                weekStart={weekStart} 
+                toast={toast}
+                viewMode={viewMode}
+                groupedRows={groupedRows}
+              />
             ) : (
               <div className="text-center py-20">
                 <p className="text-neutral-600">Keine Daten verfügbar</p>

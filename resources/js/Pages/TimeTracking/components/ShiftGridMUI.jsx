@@ -14,7 +14,16 @@ import ShiftTypeDialog from "./ShiftTypeDialog";
 import Badge from '@/Components/ui/Badge';
 import { Clock, Plus, AlertCircle } from 'lucide-react';
 
-export default function ShiftGridMUI({ employees, shifts, shift_types, reload, weekStart, toast }) {
+export default function ShiftGridMUI({ 
+  employees, 
+  shifts, 
+  shift_types, 
+  reload, 
+  weekStart, 
+  toast,
+  viewMode = 'employees',
+  groupedRows = []
+}) {
   const [activeShift, setActiveShift] = useState(null);
   
   const days = Array.from({ length: 7 }, (_, i) =>
@@ -116,7 +125,9 @@ export default function ShiftGridMUI({ employees, shifts, shift_types, reload, w
           <thead className="bg-neutral-50 sticky top-0 z-10">
             <tr>
               <th className="px-6 py-4 text-left font-semibold text-neutral-900 border-b-2 border-neutral-200 min-w-[200px]">
-                Mitarbeiter
+                {viewMode === 'employees' ? 'Mitarbeiter' : 
+                 viewMode === 'kitchen' ? 'Position' : 
+                 'Bereich'}
               </th>
               {days.map((d, i) => (
                 <th 
@@ -142,62 +153,151 @@ export default function ShiftGridMUI({ employees, shifts, shift_types, reload, w
           </thead>
 
           <tbody>
-            {employees?.map((emp) => (
-              <tr 
-                key={emp.id}
-                className="border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
-              >
-                <td className="px-6 py-4 border-r border-neutral-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                      {emp.first_name?.charAt(0)}{emp.last_name?.charAt(0)}
+            {viewMode === 'employees' ? (
+              // Standard Mitarbeiter-Ansicht
+              employees?.map((emp) => (
+                <tr 
+                  key={emp.id}
+                  className="border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
+                >
+                  <td className="px-6 py-4 border-r border-neutral-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                        {emp.first_name?.charAt(0)}{emp.last_name?.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-neutral-900 truncate">
+                          {emp.first_name} {emp.last_name}
+                        </p>
+                        <p className="text-xs text-neutral-500 truncate">
+                          {emp.position || 'Mitarbeiter'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-neutral-900 truncate">
-                        {emp.first_name} {emp.last_name}
-                      </p>
-                      <p className="text-xs text-neutral-500 truncate">
-                        {emp.position || 'Mitarbeiter'}
-                      </p>
-                    </div>
-                  </div>
-                </td>
+                  </td>
 
-                {days.map((d, i) => {
-                  const dateStr = d.format("YYYY-MM-DD");
-                  const shift = shifts?.find(
-                    (s) =>
-                      s.employee_id === emp.id && s.shift_date === dateStr
-                  );
+                  {days.map((d, i) => {
+                    const dateStr = d.format("YYYY-MM-DD");
+                    const shift = shifts?.find(
+                      (s) =>
+                        s.employee_id === emp.id && s.shift_date === dateStr
+                    );
 
-                  return (
-                    <td 
-                      key={i} 
-                      className={`px-2 py-2 align-top ${
-                        isWeekend(d) ? 'bg-neutral-50' : ''
-                      } ${isToday(d) ? 'bg-primary-50/50' : ''}`}
-                    >
-                      <DroppableCell employee={emp} date={dateStr}>
-                        {shift ? (
-                          <DraggableShift
-                            shift={shift}
-                            onDelete={() => handleDelete(shift.id)}
-                            color={getShiftColor(shift.shift_type)}
-                          />
-                        ) : (
-                          <ShiftTypeDialog
-                            types={shift_types}
-                            onSelect={(typeId) =>
-                              handleAssign(emp.id, dateStr, typeId)
-                            }
-                          />
-                        )}
-                      </DroppableCell>
+                    return (
+                      <td 
+                        key={i} 
+                        className={`px-2 py-2 align-top ${
+                          isWeekend(d) ? 'bg-neutral-50' : ''
+                        } ${isToday(d) ? 'bg-primary-50/50' : ''}`}
+                      >
+                        <DroppableCell employee={emp} date={dateStr}>
+                          {shift ? (
+                            <DraggableShift
+                              shift={shift}
+                              onDelete={() => handleDelete(shift.id)}
+                              color={getShiftColor(shift.shift_type)}
+                            />
+                          ) : (
+                            <ShiftTypeDialog
+                              types={shift_types}
+                              onSelect={(typeId) =>
+                                handleAssign(emp.id, dateStr, typeId)
+                              }
+                            />
+                          )}
+                        </DroppableCell>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            ) : (
+              // Gruppierte Ansicht (Küche/Service)
+              groupedRows.map((group) => (
+                <React.Fragment key={group.id}>
+                  {/* Gruppen-Header */}
+                  <tr className="bg-gradient-to-r from-neutral-100 to-neutral-50 border-b-2 border-neutral-300">
+                    <td colSpan={8} className="px-6 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{group.icon}</span>
+                        <div>
+                          <p className="font-bold text-neutral-900 text-base">{group.name}</p>
+                          <p className="text-xs text-neutral-600">
+                            {group.employees?.length || 0} {group.employees?.length === 1 ? 'Mitarbeiter' : 'Mitarbeiter'}
+                          </p>
+                        </div>
+                      </div>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  </tr>
+                  
+                  {/* Mitarbeiter in dieser Gruppe */}
+                  {group.employees?.length > 0 ? (
+                    group.employees.map((emp) => (
+                      <tr 
+                        key={emp.id}
+                        className="border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
+                      >
+                        <td className="px-6 py-4 border-r border-neutral-200">
+                          <div className="flex items-center gap-3 pl-8">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                              {emp.first_name?.charAt(0)}{emp.last_name?.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-neutral-900 truncate">
+                                {emp.first_name} {emp.last_name}
+                              </p>
+                              <p className="text-xs text-neutral-500 truncate">
+                                {emp.position || 'Mitarbeiter'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {days.map((d, i) => {
+                          const dateStr = d.format("YYYY-MM-DD");
+                          const shift = shifts?.find(
+                            (s) =>
+                              s.employee_id === emp.id && s.shift_date === dateStr
+                          );
+
+                          return (
+                            <td 
+                              key={i} 
+                              className={`px-2 py-2 align-top ${
+                                isWeekend(d) ? 'bg-neutral-50' : ''
+                              } ${isToday(d) ? 'bg-primary-50/50' : ''}`}
+                            >
+                              <DroppableCell employee={emp} date={dateStr}>
+                                {shift ? (
+                                  <DraggableShift
+                                    shift={shift}
+                                    onDelete={() => handleDelete(shift.id)}
+                                    color={getShiftColor(shift.shift_type)}
+                                  />
+                                ) : (
+                                  <ShiftTypeDialog
+                                    types={shift_types}
+                                    onSelect={(typeId) =>
+                                      handleAssign(emp.id, dateStr, typeId)
+                                    }
+                                  />
+                                )}
+                              </DroppableCell>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-4 text-center text-neutral-500 text-sm italic">
+                        Keine Mitarbeiter in dieser {viewMode === 'kitchen' ? 'Position' : 'Bereich'}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))
+            )}
           </tbody>
         </table>
 
