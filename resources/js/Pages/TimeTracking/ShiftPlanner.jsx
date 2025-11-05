@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/ui/Card';
 import Button from '@/Components/ui/Button';
 import Badge from '@/Components/ui/Badge';
+import { useToast } from '@/Components/ui/Toast';
 import axios from "axios";
 import dayjs from "dayjs";
 import 'dayjs/locale/de';
+import isBetween from 'dayjs/plugin/isBetween';
 import ShiftGridMUI from "./components/ShiftGridMUI";
 import { 
   ChevronLeft, 
@@ -18,6 +20,7 @@ import {
   Save
 } from 'lucide-react';
 
+dayjs.extend(isBetween);
 dayjs.locale('de');
 
 export default function ShiftPlanner() {
@@ -25,6 +28,7 @@ export default function ShiftPlanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
+  const toast = useToast();
 
   const loadData = async () => {
     setLoading(true);
@@ -38,10 +42,46 @@ export default function ShiftPlanner() {
       setData(res.data);
     } catch (error) {
       console.error('Error loading shifts:', error);
+      toast.error('Fehler beim Laden der Schichten');
     } finally {
       setLoading(false);
     }
   };
+
+  // Berechne Statistiken
+  const stats = useMemo(() => {
+    if (!data) return { totalShifts: 0, totalHours: 0, openShifts: 0, conflicts: 0 };
+
+    const totalShifts = data.shifts?.length || 0;
+    const totalHours = data.shifts?.reduce((sum, s) => sum + (s.planned_hours || 8), 0) || 0;
+    
+    // Berechne offene Schichten (Tage ohne Schicht für aktive Mitarbeiter)
+    const days = 7;
+    const activeEmployees = data.employees?.filter(e => e.active).length || 0;
+    const possibleShifts = activeEmployees * days;
+    const openShifts = Math.max(0, possibleShifts - totalShifts);
+    
+    // Berechne Konflikte (Mitarbeiter mit mehreren Schichten am selben Tag)
+    const conflicts = data.shifts?.reduce((count, shift) => {
+      const sameDay = data.shifts.filter(s => 
+        s.employee_id === shift.employee_id && 
+        s.shift_date === shift.shift_date &&
+        s.id !== shift.id
+      );
+      return count + (sameDay.length > 0 ? 1 : 0);
+    }, 0) || 0;
+
+    return { totalShifts, totalHours, openShifts, conflicts: Math.floor(conflicts / 2) };
+  }, [data]);
+
+  // Filtere Mitarbeiter nach Abteilung
+  const filteredData = useMemo(() => {
+    if (!data || filterDepartment === 'all') return data;
+    
+    // Hier würde die echte Filterlogik kommen, wenn Abteilungen in den Daten vorhanden sind
+    // Für jetzt geben wir alle Daten zurück
+    return data;
+  }, [data, filterDepartment]);
 
   useEffect(() => {
     loadData();
@@ -147,7 +187,7 @@ export default function ShiftPlanner() {
                 <div>
                   <p className="text-tiny text-neutral-500 mb-1">Geplante Schichten</p>
                   <p className="text-2xl font-bold text-neutral-900">
-                    {data?.shifts?.length || 0}
+                    {stats.totalShifts}
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
@@ -163,7 +203,7 @@ export default function ShiftPlanner() {
                 <div>
                   <p className="text-tiny text-neutral-500 mb-1">Gesamtstunden</p>
                   <p className="text-2xl font-bold text-neutral-900">
-                    {data?.shifts?.reduce((sum, s) => sum + (s.planned_hours || 8), 0) || 0}h
+                    {stats.totalHours}h
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-success-100 flex items-center justify-center">
@@ -178,7 +218,7 @@ export default function ShiftPlanner() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-tiny text-neutral-500 mb-1">Offene Schichten</p>
-                  <p className="text-2xl font-bold text-warning-600">3</p>
+                  <p className="text-2xl font-bold text-warning-600">{stats.openShifts}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-warning-100 flex items-center justify-center">
                   <CalendarIcon className="w-6 h-6 text-warning-600" />
@@ -192,7 +232,7 @@ export default function ShiftPlanner() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-tiny text-neutral-500 mb-1">Konflikte</p>
-                  <p className="text-2xl font-bold text-error-600">0</p>
+                  <p className="text-2xl font-bold text-error-600">{stats.conflicts}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-error-100 flex items-center justify-center">
                   <CalendarIcon className="w-6 h-6 text-error-600" />
@@ -212,8 +252,8 @@ export default function ShiftPlanner() {
                   <p className="text-neutral-600">Lade Dienstplan...</p>
                 </div>
               </div>
-            ) : data ? (
-              <ShiftGridMUI {...data} reload={loadData} weekStart={weekStart} />
+            ) : filteredData ? (
+              <ShiftGridMUI {...filteredData} reload={loadData} weekStart={weekStart} toast={toast} />
             ) : (
               <div className="text-center py-20">
                 <p className="text-neutral-600">Keine Daten verfügbar</p>

@@ -14,7 +14,7 @@ import ShiftTypeDialog from "./ShiftTypeDialog";
 import Badge from '@/Components/ui/Badge';
 import { Clock, Plus, AlertCircle } from 'lucide-react';
 
-export default function ShiftGridMUI({ employees, shifts, shift_types, reload, weekStart }) {
+export default function ShiftGridMUI({ employees, shifts, shift_types, reload, weekStart, toast }) {
   const [activeShift, setActiveShift] = useState(null);
   
   const days = Array.from({ length: 7 }, (_, i) =>
@@ -34,9 +34,11 @@ export default function ShiftGridMUI({ employees, shifts, shift_types, reload, w
         shift_date: date,
         shift_type_id: typeId,
       });
+      toast?.success('Schicht erfolgreich erstellt');
       reload();
     } catch (error) {
       console.error('Error assigning shift:', error);
+      toast?.error('Fehler beim Erstellen der Schicht');
     }
   };
 
@@ -45,9 +47,11 @@ export default function ShiftGridMUI({ employees, shifts, shift_types, reload, w
     
     try {
       await axios.delete(`/api/shifts/${id}`);
+      toast?.success('Schicht erfolgreich gelöscht');
       reload();
     } catch (error) {
       console.error('Error deleting shift:', error);
+      toast?.error('Fehler beim Löschen der Schicht');
     }
   };
 
@@ -74,9 +78,11 @@ export default function ShiftGridMUI({ employees, shifts, shift_types, reload, w
           employee_id: targetEmp.id,
           shift_date: targetDate,
         });
+        toast?.success('Schicht erfolgreich verschoben');
         reload();
       } catch (error) {
         console.error('Error moving shift:', error);
+        toast?.error('Fehler beim Verschieben der Schicht');
       }
     }
   };
