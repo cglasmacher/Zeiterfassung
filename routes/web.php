@@ -23,7 +23,7 @@ Route::middleware(['auth'])->prefix('timetracking')->group(function () {
     Route::get('/', fn() => Inertia::render('TimeTracking/Dashboard'))->name('timetracking.dashboard');
     Route::get('/daily', fn() => Inertia::render('TimeTracking/DailyOverview'))->name('timetracking.daily');
     Route::get('/monthly', fn() => Inertia::render('TimeTracking/MonthlyOverview'))->name('timetracking.monthly');
-    Route::get('/planner', fn() => Inertia::render('TimeTracking/ShiftPlannerPositions'))->name('timetracking.planner');
+    Route::get('/planner', fn() => Inertia::render('TimeTracking/ShiftPlanner'))->name('timetracking.planner');
     Route::get('/manual-entry', fn() => Inertia::render('TimeTracking/ManualTimeEntry'))->name('timetracking.manual');
     Route::get('/time-manipulation', fn() => Inertia::render('TimeTracking/TimeManipulation'))->name('timetracking.manipulation');
     Route::get('/exports', fn() => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
