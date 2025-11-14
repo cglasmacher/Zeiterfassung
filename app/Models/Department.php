@@ -25,4 +25,10 @@ class Department extends Model
     {
         return $this->hasMany(Shift::class);
     }
+
+    // Eine Abteilung kann viele Schichttypen haben
+    public function shiftTypes()
+    {
+        return $this->belongsToMany(ShiftType::class, 'department_shift_type');
+    }
 }

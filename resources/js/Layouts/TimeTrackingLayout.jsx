@@ -24,7 +24,7 @@ export default function TimeTrackingLayout({ children }) {
     { href: '/timetracking/daily', label: 'Tagesübersicht', icon: Calendar },
     { href: '/timetracking/monthly', label: 'Monatsübersicht', icon: CalendarDays },
     { href: '/timetracking/planner', label: 'Dienstplan', icon: Clock },
-    { href: '/timetracking/employees', label: 'Mitarbeiter', icon: Users },
+    { href: '/timetracking/manual-entry', label: 'Manuelle Erfassung', icon: Users },
     { href: '/timetracking/exports', label: 'Exporte', icon: Download },
     { href: '/timetracking/settings', label: 'Einstellungen', icon: Settings },
   ];

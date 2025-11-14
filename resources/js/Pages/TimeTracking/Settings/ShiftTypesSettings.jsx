@@ -10,6 +10,7 @@ import axios from 'axios';
 
 export default function ShiftTypesSettings() {
   const [shiftTypes, setShiftTypes] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingShiftType, setEditingShiftType] = useState(null);
@@ -19,22 +20,27 @@ export default function ShiftTypesSettings() {
     default_end: '16:00',
     default_break_minutes: 30,
     active: true,
+    department_ids: [],
   });
   const [errors, setErrors] = useState({});
   const toast = useToast();
 
   useEffect(() => {
-    loadShiftTypes();
+    loadData();
   }, []);
 
-  const loadShiftTypes = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/api/shift-types');
-      setShiftTypes(res.data);
+      const [shiftTypesRes, departmentsRes] = await Promise.all([
+        axios.get('/api/shift-types'),
+        axios.get('/api/departments'),
+      ]);
+      setShiftTypes(shiftTypesRes.data);
+      setDepartments(departmentsRes.data);
     } catch (error) {
-      console.error('Error loading shift types:', error);
-      toast.error('Fehler beim Laden der Schichttypen');
+      console.error('Error loading data:', error);
+      toast.error('Fehler beim Laden der Daten');
     } finally {
       setLoading(false);
     }
@@ -49,6 +55,7 @@ export default function ShiftTypesSettings() {
         default_end: shiftType.default_end,
         default_break_minutes: shiftType.default_break_minutes,
         active: shiftType.active,
+        department_ids: shiftType.departments?.map((d) => d.id) || [],
       });
     } else {
       setEditingShiftType(null);
@@ -58,6 +65,7 @@ export default function ShiftTypesSettings() {
         default_end: '16:00',
         default_break_minutes: 30,
         active: true,
+        department_ids: [],
       });
     }
     setErrors({});
@@ -73,6 +81,7 @@ export default function ShiftTypesSettings() {
       default_end: '16:00',
       default_break_minutes: 30,
       active: true,
+      department_ids: [],
     });
     setErrors({});
   };
@@ -90,7 +99,7 @@ export default function ShiftTypesSettings() {
         toast.success('Schichttyp erfolgreich erstellt');
       }
       handleCloseModal();
-      loadShiftTypes();
+      loadData();
     } catch (error) {
       if (error.response?.data?.errors) {
         setErrors(error.response.data.errors);
@@ -108,7 +117,7 @@ export default function ShiftTypesSettings() {
     try {
       await axios.delete(`/api/shift-types/${shiftType.id}`);
       toast.success('Schichttyp erfolgreich gelöscht');
-      loadShiftTypes();
+      loadData();
     } catch (error) {
       toast.error('Fehler beim Löschen des Schichttyps');
     }
@@ -129,6 +138,15 @@ export default function ShiftTypesSettings() {
     const endMinutes = endHour * 60 + endMin;
     const totalMinutes = endMinutes - startMinutes - breakMinutes;
     return (totalMinutes / 60).toFixed(1);
+  };
+
+  const handleDepartmentToggle = (departmentId) => {
+    setFormData((prev) => ({
+      ...prev,
+      department_ids: prev.department_ids.includes(departmentId)
+        ? prev.department_ids.filter((id) => id !== departmentId)
+        : [...prev.department_ids, departmentId],
+    }));
   };
 
   return (
@@ -222,6 +240,15 @@ export default function ShiftTypesSettings() {
                         <span className="font-bold text-primary-600">{hours}h</span>
                       </div>
                     </div>
+                    {shiftType.departments && shiftType.departments.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {shiftType.departments.map((dept) => (
+                          <Badge key={dept.id} variant="primary" className="text-xs">
+                            {dept.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 pt-3 border-t border-neutral-100">
                       <Button
                         variant="ghost"
@@ -313,6 +340,32 @@ export default function ShiftTypesSettings() {
             <label htmlFor="active" className="text-sm font-medium text-neutral-700">
               Aktiv
             </label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
+              Stationen zuordnen
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {departments.map((dept) => (
+                <label
+                  key={dept.id}
+                  className="flex items-center gap-2 p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.department_ids.includes(dept.id)}
+                    onChange={() => handleDepartmentToggle(dept.id)}
+                    className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-neutral-900">{dept.name}</span>
+                </label>
+              ))}
+            </div>
+            {departments.length === 0 && (
+              <p className="text-sm text-neutral-500 italic">
+                Keine Stationen verfügbar. Bitte erstellen Sie zuerst Stationen.
+              </p>
+            )}
           </div>
           <div className="p-4 bg-neutral-50 rounded-lg">
             <p className="text-sm text-neutral-600">

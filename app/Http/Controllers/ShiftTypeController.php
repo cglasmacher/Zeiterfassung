@@ -9,7 +9,7 @@ class ShiftTypeController extends Controller
 {
     public function index()
     {
-        $shiftTypes = ShiftType::orderBy('name')->get();
+        $shiftTypes = ShiftType::with('departments')->orderBy('name')->get();
         return response()->json($shiftTypes);
     }
 
@@ -21,10 +21,20 @@ class ShiftTypeController extends Controller
             'default_end' => 'required|date_format:H:i',
             'default_break_minutes' => 'required|numeric|min:0',
             'active' => 'boolean',
+            'department_ids' => 'nullable|array',
+            'department_ids.*' => 'exists:departments,id',
         ]);
 
+        $departmentIds = $data['department_ids'] ?? [];
+        unset($data['department_ids']);
+
         $shiftType = ShiftType::create($data);
-        return response()->json($shiftType);
+        
+        if (!empty($departmentIds)) {
+            $shiftType->departments()->sync($departmentIds);
+        }
+
+        return response()->json($shiftType->load('departments'));
     }
 
     public function update(Request $request, $id)
@@ -37,10 +47,20 @@ class ShiftTypeController extends Controller
             'default_end' => 'required|date_format:H:i',
             'default_break_minutes' => 'required|numeric|min:0',
             'active' => 'boolean',
+            'department_ids' => 'nullable|array',
+            'department_ids.*' => 'exists:departments,id',
         ]);
 
+        $departmentIds = $data['department_ids'] ?? [];
+        unset($data['department_ids']);
+
         $shiftType->update($data);
-        return response()->json($shiftType);
+        
+        if (isset($departmentIds)) {
+            $shiftType->departments()->sync($departmentIds);
+        }
+
+        return response()->json($shiftType->load('departments'));
     }
 
     public function destroy($id)

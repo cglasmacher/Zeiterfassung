@@ -24,7 +24,7 @@ Route::middleware(['auth'])->prefix('timetracking')->group(function () {
     Route::get('/daily', fn() => Inertia::render('TimeTracking/DailyOverview'))->name('timetracking.daily');
     Route::get('/monthly', fn() => Inertia::render('TimeTracking/MonthlyOverview'))->name('timetracking.monthly');
     Route::get('/planner', fn() => Inertia::render('TimeTracking/ShiftPlannerPositions'))->name('timetracking.planner');
-    Route::get('/employees', fn() => Inertia::render('TimeTracking/Employees'))->name('timetracking.employees');
+    Route::get('/manual-entry', fn() => Inertia::render('TimeTracking/ManualTimeEntry'))->name('timetracking.manual');
     Route::get('/exports', fn() => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
     Route::get('/settings', fn() => Inertia::render('TimeTracking/Settings'))->name('timetracking.settings');
 });

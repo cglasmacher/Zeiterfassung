@@ -23,6 +23,12 @@ class ShiftType extends Model
         return $this->hasMany(Shift::class);
     }
 
+    // Ein Schichttyp kann mehreren Abteilungen zugewiesen werden
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class, 'department_shift_type');
+    }
+
     /** Berechnete Standardstunden */
     public function getDefaultHoursAttribute(): float
     {

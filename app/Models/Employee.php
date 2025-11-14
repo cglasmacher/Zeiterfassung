@@ -15,6 +15,7 @@ class Employee extends Model
         'email',
         'phone',
         'position',
+        'employment_type',
         'hourly_rate',
         'rfid_tag',
         'active',

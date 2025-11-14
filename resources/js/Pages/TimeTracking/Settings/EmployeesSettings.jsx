@@ -20,6 +20,7 @@ export default function EmployeesSettings() {
     email: '',
     phone: '',
     position: '',
+    employment_type: 'permanent',
     hourly_rate: '',
     rfid_tag: '',
     active: true,
@@ -58,6 +59,7 @@ export default function EmployeesSettings() {
         email: employee.email || '',
         phone: employee.phone || '',
         position: employee.position || '',
+        employment_type: employee.employment_type || 'permanent',
         hourly_rate: employee.hourly_rate || '',
         rfid_tag: employee.rfid_tag || '',
         active: employee.active,
@@ -71,6 +73,7 @@ export default function EmployeesSettings() {
         email: '',
         phone: '',
         position: '',
+        employment_type: 'permanent',
         hourly_rate: '',
         rfid_tag: '',
         active: true,
@@ -90,6 +93,7 @@ export default function EmployeesSettings() {
       email: '',
       phone: '',
       position: '',
+      employment_type: 'permanent',
       hourly_rate: '',
       rfid_tag: '',
       active: true,
@@ -233,9 +237,17 @@ export default function EmployeesSettings() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-neutral-900">
-                          {employee.position || '-'}
-                        </span>
+                        <div>
+                          <p className="text-sm text-neutral-900">
+                            {employee.position || '-'}
+                          </p>
+                          <Badge 
+                            variant={employee.employment_type === 'permanent' ? 'primary' : 'secondary'} 
+                            className="text-xs mt-1"
+                          >
+                            {employee.employment_type === 'permanent' ? 'Festangestellt' : 'Aushilfe'}
+                          </Badge>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
@@ -369,14 +381,27 @@ export default function EmployeesSettings() {
               icon={<Phone className="w-4 h-4" />}
             />
           </div>
+          <Input
+            label="Position"
+            value={formData.position}
+            onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+            error={errors.position?.[0]}
+            placeholder="z.B. Koch, Kellner"
+          />
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Position"
-              value={formData.position}
-              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-              error={errors.position?.[0]}
-              placeholder="z.B. Koch, Kellner"
-            />
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                Beschäftigungsart
+              </label>
+              <select
+                className="input"
+                value={formData.employment_type}
+                onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+              >
+                <option value="permanent">Festangestellt</option>
+                <option value="temporary">Aushilfe / Barlöhner</option>
+              </select>
+            </div>
             <Input
               type="number"
               step="0.01"

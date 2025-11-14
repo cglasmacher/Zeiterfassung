@@ -6,6 +6,7 @@ use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\ShiftTypeController;
+use App\Http\Controllers\ManualTimeEntryController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -43,4 +44,11 @@ Route::prefix('shift-types')->group(function () {
     Route::post('/', [ShiftTypeController::class, 'store']);
     Route::put('/{id}', [ShiftTypeController::class, 'update']);
     Route::delete('/{id}', [ShiftTypeController::class, 'destroy']);
+});
+
+Route::prefix('manual-time')->group(function () {
+    Route::post('/clock-in', [ManualTimeEntryController::class, 'clockIn']);
+    Route::post('/clock-out', [ManualTimeEntryController::class, 'clockOut']);
+    Route::get('/open-entries', [ManualTimeEntryController::class, 'getOpenEntries']);
+    Route::get('/today-entries', [ManualTimeEntryController::class, 'getTodayEntries']);
 });
