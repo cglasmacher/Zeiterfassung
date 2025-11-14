@@ -17,6 +17,7 @@ class Employee extends Model
         'position',
         'employment_type',
         'hourly_rate',
+        'max_monthly_hours',
         'rfid_tag',
         'active',
     ];

@@ -17,6 +17,10 @@ class TimeEntry extends Model
         'clock_out',
         'break_minutes',
         'hours_worked',
+        'total_hours',
+        'gross_wage',
+        'admin_note',
+        'override_hourly_rate',
         'is_manual',
     ];
 
@@ -34,6 +38,11 @@ class TimeEntry extends Model
     public function shift()
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function audits()
+    {
+        return $this->hasMany(TimeEntryAudit::class);
     }
 
     /** Automatische Stundenberechnung bei vorhandenen Zeiten */

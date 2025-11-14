@@ -12,7 +12,8 @@ import {
   ChevronRight,
   LogOut,
   Settings,
-  Bell
+  Bell,
+  Edit3
 } from 'lucide-react';
 
 export default function TimeTrackingLayout({ children }) {
@@ -25,6 +26,7 @@ export default function TimeTrackingLayout({ children }) {
     { href: '/timetracking/monthly', label: 'Monatsübersicht', icon: CalendarDays },
     { href: '/timetracking/planner', label: 'Dienstplan', icon: Clock },
     { href: '/timetracking/manual-entry', label: 'Manuelle Erfassung', icon: Users },
+    { href: '/timetracking/time-manipulation', label: 'Stundenmanipulation', icon: Edit3 },
     { href: '/timetracking/exports', label: 'Exporte', icon: Download },
     { href: '/timetracking/settings', label: 'Einstellungen', icon: Settings },
   ];

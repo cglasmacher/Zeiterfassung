@@ -7,6 +7,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\ShiftTypeController;
 use App\Http\Controllers\ManualTimeEntryController;
+use App\Http\Controllers\TimeEntryManipulationController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -51,4 +52,12 @@ Route::prefix('manual-time')->group(function () {
     Route::post('/clock-out', [ManualTimeEntryController::class, 'clockOut']);
     Route::get('/open-entries', [ManualTimeEntryController::class, 'getOpenEntries']);
     Route::get('/today-entries', [ManualTimeEntryController::class, 'getTodayEntries']);
+});
+
+Route::prefix('time-manipulation')->group(function () {
+    Route::get('/month-entries', [TimeEntryManipulationController::class, 'getMonthEntries']);
+    Route::put('/entries/{id}', [TimeEntryManipulationController::class, 'updateEntry']);
+    Route::post('/entries/{id}/split', [TimeEntryManipulationController::class, 'splitEntry']);
+    Route::delete('/entries/{id}', [TimeEntryManipulationController::class, 'deleteEntry']);
+    Route::get('/entries/{id}/audit', [TimeEntryManipulationController::class, 'getAuditLog']);
 });

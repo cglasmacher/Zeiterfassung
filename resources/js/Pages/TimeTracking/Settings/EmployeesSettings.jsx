@@ -22,6 +22,7 @@ export default function EmployeesSettings() {
     position: '',
     employment_type: 'permanent',
     hourly_rate: '',
+    max_monthly_hours: '',
     rfid_tag: '',
     active: true,
     department_ids: [],
@@ -61,6 +62,7 @@ export default function EmployeesSettings() {
         position: employee.position || '',
         employment_type: employee.employment_type || 'permanent',
         hourly_rate: employee.hourly_rate || '',
+        max_monthly_hours: employee.max_monthly_hours || '',
         rfid_tag: employee.rfid_tag || '',
         active: employee.active,
         department_ids: employee.departments?.map((d) => d.id) || [],
@@ -75,6 +77,7 @@ export default function EmployeesSettings() {
         position: '',
         employment_type: 'permanent',
         hourly_rate: '',
+        max_monthly_hours: '',
         rfid_tag: '',
         active: true,
         department_ids: [],
@@ -95,6 +98,7 @@ export default function EmployeesSettings() {
       position: '',
       employment_type: 'permanent',
       hourly_rate: '',
+      max_monthly_hours: '',
       rfid_tag: '',
       active: true,
       department_ids: [],
@@ -388,20 +392,20 @@ export default function EmployeesSettings() {
             error={errors.position?.[0]}
             placeholder="z.B. Koch, Kellner"
           />
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Beschäftigungsart
+            </label>
+            <select
+              className="input"
+              value={formData.employment_type}
+              onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+            >
+              <option value="permanent">Festangestellt</option>
+              <option value="temporary">Aushilfe / Barlöhner</option>
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                Beschäftigungsart
-              </label>
-              <select
-                className="input"
-                value={formData.employment_type}
-                onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
-              >
-                <option value="permanent">Festangestellt</option>
-                <option value="temporary">Aushilfe / Barlöhner</option>
-              </select>
-            </div>
             <Input
               type="number"
               step="0.01"
@@ -410,6 +414,15 @@ export default function EmployeesSettings() {
               onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
               error={errors.hourly_rate?.[0]}
               placeholder="15.00"
+            />
+            <Input
+              type="number"
+              step="0.5"
+              label="Max. Stunden pro Monat"
+              value={formData.max_monthly_hours}
+              onChange={(e) => setFormData({ ...formData, max_monthly_hours: e.target.value })}
+              error={errors.max_monthly_hours?.[0]}
+              placeholder="160"
             />
           </div>
           <Input

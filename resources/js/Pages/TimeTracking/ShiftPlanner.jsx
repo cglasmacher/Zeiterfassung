@@ -10,6 +10,8 @@ import 'dayjs/locale/de';
 import isBetween from 'dayjs/plugin/isBetween';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import ShiftGridMUI from "./components/ShiftGridMUI";
+import ShiftCell from "./components/ShiftCell";
+import ShiftModal from "./components/ShiftModal";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -21,7 +23,8 @@ import {
   Save,
   Users,
   ChefHat,
-  UtensilsCrossed
+  UtensilsCrossed,
+  AlertCircle
 } from 'lucide-react';
 
 dayjs.extend(isBetween);
@@ -33,7 +36,10 @@ export default function ShiftPlanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
-  const [viewMode, setViewMode] = useState('employees'); // 'employees' | 'kitchen' | 'service'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employees' | 'kitchen' | 'service'
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
   const toast = useToast();
 
   const loadData = async () => {
@@ -167,6 +173,74 @@ export default function ShiftPlanner() {
   const weekEnd = weekStart.add(6, "day");
   const isCurrentWeek = dayjs().isBetween(weekStart, weekEnd, 'day', '[]');
 
+  const handleAddShift = (date) => {
+    setSelectedDate(date);
+    setSelectedShift(null);
+    setShiftModalOpen(true);
+  };
+
+  const handleEditShift = (shift) => {
+    setSelectedShift(shift);
+    setSelectedDate(shift.shift_date);
+    setShiftModalOpen(true);
+  };
+
+  const handleDeleteShift = async (shift) => {
+    if (!confirm('Schicht wirklich löschen?')) return;
+    
+    try {
+      await axios.delete(`/api/shifts/${shift.id}`);
+      toast.success('Schicht gelöscht');
+      loadData();
+    } catch (error) {
+      toast.error('Fehler beim Löschen');
+    }
+  };
+
+  const handleSaveShift = async (formData) => {
+    try {
+      if (selectedShift) {
+        await axios.put(`/api/shifts/${selectedShift.id}`, formData);
+        toast.success('Schicht aktualisiert');
+      } else {
+        await axios.post('/api/shifts', formData);
+        toast.success('Schicht erstellt');
+      }
+      setShiftModalOpen(false);
+      setSelectedShift(null);
+      setSelectedDate(null);
+      loadData();
+    } catch (error) {
+      console.error('Error saving shift:', error);
+      toast.error('Fehler beim Speichern');
+    }
+  };
+
+  const getShiftsForEmployeeAndDate = (employeeId, date) => {
+    if (!data?.shifts) return [];
+    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    return data.shifts.filter(s => 
+      s.employee_id === employeeId && s.shift_date === dateStr
+    );
+  };
+
+  const getShiftsForDate = (date) => {
+    if (!data?.shifts) return [];
+    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    return data.shifts.filter(s => s.shift_date === dateStr);
+  };
+
+  const days = Array.from({ length: 7 }, (_, i) => weekStart.add(i, "day"));
+
+  const overloadedEmployees = useMemo(() => {
+    if (!data?.employees) return [];
+    return data.employees.filter(emp => {
+      if (!emp.max_monthly_hours) return false;
+      const planned = emp.monthly_planned_hours || 0;
+      return planned > emp.max_monthly_hours;
+    });
+  }, [data]);
+
   return (
     <TimeTrackingLayout>
       <div className="space-y-6 animate-fade-in">
@@ -195,10 +269,36 @@ export default function ShiftPlanner() {
           </div>
         </div>
 
+        {/* Warnings */}
+        {overloadedEmployees.length > 0 && (
+          <div className="p-4 bg-error-50 border border-error-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-error-900">Stundenlimit überschritten</p>
+              <p className="text-sm text-error-700 mt-1">
+                Folgende Mitarbeiter haben ihr monatliches Stundenlimit überschritten:{' '}
+                {overloadedEmployees.map(emp => `${emp.first_name} ${emp.last_name}`).join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* View Mode Toggle */}
         <Card glass>
           <CardBody className="p-2">
             <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-lg">
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
+                  viewMode === 'grid' 
+                    ? 'bg-white shadow-sm text-primary-600' 
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <CalendarIcon className="w-4 h-4" />
+                <span>Wochenansicht</span>
+              </button>
+              
               <button 
                 onClick={() => setViewMode('employees')}
                 className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
@@ -209,30 +309,6 @@ export default function ShiftPlanner() {
               >
                 <Users className="w-4 h-4" />
                 <span>Mitarbeiter</span>
-              </button>
-              
-              <button 
-                onClick={() => setViewMode('kitchen')}
-                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
-                  viewMode === 'kitchen' 
-                    ? 'bg-white shadow-sm text-primary-600' 
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                <ChefHat className="w-4 h-4" />
-                <span>Küche</span>
-              </button>
-              
-              <button 
-                onClick={() => setViewMode('service')}
-                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
-                  viewMode === 'service' 
-                    ? 'bg-white shadow-sm text-primary-600' 
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                <UtensilsCrossed className="w-4 h-4" />
-                <span>Service</span>
               </button>
             </div>
           </CardBody>
@@ -368,6 +444,117 @@ export default function ShiftPlanner() {
                   <p className="text-neutral-600">Lade Dienstplan...</p>
                 </div>
               </div>
+            ) : viewMode === 'grid' ? (
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full border-collapse">
+                  <thead className="bg-neutral-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-4 text-left font-semibold text-neutral-900 border-b-2 border-neutral-200 min-w-[200px]">
+                        Mitarbeiter
+                      </th>
+                      {days.map((d, i) => {
+                        const isWeekend = d.day() === 0 || d.day() === 6;
+                        const isToday = d.isSame(dayjs(), 'day');
+                        return (
+                          <th 
+                            key={i} 
+                            className={`px-4 py-4 text-center font-semibold border-b-2 border-neutral-200 min-w-[180px] ${
+                              isWeekend ? 'bg-neutral-100' : ''
+                            } ${isToday ? 'bg-primary-50 border-primary-300' : ''}`}
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-xs text-neutral-500 uppercase">
+                                {d.format("dd")}
+                              </span>
+                              <span className={`text-lg ${isToday ? 'text-primary-600 font-bold' : 'text-neutral-900'}`}>
+                                {d.format("DD")}
+                              </span>
+                              <span className="text-xs text-neutral-500">
+                                {d.format("MMM")}
+                              </span>
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {data?.employees?.map((employee) => {
+                      const hourInfo = employee.max_monthly_hours ? {
+                        planned: employee.monthly_planned_hours || 0,
+                        max: employee.max_monthly_hours,
+                        remaining: employee.max_monthly_hours - (employee.monthly_planned_hours || 0),
+                        percentage: ((employee.monthly_planned_hours || 0) / employee.max_monthly_hours) * 100,
+                      } : null;
+
+                      return (
+                        <tr 
+                          key={employee.id}
+                          className="border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 border-r border-neutral-200">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-primary-600" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-neutral-900">
+                                  {employee.first_name} {employee.last_name}
+                                </p>
+                                {hourInfo && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex-1 bg-neutral-200 rounded-full h-1.5 w-24">
+                                      <div 
+                                        className={`h-1.5 rounded-full ${
+                                          hourInfo.remaining < 0 
+                                            ? 'bg-error-500' 
+                                            : hourInfo.remaining < hourInfo.max * 0.2 
+                                            ? 'bg-warning-500'
+                                            : 'bg-success-500'
+                                        }`}
+                                        style={{ width: `${Math.min(hourInfo.percentage, 100)}%` }}
+                                      />
+                                    </div>
+                                    <span className={`text-xs font-medium ${
+                                      hourInfo.remaining < 0 ? 'text-error-600' : 'text-neutral-600'
+                                    }`}>
+                                      {hourInfo.planned.toFixed(0)}/{hourInfo.max}h
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {days.map((d, i) => {
+                            const shifts = getShiftsForEmployeeAndDate(employee.id, d);
+                            const isWeekend = d.day() === 0 || d.day() === 6;
+                            const isToday = d.isSame(dayjs(), 'day');
+
+                            return (
+                              <td 
+                                key={i} 
+                                className={`px-2 py-2 align-top ${
+                                  isWeekend ? 'bg-neutral-50' : ''
+                                } ${isToday ? 'bg-primary-50/50' : ''}`}
+                              >
+                                <ShiftCell
+                                  shifts={shifts}
+                                  date={d.format('YYYY-MM-DD')}
+                                  onAddShift={handleAddShift}
+                                  onEditShift={handleEditShift}
+                                  onDeleteShift={handleDeleteShift}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : filteredData ? (
               <ShiftGridMUI 
                 {...filteredData} 
@@ -408,10 +595,30 @@ export default function ShiftPlanner() {
                 <div className="w-4 h-4 rounded bg-success-500"></div>
                 <span className="text-sm text-neutral-700">Sonderschicht</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-2 border-dashed border-neutral-300 bg-neutral-50"></div>
+                <span className="text-sm text-neutral-700">Nicht besetzt</span>
+              </div>
             </div>
           </CardBody>
         </Card>
       </div>
+
+      {/* Shift Modal */}
+      <ShiftModal
+        isOpen={shiftModalOpen}
+        onClose={() => {
+          setShiftModalOpen(false);
+          setSelectedShift(null);
+          setSelectedDate(null);
+        }}
+        onSave={handleSaveShift}
+        shift={selectedShift}
+        date={selectedDate}
+        shiftTypes={data?.shift_types || []}
+        employees={data?.employees || []}
+        departments={data?.departments || []}
+      />
     </TimeTrackingLayout>
   );
 }
