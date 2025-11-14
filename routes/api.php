@@ -19,6 +19,11 @@ Route::prefix('shifts')->group(function () {
     Route::post('/', [ShiftController::class, 'store']);
     Route::put('/{id}', [ShiftController::class, 'update']);
     Route::delete('/{id}', [ShiftController::class, 'destroy']);
+    Route::post('/copy-week', [ShiftController::class, 'copyWeek']);
+    Route::post('/save-template', [ShiftController::class, 'saveTemplate']);
+    Route::get('/templates', [ShiftController::class, 'getTemplates']);
+    Route::post('/templates/{id}/load', [ShiftController::class, 'loadTemplate']);
+    Route::delete('/templates/{id}', [ShiftController::class, 'deleteTemplate']);
 });
 
 Route::prefix('summary')->group(function () {

@@ -3,6 +3,8 @@ import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/ui/Card';
 import Button from '@/Components/ui/Button';
 import Badge from '@/Components/ui/Badge';
+import Modal from '@/Components/ui/Modal';
+import Input from '@/Components/ui/Input';
 import { useToast } from '@/Components/ui/Toast';
 import axios from "axios";
 import dayjs from "dayjs";
@@ -25,7 +27,8 @@ import {
   ChefHat,
   UtensilsCrossed,
   AlertCircle,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 dayjs.extend(isBetween);
@@ -41,6 +44,12 @@ export default function ShiftPlanner() {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
+  const [saveTemplateModalOpen, setSaveTemplateModalOpen] = useState(false);
+  const [loadTemplateModalOpen, setLoadTemplateModalOpen] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templateName, setTemplateName] = useState('');
+  const [targetWeekStart, setTargetWeekStart] = useState('');
   const toast = useToast();
 
   const loadData = async () => {
@@ -205,7 +214,7 @@ export default function ShiftPlanner() {
 
   const handleSaveShift = async (formData) => {
     try {
-      if (selectedShift) {
+      if (selectedShift && selectedShift.id) {
         await axios.put(`/api/shifts/${selectedShift.id}`, formData);
         toast.success('Schicht aktualisiert');
       } else {
@@ -221,6 +230,94 @@ export default function ShiftPlanner() {
       toast.error('Fehler beim Speichern');
     }
   };
+
+  const handleCopyWeek = async () => {
+    if (!targetWeekStart) {
+      toast.error('Bitte wählen Sie eine Zielwoche');
+      return;
+    }
+
+    try {
+      const res = await axios.post('/api/shifts/copy-week', {
+        source_start: weekStart.format('YYYY-MM-DD'),
+        target_start: targetWeekStart,
+      });
+      toast.success(res.data.message);
+      setCopyWeekModalOpen(false);
+      setTargetWeekStart('');
+    } catch (error) {
+      toast.error('Fehler beim Kopieren der Woche');
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName) {
+      toast.error('Bitte geben Sie einen Namen ein');
+      return;
+    }
+
+    try {
+      const res = await axios.post('/api/shifts/save-template', {
+        name: templateName,
+        week_start: weekStart.format('YYYY-MM-DD'),
+      });
+      toast.success(res.data.message);
+      setSaveTemplateModalOpen(false);
+      setTemplateName('');
+      loadTemplates();
+    } catch (error) {
+      toast.error('Fehler beim Speichern der Vorlage');
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const res = await axios.get('/api/shifts/templates');
+      setTemplates(res.data);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    }
+  };
+
+  const handleLoadTemplate = async (templateId) => {
+    try {
+      const res = await axios.post(`/api/shifts/templates/${templateId}/load`, {
+        week_start: weekStart.format('YYYY-MM-DD'),
+      });
+      toast.success(res.data.message);
+      setLoadTemplateModalOpen(false);
+      loadData();
+    } catch (error) {
+      toast.error('Fehler beim Laden der Vorlage');
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!confirm('Vorlage wirklich löschen?')) return;
+
+    try {
+      await axios.delete(`/api/shifts/templates/${templateId}`);
+      toast.success('Vorlage gelöscht');
+      loadTemplates();
+    } catch (error) {
+      toast.error('Fehler beim Löschen der Vorlage');
+    }
+  };
+
+  const handleAddShiftGlobal = () => {
+    setSelectedDate(weekStart.format('YYYY-MM-DD'));
+    setSelectedShift(null);
+    setShiftModalOpen(true);
+  };
+
+  const handleExportPDF = () => {
+    toast.info('PDF-Export wird vorbereitet...');
+    // TODO: Implement PDF export
+  };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   const getShiftsForEmployeeAndDate = (employeeId, date) => {
     if (!data?.shifts) return [];
@@ -280,16 +377,47 @@ export default function ShiftPlanner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" size="sm" icon={<Copy className="w-4 h-4" />}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              icon={<Copy className="w-4 h-4" />}
+              onClick={() => setCopyWeekModalOpen(true)}
+            >
               Woche kopieren
             </Button>
-            <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              icon={<Download className="w-4 h-4" />}
+              onClick={handleExportPDF}
+            >
               PDF Export
             </Button>
-            <Button variant="outline" size="sm" icon={<Save className="w-4 h-4" />}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              icon={<Save className="w-4 h-4" />}
+              onClick={() => setSaveTemplateModalOpen(true)}
+            >
               Als Vorlage
             </Button>
-            <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              icon={<Download className="w-4 h-4" />}
+              onClick={() => {
+                loadTemplates();
+                setLoadTemplateModalOpen(true);
+              }}
+            >
+              Vorlage laden
+            </Button>
+            <Button 
+              variant="primary" 
+              size="sm" 
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleAddShiftGlobal}
+            >
               Schicht hinzufügen
             </Button>
           </div>
@@ -821,6 +949,139 @@ export default function ShiftPlanner() {
         employees={data?.employees || []}
         departments={data?.departments || []}
       />
+
+      {/* Copy Week Modal */}
+      <Modal
+        isOpen={copyWeekModalOpen}
+        onClose={() => setCopyWeekModalOpen(false)}
+        title="Woche kopieren"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="ghost" onClick={() => setCopyWeekModalOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="primary" onClick={handleCopyWeek}>
+              Kopieren
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-primary-50 rounded-lg">
+            <p className="text-sm text-primary-900">
+              <strong>Quellwoche:</strong> {weekStart.format('DD.MM.YYYY')} - {weekEnd.format('DD.MM.YYYY')}
+            </p>
+          </div>
+          <Input
+            type="date"
+            label="Zielwoche (Montag)"
+            value={targetWeekStart}
+            onChange={(e) => setTargetWeekStart(e.target.value)}
+            required
+          />
+          <p className="text-sm text-neutral-600">
+            Alle Schichten der aktuellen Woche werden in die Zielwoche kopiert.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Save Template Modal */}
+      <Modal
+        isOpen={saveTemplateModalOpen}
+        onClose={() => setSaveTemplateModalOpen(false)}
+        title="Als Vorlage speichern"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="ghost" onClick={() => setSaveTemplateModalOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="primary" onClick={handleSaveTemplate}>
+              Speichern
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-primary-50 rounded-lg">
+            <p className="text-sm text-primary-900">
+              <strong>Aktuelle Woche:</strong> {weekStart.format('DD.MM.YYYY')} - {weekEnd.format('DD.MM.YYYY')}
+            </p>
+            <p className="text-sm text-primary-700 mt-1">
+              {stats.totalShifts} Schichten werden gespeichert
+            </p>
+          </div>
+          <Input
+            label="Vorlagenname"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="z.B. Standard-Woche, Sommerwoche"
+            required
+          />
+        </div>
+      </Modal>
+
+      {/* Load Template Modal */}
+      <Modal
+        isOpen={loadTemplateModalOpen}
+        onClose={() => setLoadTemplateModalOpen(false)}
+        title="Vorlage laden"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-primary-50 rounded-lg">
+            <p className="text-sm text-primary-900">
+              <strong>Zielwoche:</strong> {weekStart.format('DD.MM.YYYY')} - {weekEnd.format('DD.MM.YYYY')}
+            </p>
+          </div>
+          {templates.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-neutral-600">Keine Vorlagen vorhanden</p>
+              <p className="text-sm text-neutral-500 mt-2">
+                Speichern Sie zuerst eine Woche als Vorlage
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((template) => (
+                <div
+                  key={template.id}
+                  className="p-4 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-neutral-900">{template.name}</p>
+                      <p className="text-sm text-neutral-600">
+                        {template.template_data?.length || 0} Schichten
+                      </p>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Erstellt: {dayjs(template.created_at).format('DD.MM.YYYY HH:mm')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleLoadTemplate(template.id)}
+                      >
+                        Laden
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Trash2 className="w-4 h-4" />}
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        className="text-error-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </TimeTrackingLayout>
   );
 }
