@@ -15,6 +15,7 @@ export default function EmployeesSettings() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [formData, setFormData] = useState({
+    employee_number: '',
     first_name: '',
     last_name: '',
     email: '',
@@ -55,6 +56,7 @@ export default function EmployeesSettings() {
     if (employee) {
       setEditingEmployee(employee);
       setFormData({
+        employee_number: employee.employee_number || '',
         first_name: employee.first_name,
         last_name: employee.last_name,
         email: employee.email || '',
@@ -70,6 +72,7 @@ export default function EmployeesSettings() {
     } else {
       setEditingEmployee(null);
       setFormData({
+        employee_number: '',
         first_name: '',
         last_name: '',
         email: '',
@@ -91,6 +94,7 @@ export default function EmployeesSettings() {
     setModalOpen(false);
     setEditingEmployee(null);
     setFormData({
+      employee_number: '',
       first_name: '',
       last_name: '',
       email: '',
@@ -231,10 +235,9 @@ export default function EmployeesSettings() {
                             <p className="font-medium text-neutral-900">
                               {employee.first_name} {employee.last_name}
                             </p>
-                            {employee.rfid_tag && (
-                              <p className="text-xs text-neutral-500 flex items-center gap-1">
-                                <CreditCard className="w-3 h-3" />
-                                {employee.rfid_tag}
+                            {employee.employee_number && (
+                              <p className="text-xs text-neutral-500">
+                                Nr. {employee.employee_number}
                               </p>
                             )}
                           </div>
@@ -347,6 +350,13 @@ export default function EmployeesSettings() {
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Mitarbeiternummer"
+            value={formData.employee_number}
+            onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
+            error={errors.employee_number?.[0]}
+            placeholder="z.B. MA001"
+          />
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Vorname"

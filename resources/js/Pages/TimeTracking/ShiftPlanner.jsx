@@ -51,10 +51,15 @@ export default function ShiftPlanner() {
           end: weekStart.add(6, "day").format("YYYY-MM-DD"),
         },
       });
+      console.log('API Response:', res.data);
       setData(res.data);
+      
+      if (!res.data.employees || res.data.employees.length === 0) {
+        toast.error('Keine Mitarbeiter gefunden. Bitte erstellen Sie zuerst Mitarbeiter in den Einstellungen.');
+      }
     } catch (error) {
       console.error('Error loading shifts:', error);
-      toast.error('Fehler beim Laden der Schichten');
+      toast.error('Fehler beim Laden der Schichten: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -239,6 +244,18 @@ export default function ShiftPlanner() {
       const planned = emp.monthly_planned_hours || 0;
       return planned > emp.max_monthly_hours;
     });
+  }, [data]);
+
+  // Debug: Log data to console
+  useEffect(() => {
+    if (data) {
+      console.log('ShiftPlanner Data:', {
+        employees: data.employees?.length || 0,
+        shifts: data.shifts?.length || 0,
+        shift_types: data.shift_types?.length || 0,
+        departments: data.departments?.length || 0,
+      });
+    }
   }, [data]);
 
   return (
@@ -445,42 +462,43 @@ export default function ShiftPlanner() {
                 </div>
               </div>
             ) : viewMode === 'grid' ? (
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full border-collapse">
-                  <thead className="bg-neutral-50 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-4 text-left font-semibold text-neutral-900 border-b-2 border-neutral-200 min-w-[200px]">
-                        Mitarbeiter
-                      </th>
-                      {days.map((d, i) => {
-                        const isWeekend = d.day() === 0 || d.day() === 6;
-                        const isToday = d.isSame(dayjs(), 'day');
-                        return (
-                          <th 
-                            key={i} 
-                            className={`px-4 py-4 text-center font-semibold border-b-2 border-neutral-200 min-w-[180px] ${
-                              isWeekend ? 'bg-neutral-100' : ''
-                            } ${isToday ? 'bg-primary-50 border-primary-300' : ''}`}
-                          >
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-xs text-neutral-500 uppercase">
-                                {d.format("dd")}
-                              </span>
-                              <span className={`text-lg ${isToday ? 'text-primary-600 font-bold' : 'text-neutral-900'}`}>
-                                {d.format("DD")}
-                              </span>
-                              <span className="text-xs text-neutral-500">
-                                {d.format("MMM")}
-                              </span>
-                            </div>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
+              data?.employees && data.employees.length > 0 ? (
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-neutral-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-semibold text-neutral-900 border-b-2 border-neutral-200 min-w-[200px]">
+                          Mitarbeiter
+                        </th>
+                        {days.map((d, i) => {
+                          const isWeekend = d.day() === 0 || d.day() === 6;
+                          const isToday = d.isSame(dayjs(), 'day');
+                          return (
+                            <th 
+                              key={i} 
+                              className={`px-4 py-4 text-center font-semibold border-b-2 border-neutral-200 min-w-[180px] ${
+                                isWeekend ? 'bg-neutral-100' : ''
+                              } ${isToday ? 'bg-primary-50 border-primary-300' : ''}`}
+                            >
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-xs text-neutral-500 uppercase">
+                                  {d.format("dd")}
+                                </span>
+                                <span className={`text-lg ${isToday ? 'text-primary-600 font-bold' : 'text-neutral-900'}`}>
+                                  {d.format("DD")}
+                                </span>
+                                <span className="text-xs text-neutral-500">
+                                  {d.format("MMM")}
+                                </span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
 
-                  <tbody>
-                    {data?.employees?.map((employee) => {
+                    <tbody>
+                      {data.employees.map((employee) => {
                       const hourInfo = employee.max_monthly_hours ? {
                         planned: employee.monthly_planned_hours || 0,
                         max: employee.max_monthly_hours,
@@ -551,10 +569,26 @@ export default function ShiftPlanner() {
                           })}
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <Users className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
+                  <p className="text-neutral-600 mb-4">Keine Mitarbeiter gefunden</p>
+                  <p className="text-sm text-neutral-500 mb-4">
+                    Bitte erstellen Sie zuerst Mitarbeiter in den Einstellungen
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => window.location.href = '/timetracking/settings'}
+                  >
+                    Zu den Einstellungen
+                  </Button>
+                </div>
+              )
             ) : filteredData ? (
               <ShiftGridMUI 
                 {...filteredData} 

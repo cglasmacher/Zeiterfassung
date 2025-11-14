@@ -8,6 +8,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\ShiftTypeController;
 use App\Http\Controllers\ManualTimeEntryController;
 use App\Http\Controllers\TimeEntryManipulationController;
+use App\Http\Controllers\LexwareExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -60,4 +61,9 @@ Route::prefix('time-manipulation')->group(function () {
     Route::post('/entries/{id}/split', [TimeEntryManipulationController::class, 'splitEntry']);
     Route::delete('/entries/{id}', [TimeEntryManipulationController::class, 'deleteEntry']);
     Route::get('/entries/{id}/audit', [TimeEntryManipulationController::class, 'getAuditLog']);
+});
+
+Route::prefix('lexware-export')->group(function () {
+    Route::post('/preview', [LexwareExportController::class, 'preview']);
+    Route::post('/export', [LexwareExportController::class, 'export']);
 });

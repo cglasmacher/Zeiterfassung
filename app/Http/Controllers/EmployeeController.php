@@ -17,6 +17,7 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'employee_number' => 'nullable|string|max:255|unique:employees,employee_number',
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:employees,email',
@@ -48,6 +49,7 @@ class EmployeeController extends Controller
         $employee = Employee::findOrFail($id);
         
         $data = $request->validate([
+            'employee_number' => 'nullable|string|max:255|unique:employees,employee_number,' . $id,
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:employees,email,' . $id,
