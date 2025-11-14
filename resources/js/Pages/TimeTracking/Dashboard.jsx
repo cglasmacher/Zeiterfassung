@@ -156,7 +156,7 @@ export default function Dashboard() {
                         <div className="p-4 bg-primary-50 rounded-xl border border-primary-200">
                           <p className="text-sm text-primary-700 font-medium mb-1">Aktuelle Arbeitszeit</p>
                           <p className="text-2xl font-bold text-primary-900">
-                            {summary.open_entry.hours_since_in.toFixed(2)} Std
+                            {Number(summary.open_entry.hours_since_in || 0).toFixed(2)} Std
                           </p>
                         </div>
                       </div>
@@ -166,7 +166,7 @@ export default function Dashboard() {
                       <div className="p-4 bg-accent-50 rounded-xl border border-accent-200">
                         <p className="text-sm text-accent-700 font-medium mb-1">Heutige Gesamtstunden</p>
                         <p className="text-2xl font-bold text-accent-900">
-                          {summary.daily_summary.total_hours.toFixed(2)}h
+                          {Number(summary.daily_summary.total_hours || 0).toFixed(2)}h
                         </p>
                       </div>
                     )}

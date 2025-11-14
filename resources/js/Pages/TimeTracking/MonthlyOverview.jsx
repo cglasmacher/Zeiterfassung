@@ -211,7 +211,7 @@ export default function MonthlyOverview() {
                       <p className="text-tiny text-neutral-500 mb-1">Ø Stunden/Tag</p>
                       <p className="text-3xl font-bold text-secondary-600">
                         {summary.working_days > 0 
-                          ? (summary.total_hours / summary.working_days).toFixed(1)
+                          ? (Number(summary.total_hours || 0) / summary.working_days).toFixed(1)
                           : 0}h
                       </p>
                     </div>
@@ -268,7 +268,7 @@ export default function MonthlyOverview() {
                         <span className="text-sm font-medium text-primary-900">Durchschnitt/Tag</span>
                         <span className="font-bold text-primary-600">
                           {summary.working_days > 0 
-                            ? (summary.total_hours / summary.working_days).toFixed(1)
+                            ? (Number(summary.total_hours || 0) / summary.working_days).toFixed(1)
                             : 0}h
                         </span>
                       </div>
