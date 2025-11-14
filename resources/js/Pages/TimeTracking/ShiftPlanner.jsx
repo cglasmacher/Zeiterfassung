@@ -24,7 +24,8 @@ import {
   Users,
   ChefHat,
   UtensilsCrossed,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 dayjs.extend(isBetween);
@@ -36,7 +37,7 @@ export default function ShiftPlanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employees' | 'kitchen' | 'service'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'shifts' | 'employees'
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -246,6 +247,14 @@ export default function ShiftPlanner() {
     });
   }, [data]);
 
+  const getShiftsForTypeAndDate = (shiftTypeId, date) => {
+    if (!data?.shifts) return [];
+    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    return data.shifts.filter(s => 
+      s.shift_type_id === shiftTypeId && s.shift_date === dateStr
+    );
+  };
+
   // Debug: Log data to console
   useEffect(() => {
     if (data) {
@@ -312,20 +321,20 @@ export default function ShiftPlanner() {
                     : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
-                <CalendarIcon className="w-4 h-4" />
-                <span>Wochenansicht</span>
+                <Users className="w-4 h-4" />
+                <span>Nach Mitarbeitern</span>
               </button>
               
               <button 
-                onClick={() => setViewMode('employees')}
+                onClick={() => setViewMode('shifts')}
                 className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
-                  viewMode === 'employees' 
+                  viewMode === 'shifts' 
                     ? 'bg-white shadow-sm text-primary-600' 
                     : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
-                <Users className="w-4 h-4" />
-                <span>Mitarbeiter</span>
+                <CalendarIcon className="w-4 h-4" />
+                <span>Nach Schichttypen</span>
               </button>
             </div>
           </CardBody>
@@ -461,6 +470,174 @@ export default function ShiftPlanner() {
                   <p className="text-neutral-600">Lade Dienstplan...</p>
                 </div>
               </div>
+            ) : viewMode === 'shifts' ? (
+              data?.shift_types && data.shift_types.length > 0 ? (
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-neutral-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-semibold text-neutral-900 border-b-2 border-neutral-200 min-w-[200px]">
+                          Schichttyp
+                        </th>
+                        {days.map((d, i) => {
+                          const isWeekend = d.day() === 0 || d.day() === 6;
+                          const isToday = d.isSame(dayjs(), 'day');
+                          return (
+                            <th 
+                              key={i} 
+                              className={`px-4 py-4 text-center font-semibold border-b-2 border-neutral-200 min-w-[180px] ${
+                                isWeekend ? 'bg-neutral-100' : ''
+                              } ${isToday ? 'bg-primary-50 border-primary-300' : ''}`}
+                            >
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="text-xs text-neutral-500 uppercase">
+                                  {d.format("dd")}
+                                </span>
+                                <span className={`text-lg ${isToday ? 'text-primary-600 font-bold' : 'text-neutral-900'}`}>
+                                  {d.format("DD")}
+                                </span>
+                                <span className="text-xs text-neutral-500">
+                                  {d.format("MMM")}
+                                </span>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {data.shift_types.filter(st => st.active).map((shiftType) => {
+                        const getShiftColor = () => {
+                          const name = shiftType.name.toLowerCase();
+                          if (name.includes('früh')) return 'bg-primary-100 text-primary-900';
+                          if (name.includes('spät')) return 'bg-accent-100 text-accent-900';
+                          if (name.includes('nacht')) return 'bg-secondary-100 text-secondary-900';
+                          return 'bg-success-100 text-success-900';
+                        };
+
+                        return (
+                          <tr 
+                            key={shiftType.id}
+                            className="border-b border-neutral-200 hover:bg-neutral-50 transition-colors"
+                          >
+                            <td className="px-6 py-4 border-r border-neutral-200">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg ${getShiftColor()} flex items-center justify-center font-semibold`}>
+                                  {shiftType.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-neutral-900">{shiftType.name}</p>
+                                  <p className="text-xs text-neutral-500">
+                                    {shiftType.default_start?.substring(0, 5)} - {shiftType.default_end?.substring(0, 5)}
+                                  </p>
+                                  {shiftType.departments && shiftType.departments.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {shiftType.departments.map(dept => (
+                                        <Badge key={dept.id} variant="primary" className="text-xs">
+                                          {dept.name}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {days.map((d, i) => {
+                              const shifts = getShiftsForTypeAndDate(shiftType.id, d);
+                              const isWeekend = d.day() === 0 || d.day() === 6;
+                              const isToday = d.isSame(dayjs(), 'day');
+
+                              return (
+                                <td 
+                                  key={i} 
+                                  className={`px-2 py-2 align-top ${
+                                    isWeekend ? 'bg-neutral-50' : ''
+                                  } ${isToday ? 'bg-primary-50/50' : ''}`}
+                                >
+                                  <div className="min-h-[100px] p-2 space-y-1">
+                                    {shifts.map((shift) => (
+                                      <div
+                                        key={shift.id}
+                                        className={`p-2 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
+                                          shift.employee 
+                                            ? getShiftColor() + ' border-transparent'
+                                            : 'bg-neutral-50 border-dashed border-neutral-300'
+                                        }`}
+                                        onClick={() => handleEditShift(shift)}
+                                      >
+                                        <div className="flex items-start justify-between gap-1">
+                                          <div className="flex-1 min-w-0">
+                                            {shift.employee ? (
+                                              <>
+                                                <p className="text-xs font-semibold truncate flex items-center gap-1">
+                                                  <Users className="w-3 h-3 flex-shrink-0" />
+                                                  {shift.employee.first_name} {shift.employee.last_name[0]}.
+                                                </p>
+                                                {shift.department && (
+                                                  <p className="text-xs text-neutral-600 truncate mt-0.5">
+                                                    {shift.department.name}
+                                                  </p>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <p className="text-xs text-neutral-500 italic">Nicht besetzt</p>
+                                            )}
+                                            <p className="text-xs text-neutral-600 mt-0.5">
+                                              {shift.start_time?.substring(0, 5)} - {shift.end_time?.substring(0, 5)}
+                                            </p>
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteShift(shift);
+                                            }}
+                                            className="p-1 hover:bg-error-100 rounded transition-colors"
+                                          >
+                                            <X className="w-3 h-3 text-error-600" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    
+                                    <button
+                                      onClick={() => {
+                                        setSelectedDate(d.format('YYYY-MM-DD'));
+                                        setSelectedShift({ shift_type_id: shiftType.id });
+                                        setShiftModalOpen(true);
+                                      }}
+                                      className="w-full p-2 border-2 border-dashed border-neutral-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-all flex items-center justify-center gap-1 text-neutral-600 hover:text-primary-600"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                      <span className="text-xs font-medium">Schicht</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-20">
+                  <CalendarIcon className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
+                  <p className="text-neutral-600 mb-4">Keine Schichttypen gefunden</p>
+                  <p className="text-sm text-neutral-500 mb-4">
+                    Bitte erstellen Sie zuerst Schichttypen in den Einstellungen
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => window.location.href = '/timetracking/settings'}
+                  >
+                    Zu den Einstellungen
+                  </Button>
+                </div>
+              )
             ) : viewMode === 'grid' ? (
               data?.employees && data.employees.length > 0 ? (
                 <div className="overflow-x-auto custom-scrollbar">
@@ -589,15 +766,6 @@ export default function ShiftPlanner() {
                   </Button>
                 </div>
               )
-            ) : filteredData ? (
-              <ShiftGridMUI 
-                {...filteredData} 
-                reload={loadData} 
-                weekStart={weekStart} 
-                toast={toast}
-                viewMode={viewMode}
-                groupedRows={groupedRows}
-              />
             ) : (
               <div className="text-center py-20">
                 <p className="text-neutral-600">Keine Daten verfügbar</p>
