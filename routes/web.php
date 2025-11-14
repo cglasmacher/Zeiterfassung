@@ -26,6 +26,7 @@ Route::middleware(['auth'])->prefix('timetracking')->group(function () {
     Route::get('/planner', fn() => Inertia::render('TimeTracking/ShiftPlannerPositions'))->name('timetracking.planner');
     Route::get('/employees', fn() => Inertia::render('TimeTracking/Employees'))->name('timetracking.employees');
     Route::get('/exports', fn() => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
+    Route::get('/settings', fn() => Inertia::render('TimeTracking/Settings'))->name('timetracking.settings');
 });
 
 Route::middleware('auth')->group(function () {

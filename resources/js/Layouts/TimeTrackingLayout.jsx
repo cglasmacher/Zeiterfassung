@@ -26,6 +26,7 @@ export default function TimeTrackingLayout({ children }) {
     { href: '/timetracking/planner', label: 'Dienstplan', icon: Clock },
     { href: '/timetracking/employees', label: 'Mitarbeiter', icon: Users },
     { href: '/timetracking/exports', label: 'Exporte', icon: Download },
+    { href: '/timetracking/settings', label: 'Einstellungen', icon: Settings },
   ];
 
   return (
@@ -96,23 +97,26 @@ export default function TimeTrackingLayout({ children }) {
         <div className="p-4 border-t border-neutral-200">
           {sidebarOpen ? (
             <div className="space-y-2">
-              <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-neutral-100 transition-colors text-neutral-700">
-                <Settings className="w-5 h-5" />
-                <span className="text-sm font-medium">Einstellungen</span>
-              </button>
-              <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-error-50 transition-colors text-error-600">
+              <Link 
+                href="/logout" 
+                method="post" 
+                as="button"
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-error-50 transition-colors text-error-600"
+              >
                 <LogOut className="w-5 h-5" />
                 <span className="text-sm font-medium">Abmelden</span>
-              </button>
+              </Link>
             </div>
           ) : (
             <div className="space-y-2">
-              <button className="w-full p-2.5 rounded-lg hover:bg-neutral-100 transition-colors flex justify-center">
-                <Settings className="w-5 h-5 text-neutral-600" />
-              </button>
-              <button className="w-full p-2.5 rounded-lg hover:bg-error-50 transition-colors flex justify-center">
+              <Link 
+                href="/logout" 
+                method="post" 
+                as="button"
+                className="w-full p-2.5 rounded-lg hover:bg-error-50 transition-colors flex justify-center"
+              >
                 <LogOut className="w-5 h-5 text-error-600" />
-              </button>
+              </Link>
             </div>
           )}
         </div>
