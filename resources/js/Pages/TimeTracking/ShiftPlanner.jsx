@@ -310,9 +310,30 @@ export default function ShiftPlanner() {
     setShiftModalOpen(true);
   };
 
-  const handleExportPDF = () => {
-    toast.info('PDF-Export wird vorbereitet...');
-    // TODO: Implement PDF export
+  const handleExportPDF = async () => {
+    try {
+      toast.info('Export wird vorbereitet...');
+      
+      const response = await axios.post('/api/shifts/export-pdf', {
+        week_start: weekStart.format('YYYY-MM-DD'),
+      }, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `dienstplan_${weekStart.format('YYYY-MM-DD')}.html`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Dienstplan exportiert! Öffnen Sie die Datei und drucken Sie als PDF.');
+    } catch (error) {
+      console.error('Error exporting:', error);
+      toast.error('Fehler beim Export');
+    }
   };
 
   useEffect(() => {

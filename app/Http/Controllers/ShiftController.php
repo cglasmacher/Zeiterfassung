@@ -235,4 +235,51 @@ class ShiftController extends Controller
         $template->delete();
         return response()->json(['message' => 'Vorlage gelöscht']);
     }
+
+    public function exportPDF(Request $request)
+    {
+        $data = $request->validate([
+            'week_start' => 'required|date',
+        ]);
+
+        $weekStart = Carbon::parse($data['week_start']);
+        $weekEnd = $weekStart->copy()->addDays(6);
+
+        $shifts = Shift::with(['employee', 'shiftType', 'department'])
+            ->whereBetween('shift_date', [$weekStart, $weekEnd])
+            ->orderBy('shift_date')
+            ->orderBy('start_time')
+            ->get();
+
+        $employees = Employee::where('active', true)->orderBy('last_name')->get();
+        $shiftTypes = ShiftType::where('active', true)->orderBy('name')->get();
+
+        // Gruppiere Schichten nach Mitarbeiter und Datum
+        $shiftsByEmployee = [];
+        foreach ($employees as $employee) {
+            $shiftsByEmployee[$employee->id] = [
+                'employee' => $employee,
+                'shifts' => []
+            ];
+            for ($i = 0; $i < 7; $i++) {
+                $date = $weekStart->copy()->addDays($i);
+                $dayShifts = $shifts->filter(function($shift) use ($employee, $date) {
+                    return $shift->employee_id === $employee->id && 
+                           Carbon::parse($shift->shift_date)->isSameDay($date);
+                });
+                $shiftsByEmployee[$employee->id]['shifts'][$date->format('Y-m-d')] = $dayShifts;
+            }
+        }
+
+        $html = view('exports.shift-plan', [
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'shiftsByEmployee' => $shiftsByEmployee,
+            'days' => array_map(fn($i) => $weekStart->copy()->addDays($i), range(0, 6)),
+        ])->render();
+
+        return response($html)
+            ->header('Content-Type', 'text/html')
+            ->header('Content-Disposition', 'attachment; filename="dienstplan_' . $weekStart->format('Y-m-d') . '.html"');
+    }
 }

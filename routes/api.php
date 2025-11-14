@@ -24,6 +24,7 @@ Route::prefix('shifts')->group(function () {
     Route::get('/templates', [ShiftController::class, 'getTemplates']);
     Route::post('/templates/{id}/load', [ShiftController::class, 'loadTemplate']);
     Route::delete('/templates/{id}', [ShiftController::class, 'deleteTemplate']);
+    Route::post('/export-pdf', [ShiftController::class, 'exportPDF']);
 });
 
 Route::prefix('summary')->group(function () {
