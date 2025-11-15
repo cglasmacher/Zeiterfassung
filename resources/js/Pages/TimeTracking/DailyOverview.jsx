@@ -203,7 +203,7 @@ export default function DailyOverview() {
                   <div>
                     <p className="text-tiny text-neutral-500 mb-1">Gesamte Arbeitszeit</p>
                     <p className="text-3xl font-bold text-primary-600">
-                      {totalHours.toFixed(1)}h
+                      {(totalHours || 0).toFixed(1)}h
                     </p>
                   </div>
                   <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center">
@@ -252,7 +252,7 @@ export default function DailyOverview() {
                     <div>
                       <p className="text-tiny text-neutral-500 mb-1">Barauszahlung</p>
                       <p className="text-3xl font-bold text-green-600">
-                        €{(data.total_cash_amount || 0).toFixed(2)}
+                        €{(parseFloat(data.total_cash_amount) || 0).toFixed(2)}
                       </p>
                     </div>
                     <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center">
