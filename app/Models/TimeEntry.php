@@ -22,11 +22,13 @@ class TimeEntry extends Model
         'admin_note',
         'override_hourly_rate',
         'is_manual',
+        'paid_out_at',
     ];
 
     protected $casts = [
         'clock_in' => 'datetime',
         'clock_out' => 'datetime',
+        'paid_out_at' => 'datetime',
     ];
 
     /** Beziehungen */

@@ -21,6 +21,12 @@ class Employee extends Model
         'max_monthly_hours',
         'rfid_tag',
         'active',
+        'cash_payment',
+    ];
+
+    protected $casts = [
+        'active' => 'boolean',
+        'cash_payment' => 'boolean',
     ];
 
     /** Beziehungen */

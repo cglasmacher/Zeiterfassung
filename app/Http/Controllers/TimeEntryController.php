@@ -32,9 +32,12 @@ class TimeEntryController extends Controller
             ], 409);
         }
 
+        // Auf nächste Viertelstunde runden
+        $clockInTime = $this->roundToNearestQuarter(now());
+
         $entry = TimeEntry::create([
             'employee_id' => $employee->id,
-            'clock_in' => now(),
+            'clock_in' => $clockInTime,
         ]);
 
         return response()->json([
@@ -61,7 +64,8 @@ class TimeEntryController extends Controller
             ], 404);
         }
 
-        $entry->clock_out = now();
+        // Auf nächste Viertelstunde runden
+        $entry->clock_out = $this->roundToNearestQuarter(now());
 
         $clockIn = $entry->clock_in;
         $clockOut = $entry->clock_out;
@@ -129,5 +133,21 @@ class TimeEntryController extends Controller
 
         // optional: in einer Zusammenfassungstabelle speichern (z. B. daily_time_summaries)
         Log::info("Teildienste zusammengefasst für {$employee->full_name}: {$totalMinutes} Min, Pause {$breakMinutes} Min");
+    }
+
+    /**
+     * Rundet eine Zeit auf die nächste Viertelstunde
+     */
+    private function roundToNearestQuarter(Carbon $time)
+    {
+        $minutes = $time->minute;
+        $roundedMinutes = round($minutes / 15) * 15;
+        
+        // Wenn 60, dann zur nächsten Stunde
+        if ($roundedMinutes == 60) {
+            return $time->copy()->addHour()->minute(0)->second(0);
+        }
+        
+        return $time->copy()->minute($roundedMinutes)->second(0);
     }
 }

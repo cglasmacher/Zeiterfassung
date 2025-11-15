@@ -28,9 +28,12 @@ class ManualTimeEntryController extends Controller
             ], 422);
         }
 
+        // Auf nächste Viertelstunde runden
+        $clockInTime = $this->roundToNearestQuarter(Carbon::parse($data['clock_in']));
+
         $entry = TimeEntry::create([
             'employee_id' => $employee->id,
-            'clock_in' => $data['clock_in'],
+            'clock_in' => $clockInTime,
             'shift_id' => null, // Keine Schicht-Verknüpfung
             'is_manual' => true,
         ]);
@@ -62,7 +65,8 @@ class ManualTimeEntryController extends Controller
         }
 
         $clockIn = Carbon::parse($entry->clock_in);
-        $clockOut = Carbon::parse($data['clock_out']);
+        // Auf nächste Viertelstunde runden
+        $clockOut = $this->roundToNearestQuarter(Carbon::parse($data['clock_out']));
         
         // Stelle sicher, dass clock_out nach clock_in liegt
         if ($clockOut->lt($clockIn)) {
@@ -128,6 +132,22 @@ class ManualTimeEntryController extends Controller
         }
         
         return 0; // Keine Pause bei unter 6 Stunden
+    }
+
+    /**
+     * Rundet eine Zeit auf die nächste Viertelstunde
+     */
+    private function roundToNearestQuarter(Carbon $time)
+    {
+        $minutes = $time->minute;
+        $roundedMinutes = round($minutes / 15) * 15;
+        
+        // Wenn 60, dann zur nächsten Stunde
+        if ($roundedMinutes == 60) {
+            return $time->copy()->addHour()->minute(0)->second(0);
+        }
+        
+        return $time->copy()->minute($roundedMinutes)->second(0);
     }
 
     public function getOpenEntries()

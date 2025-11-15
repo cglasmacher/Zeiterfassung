@@ -67,6 +67,7 @@ export default function EmployeesSettings() {
         max_monthly_hours: employee.max_monthly_hours || '',
         rfid_tag: employee.rfid_tag || '',
         active: employee.active,
+        cash_payment: employee.cash_payment || false,
         department_ids: employee.departments?.map((d) => d.id) || [],
       });
     } else {
@@ -83,6 +84,7 @@ export default function EmployeesSettings() {
         max_monthly_hours: '',
         rfid_tag: '',
         active: true,
+        cash_payment: false,
         department_ids: [],
       });
     }
@@ -105,6 +107,7 @@ export default function EmployeesSettings() {
       max_monthly_hours: '',
       rfid_tag: '',
       active: true,
+      cash_payment: false,
       department_ids: [],
     });
     setErrors({});
@@ -469,17 +472,34 @@ export default function EmployeesSettings() {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-              className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
-            />
-            <label htmlFor="active" className="text-sm font-medium text-neutral-700">
-              Aktiv
-            </label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="active"
+                checked={formData.active}
+                onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                className="w-4 h-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500"
+              />
+              <label htmlFor="active" className="text-sm font-medium text-neutral-700">
+                Aktiv
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="cash_payment"
+                checked={formData.cash_payment}
+                onChange={(e) => setFormData({ ...formData, cash_payment: e.target.checked })}
+                className="w-4 h-4 text-green-600 border-neutral-300 rounded focus:ring-green-500"
+              />
+              <label htmlFor="cash_payment" className="text-sm font-medium text-neutral-700">
+                Barauszahlung
+              </label>
+              <span className="text-xs text-neutral-500 ml-2">
+                (Mitarbeiter erscheint in Tagesübersicht für Barauszahlung)
+              </span>
+            </div>
           </div>
         </form>
       </Modal>

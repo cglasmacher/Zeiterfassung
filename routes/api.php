@@ -9,6 +9,7 @@ use App\Http\Controllers\ShiftTypeController;
 use App\Http\Controllers\ManualTimeEntryController;
 use App\Http\Controllers\TimeEntryManipulationController;
 use App\Http\Controllers\LexwareExportController;
+use App\Http\Controllers\DailyOverviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -72,4 +73,11 @@ Route::prefix('time-manipulation')->group(function () {
 Route::prefix('lexware-export')->group(function () {
     Route::post('/preview', [LexwareExportController::class, 'preview']);
     Route::post('/export', [LexwareExportController::class, 'export']);
+});
+
+Route::prefix('daily-overview')->group(function () {
+    Route::get('/', [DailyOverviewController::class, 'index']);
+    Route::post('/entries/{id}/mark-paid', [DailyOverviewController::class, 'markAsPaid']);
+    Route::post('/entries/{id}/unmark-paid', [DailyOverviewController::class, 'unmarkAsPaid']);
+    Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']);
 });
