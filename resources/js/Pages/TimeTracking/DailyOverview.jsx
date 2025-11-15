@@ -365,7 +365,7 @@ export default function DailyOverview() {
                         <Clock className="w-4 h-4 text-primary-600" />
                         <p className="text-sm font-medium text-primary-900">Arbeitszeit</p>
                       </div>
-                      <p className="text-2xl font-bold text-primary-600">{(entry.total_hours || 0).toFixed(2)} Std</p>
+                      <p className="text-2xl font-bold text-primary-600">{(parseFloat(entry.total_hours) || 0).toFixed(2)} Std</p>
                     </div>
 
                     <div className="p-4 bg-accent-50 rounded-xl border border-accent-200">
@@ -373,7 +373,7 @@ export default function DailyOverview() {
                         <Coffee className="w-4 h-4 text-accent-600" />
                         <p className="text-sm font-medium text-accent-900">Pausen</p>
                       </div>
-                      <p className="text-2xl font-bold text-accent-600">{entry.break_minutes || 0} Min</p>
+                      <p className="text-2xl font-bold text-accent-600">{parseInt(entry.break_minutes) || 0} Min</p>
                     </div>
 
                     <div className="p-4 bg-green-50 rounded-xl border border-green-200">
@@ -381,7 +381,7 @@ export default function DailyOverview() {
                         <DollarSign className="w-4 h-4 text-green-600" />
                         <p className="text-sm font-medium text-green-900">Lohn</p>
                       </div>
-                      <p className="text-2xl font-bold text-green-600">€{(entry.gross_wage || 0).toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-green-600">€{(parseFloat(entry.gross_wage) || 0).toFixed(2)}</p>
                     </div>
 
                     <div className="p-4 bg-secondary-50 rounded-xl border border-secondary-200">
@@ -390,7 +390,7 @@ export default function DailyOverview() {
                         <p className="text-sm font-medium text-secondary-900">Stundenlohn</p>
                       </div>
                       <p className="text-lg font-semibold text-secondary-600">
-                        €{(entry.override_hourly_rate || entry.employee?.hourly_rate || 0).toFixed(2)}
+                        €{(parseFloat(entry.override_hourly_rate) || parseFloat(entry.employee?.hourly_rate) || 0).toFixed(2)}
                       </p>
                     </div>
 
