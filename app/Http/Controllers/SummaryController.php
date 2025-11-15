@@ -79,10 +79,12 @@ class SummaryController extends Controller
         // Berechne Stunden seit Einstempeln (immer positiv)
         $hoursSinceIn = null;
         if ($openEntry) {
-            $clockIn = Carbon::parse($openEntry->clock_in);
-            $now = Carbon::now();
-            $minutesDiff = $now->diffInMinutes($clockIn, false); // false = signed difference
-            $hoursSinceIn = max(0, $minutesDiff / 60); // Stelle sicher, dass es nicht negativ ist
+            // Stelle sicher, dass beide Zeiten in der gleichen Zeitzone sind
+            $clockIn = Carbon::parse($openEntry->clock_in)->setTimezone('Europe/Berlin');
+            $now = Carbon::now('Europe/Berlin');
+            // diffInMinutes ohne false Parameter gibt immer positive Werte zurück
+            $minutesDiff = $clockIn->diffInMinutes($now);
+            $hoursSinceIn = $minutesDiff / 60;
         }
 
         return response()->json([

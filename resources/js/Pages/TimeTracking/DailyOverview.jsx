@@ -108,8 +108,8 @@ export default function DailyOverview() {
     ? (data?.all_entries || [])
     : (data?.cash_payment_entries || []);
 
-  const totalHours = displayEntries.reduce((sum, e) => sum + (e.total_hours || 0), 0);
-  const totalBreak = displayEntries.reduce((sum, e) => sum + (e.break_minutes || 0), 0);
+  const totalHours = displayEntries.reduce((sum, e) => sum + (parseFloat(e.total_hours) || 0), 0);
+  const totalBreak = displayEntries.reduce((sum, e) => sum + (parseInt(e.break_minutes) || 0), 0);
 
   return (
     <TimeTrackingLayout>
