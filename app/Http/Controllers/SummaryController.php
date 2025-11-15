@@ -76,17 +76,26 @@ class SummaryController extends Controller
             ->latest('clock_in')
             ->first();
 
+        // Berechne Stunden seit Einstempeln (immer positiv)
+        $hoursSinceIn = null;
+        if ($openEntry) {
+            $clockIn = Carbon::parse($openEntry->clock_in);
+            $now = Carbon::now();
+            $minutesDiff = $now->diffInMinutes($clockIn, false); // false = signed difference
+            $hoursSinceIn = max(0, $minutesDiff / 60); // Stelle sicher, dass es nicht negativ ist
+        }
+
         return response()->json([
             'employee' => $employee->full_name,
             'date' => $today->toDateString(),
             'open_entry' => $openEntry ? [
-                'clock_in' => $openEntry->clock_in->toDateTimeString(),
-                'hours_since_in' => now()->diffInMinutes($openEntry->clock_in) / 60,
+                'clock_in' => $openEntry->clock_in->format('H:i'),
+                'hours_since_in' => round($hoursSinceIn, 2),
             ] : null,
             'daily_summary' => $summary ? [
-                'segments' => $summary->segments,
-                'total_hours' => $summary->total_hours,
-                'total_break_minutes' => $summary->total_break_minutes,
+                'segments' => $summary->segments ?? 0,
+                'total_hours' => max(0, $summary->total_hours ?? 0),
+                'total_break_minutes' => max(0, $summary->total_break_minutes ?? 0),
             ] : null,
         ]);
     }

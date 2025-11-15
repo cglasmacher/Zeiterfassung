@@ -31,6 +31,8 @@ class ManualTimeEntryController extends Controller
         $entry = TimeEntry::create([
             'employee_id' => $employee->id,
             'clock_in' => $data['clock_in'],
+            'shift_id' => null, // Keine Schicht-Verknüpfung
+            'is_manual' => true,
         ]);
 
         return response()->json([
@@ -62,14 +64,26 @@ class ManualTimeEntryController extends Controller
         $clockIn = Carbon::parse($entry->clock_in);
         $clockOut = Carbon::parse($data['clock_out']);
         
+        // Stelle sicher, dass clock_out nach clock_in liegt
+        if ($clockOut->lt($clockIn)) {
+            return response()->json([
+                'error' => 'Ausstempelzeit muss nach Einstempelzeit liegen'
+            ], 422);
+        }
+        
         // Berechne Gesamtminuten
         $totalMinutes = $clockOut->diffInMinutes($clockIn);
         
         // Pausenzeit (automatisch oder manuell)
-        $breakMinutes = $data['break_minutes'] ?? $this->calculateAutoBreak($totalMinutes);
+        $breakMinutes = isset($data['break_minutes']) ? (float)$data['break_minutes'] : $this->calculateAutoBreak($totalMinutes);
+        
+        // Stelle sicher, dass Pause nicht größer als Gesamtzeit ist
+        if ($breakMinutes >= $totalMinutes) {
+            $breakMinutes = 0;
+        }
         
         // Netto-Arbeitsminuten
-        $workMinutes = $totalMinutes - $breakMinutes;
+        $workMinutes = max(0, $totalMinutes - $breakMinutes);
         $workHours = $workMinutes / 60;
         
         // Lohnberechnung
@@ -81,6 +95,7 @@ class ManualTimeEntryController extends Controller
             'break_minutes' => $breakMinutes,
             'total_hours' => round($workHours, 2),
             'gross_wage' => round($grossWage, 2),
+            'shift_id' => null, // Stelle sicher, dass keine Schicht verknüpft ist
         ]);
 
         return response()->json([

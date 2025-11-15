@@ -48,12 +48,20 @@ class TimeEntry extends Model
     /** Automatische Stundenberechnung bei vorhandenen Zeiten */
     public function getHoursWorkedAttribute($value): ?float
     {
-        if ($value) {
-            return $value;
+        // Wenn total_hours gesetzt ist, verwende das (für manuelle Einträge)
+        if (isset($this->attributes['total_hours']) && $this->attributes['total_hours'] !== null) {
+            return (float)$this->attributes['total_hours'];
         }
 
+        // Sonst verwende hours_worked
+        if ($value) {
+            return (float)$value;
+        }
+
+        // Fallback: Berechne aus Zeiten
         if ($this->clock_in && $this->clock_out) {
-            $diff = $this->clock_out->diffInMinutes($this->clock_in) - $this->break_minutes;
+            $breakMinutes = $this->break_minutes ?? 0;
+            $diff = $this->clock_out->diffInMinutes($this->clock_in) - $breakMinutes;
             return max($diff / 60, 0);
         }
 
