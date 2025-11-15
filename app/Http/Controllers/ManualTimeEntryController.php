@@ -12,7 +12,7 @@ class ManualTimeEntryController extends Controller
     {
         $data = $request->validate([
             'employee_id' => 'required|exists:employees,id',
-            'clock_in' => 'required|date_format:Y-m-d H:i:s',
+            'clock_in' => 'required|date',
         ]);
 
         $employee = Employee::findOrFail($data['employee_id']);
@@ -48,7 +48,7 @@ class ManualTimeEntryController extends Controller
     {
         $data = $request->validate([
             'employee_id' => 'required|exists:employees,id',
-            'clock_out' => 'required|date_format:Y-m-d H:i:s',
+            'clock_out' => 'required|date',
             'break_minutes' => 'nullable|numeric|min:0',
         ]);
 

@@ -28,6 +28,7 @@ class EmployeeController extends Controller
             'max_monthly_hours' => 'nullable|numeric|min:0',
             'rfid_tag' => 'nullable|string|unique:employees,rfid_tag',
             'active' => 'boolean',
+            'cash_payment' => 'boolean',
             'department_ids' => 'nullable|array',
             'department_ids.*' => 'exists:departments,id',
         ]);
@@ -60,6 +61,7 @@ class EmployeeController extends Controller
             'max_monthly_hours' => 'nullable|numeric|min:0',
             'rfid_tag' => 'nullable|string|unique:employees,rfid_tag,' . $id,
             'active' => 'boolean',
+            'cash_payment' => 'boolean',
             'department_ids' => 'nullable|array',
             'department_ids.*' => 'exists:departments,id',
         ]);
