@@ -7,16 +7,16 @@
 @layer base {
   :root {
     /* Primary Colors - Gastro Orange */
-	--primary-50:  #F1FFAB;
-	--primary-100: #DDEB98;
-	--primary-200: #CAD785;
-	--primary-300: #B7C472;
-	--primary-400: #A4B05F;
-	--primary-500: #919D4C;
-	--primary-600: #7E8939;
-	--primary-700: #6B7626;
-	--primary-800: #586213;
-	--primary-900: #454F00;
+    --primary-50: #fff5f0;
+    --primary-100: #ffe8db;
+    --primary-200: #ffd0b8;
+    --primary-300: #ffb08a;
+    --primary-400: #ff8a5c;
+    --primary-500: #ff6b35;
+    --primary-600: #f04e1a;
+    --primary-700: #c73d10;
+    --primary-800: #9e3310;
+    --primary-900: #7f2d11;
 
     /* Secondary Colors - Professional Blue */
     --secondary-50: #e6f2f9;

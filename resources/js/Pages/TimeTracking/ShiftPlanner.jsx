@@ -233,6 +233,29 @@ export default function ShiftPlanner() {
     }
   };
 
+  const handleDragStart = (shift) => {
+    // Visual feedback could be added here
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (dragData, targetDate, targetShiftTypeId) => {
+    try {
+      // Update shift with new date and shift type
+      await axios.put(`/api/shifts/${dragData.shiftId}`, {
+        shift_date: targetDate,
+        shift_type_id: targetShiftTypeId,
+      });
+      toast.success('Schicht verschoben');
+      loadData();
+    } catch (error) {
+      console.error('Error moving shift:', error);
+      toast.error('Fehler beim Verschieben der Schicht');
+    }
+  };
+
   const handleCopyWeek = async () => {
     if (!targetWeekStart) {
       toast.error('Bitte wählen Sie eine Zielwoche');
@@ -364,9 +387,33 @@ export default function ShiftPlanner() {
     if (!data?.employees) return [];
     return data.employees.filter(emp => {
       if (!emp.max_monthly_hours) return false;
-      const planned = emp.monthly_planned_hours || 0;
-      return planned > emp.max_monthly_hours;
+      const planned = parseFloat(emp.monthly_planned_hours) || 0;
+      return planned > parseFloat(emp.max_monthly_hours);
     });
+  }, [data]);
+
+  // Detect shift overlaps (same employee, multiple shifts on same day)
+  const shiftOverlaps = useMemo(() => {
+    if (!data?.shifts) return [];
+    const overlaps = [];
+    const shiftsByEmployeeAndDate = {};
+    
+    data.shifts.forEach(shift => {
+      if (!shift.employee_id) return;
+      const key = `${shift.employee_id}_${shift.shift_date}`;
+      if (!shiftsByEmployeeAndDate[key]) {
+        shiftsByEmployeeAndDate[key] = [];
+      }
+      shiftsByEmployeeAndDate[key].push(shift);
+    });
+    
+    Object.entries(shiftsByEmployeeAndDate).forEach(([key, shifts]) => {
+      if (shifts.length > 1) {
+        overlaps.push(...shifts);
+      }
+    });
+    
+    return overlaps;
   }, [data]);
 
   const getShiftsForTypeAndDate = (shiftTypeId, date) => {
@@ -449,18 +496,32 @@ export default function ShiftPlanner() {
         </div>
 
         {/* Warnings */}
-        {overloadedEmployees.length > 0 && (
-          <div className="p-4 bg-error-50 border border-error-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-error-900">Stundenlimit überschritten</p>
-              <p className="text-sm text-error-700 mt-1">
-                Folgende Mitarbeiter haben ihr monatliches Stundenlimit überschritten:{' '}
-                {overloadedEmployees.map(emp => `${emp.first_name} ${emp.last_name}`).join(', ')}
-              </p>
+        <div className="space-y-3">
+          {overloadedEmployees.length > 0 && (
+            <div className="p-4 bg-error-50 border border-error-200 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-error-900">Stundenlimit überschritten</p>
+                <p className="text-sm text-error-700 mt-1">
+                  Folgende Mitarbeiter haben ihr monatliches Stundenlimit überschritten:{' '}
+                  {overloadedEmployees.map(emp => `${emp.first_name} ${emp.last_name}`).join(', ')}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {shiftOverlaps.length > 0 && (
+            <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-warning-900">Schicht-Überschneidungen erkannt</p>
+                <p className="text-sm text-warning-700 mt-1">
+                  {shiftOverlaps.length} Schicht(en) mit Überschneidungen gefunden. Mitarbeiter haben mehrere Schichten am selben Tag.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
 
 
         {/* Week Navigation */}
@@ -672,57 +733,127 @@ export default function ShiftPlanner() {
                               const isWeekend = d.day() === 0 || d.day() === 6;
                               const isToday = d.isSame(dayjs(), 'day');
 
+                              const handleCellDragOver = (e) => {
+                                e.preventDefault();
+                                e.currentTarget.classList.add('bg-primary-100');
+                              };
+
+                              const handleCellDragLeave = (e) => {
+                                e.currentTarget.classList.remove('bg-primary-100');
+                              };
+
+                              const handleCellDrop = async (e) => {
+                                e.preventDefault();
+                                e.currentTarget.classList.remove('bg-primary-100');
+                                
+                                try {
+                                  const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+                                  await handleDrop(dragData, d.format('YYYY-MM-DD'), shiftType.id);
+                                } catch (error) {
+                                  console.error('Drop error:', error);
+                                }
+                              };
+
+                              const handleShiftDragStart = (e, shift) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('application/json', JSON.stringify({
+                                  shiftId: shift.id,
+                                  employeeId: shift.employee_id,
+                                  shiftTypeId: shift.shift_type_id,
+                                  sourceDate: d.format('YYYY-MM-DD')
+                                }));
+                              };
+
+                              const hasOverlap = (shift) => {
+                                if (!shift.employee_id) return false;
+                                return shifts.filter(s => 
+                                  s.employee_id === shift.employee_id && 
+                                  s.id !== shift.id
+                                ).length > 0;
+                              };
+
+                              const getEmployeeWorkloadColor = (employee) => {
+                                if (!employee?.max_monthly_hours) return '';
+                                const planned = parseFloat(employee.monthly_planned_hours) || 0;
+                                const max = parseFloat(employee.max_monthly_hours) || 0;
+                                const percentage = max > 0 ? (planned / max) * 100 : 0;
+                                
+                                if (percentage >= 100) return 'ring-2 ring-error-500';
+                                if (percentage >= 80) return 'ring-2 ring-warning-500';
+                                return '';
+                              };
+
                               return (
                                 <td 
                                   key={i} 
-                                  className={`px-2 py-2 align-top ${
+                                  className={`px-2 py-2 align-top transition-colors ${
                                     isWeekend ? 'bg-neutral-50' : ''
                                   } ${isToday ? 'bg-primary-50/50' : ''}`}
+                                  onDragOver={handleCellDragOver}
+                                  onDragLeave={handleCellDragLeave}
+                                  onDrop={handleCellDrop}
                                 >
                                   <div className="min-h-[100px] p-2 space-y-1">
-                                    {shifts.map((shift) => (
-                                      <div
-                                        key={shift.id}
-                                        className={`p-2 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
-                                          shift.employee 
-                                            ? getShiftColor() + ' border-transparent'
-                                            : 'bg-neutral-50 border-dashed border-neutral-300'
-                                        }`}
-                                        onClick={() => handleEditShift(shift)}
-                                      >
-                                        <div className="flex items-start justify-between gap-1">
-                                          <div className="flex-1 min-w-0">
-                                            {shift.employee ? (
-                                              <>
-                                                <p className="text-xs font-semibold truncate flex items-center gap-1">
-                                                  <Users className="w-3 h-3 flex-shrink-0" />
-                                                  {shift.employee.first_name} {shift.employee.last_name[0]}.
-                                                </p>
-                                                {shift.department && (
-                                                  <p className="text-xs text-neutral-600 truncate mt-0.5">
-                                                    {shift.department.name}
-                                                  </p>
+                                    {shifts.map((shift) => {
+                                      const overlap = hasOverlap(shift);
+                                      const workloadColor = shift.employee ? getEmployeeWorkloadColor(shift.employee) : '';
+                                      
+                                      return (
+                                        <div
+                                          key={shift.id}
+                                          draggable={!!shift.employee_id}
+                                          onDragStart={(e) => handleShiftDragStart(e, shift)}
+                                          className={`p-2 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
+                                            shift.employee 
+                                              ? getShiftColor() + ' border-transparent ' + workloadColor
+                                              : 'bg-neutral-50 border-dashed border-neutral-300'
+                                          } ${overlap ? 'ring-2 ring-error-500 ring-offset-1' : ''}`}
+                                          onClick={() => handleEditShift(shift)}
+                                        >
+                                          <div className="flex items-start justify-between gap-1">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-1">
+                                                {shift.employee ? (
+                                                  <>
+                                                    <p className="text-xs font-semibold truncate flex items-center gap-1">
+                                                      <Users className="w-3 h-3 flex-shrink-0" />
+                                                      {shift.employee.first_name} {shift.employee.last_name[0]}.
+                                                    </p>
+                                                    {overlap && (
+                                                      <AlertCircle className="w-3 h-3 text-error-600 flex-shrink-0" title="Überschneidung!" />
+                                                    )}
+                                                  </>
+                                                ) : (
+                                                  <p className="text-xs text-neutral-500 italic">Nicht besetzt</p>
                                                 )}
-                                              </>
-                                            ) : (
-                                              <p className="text-xs text-neutral-500 italic">Nicht besetzt</p>
-                                            )}
-                                            <p className="text-xs text-neutral-600 mt-0.5">
-                                              {shift.start_time?.substring(0, 5)} - {shift.end_time?.substring(0, 5)}
-                                            </p>
+                                              </div>
+                                              {shift.employee && shift.employee.max_monthly_hours && (
+                                                <p className="text-xs text-neutral-600 mt-0.5">
+                                                  {((parseFloat(shift.employee.monthly_planned_hours) || 0) / parseFloat(shift.employee.max_monthly_hours) * 100).toFixed(0)}% Auslastung
+                                                </p>
+                                              )}
+                                              {shift.department && (
+                                                <p className="text-xs text-neutral-600 truncate mt-0.5">
+                                                  {shift.department.name}
+                                                </p>
+                                              )}
+                                              <p className="text-xs text-neutral-600 mt-0.5">
+                                                {shift.start_time?.substring(0, 5)} - {shift.end_time?.substring(0, 5)}
+                                              </p>
+                                            </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteShift(shift);
+                                              }}
+                                              className="p-1 hover:bg-error-100 rounded transition-colors"
+                                            >
+                                              <X className="w-3 h-3 text-error-600" />
+                                            </button>
                                           </div>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleDeleteShift(shift);
-                                            }}
-                                            className="p-1 hover:bg-error-100 rounded transition-colors"
-                                          >
-                                            <X className="w-3 h-3 text-error-600" />
-                                          </button>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                     
                                     <button
                                       onClick={() => {
