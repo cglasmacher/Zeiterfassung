@@ -801,11 +801,6 @@ export default function ShiftPlanner() {
                                                   <p className="text-xs text-neutral-500 italic">Nicht besetzt</p>
                                                 )}
                                               </div>
-                                              {shift.employee && shift.employee.max_monthly_hours && (
-                                                <p className="text-xs text-neutral-600 mt-0.5">
-                                                  {((parseFloat(shift.employee.monthly_planned_hours) || 0) / parseFloat(shift.employee.max_monthly_hours) * 100).toFixed(0)}% Auslastung
-                                                </p>
-                                              )}
                                               {shift.department && (
                                                 <p className="text-xs text-neutral-600 truncate mt-0.5">
                                                   {shift.department.name}
