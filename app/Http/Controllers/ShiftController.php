@@ -320,13 +320,29 @@ class ShiftController extends Controller
             fn($day) => !in_array($day->dayOfWeek, $closedDays)
         );
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.shift-plan', [
-            'weekStart' => $weekStart,
-            'weekEnd' => $weekEnd,
-            'shiftsByEmployee' => $shiftsByEmployee,
-            'days' => array_values($days), // Re-index array
-        ]);
+        try {
+            $pdf = Pdf::loadView('exports.shift-plan', [
+                'weekStart' => $weekStart,
+                'weekEnd' => $weekEnd,
+                'shiftsByEmployee' => $shiftsByEmployee,
+                'days' => array_values($days), // Re-index array
+            ]);
 
-        return $pdf->download('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
+            return $pdf->download('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
+        } catch (\Exception $e) {
+            \Log::error('PDF generation error: ' . $e->getMessage());
+            
+            // Fallback: Return HTML if PDF fails
+            $html = view('exports.shift-plan', [
+                'weekStart' => $weekStart,
+                'weekEnd' => $weekEnd,
+                'shiftsByEmployee' => $shiftsByEmployee,
+                'days' => array_values($days),
+            ])->render();
+            
+            return response($html)
+                ->header('Content-Type', 'text/html')
+                ->header('Content-Disposition', 'inline');
+        }
     }
 }

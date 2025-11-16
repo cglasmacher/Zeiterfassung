@@ -462,24 +462,6 @@ export default function ShiftPlanner() {
           </div>
         )}
 
-        {/* View Mode Toggle */}
-        <Card glass>
-          <CardBody className="p-2">
-            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-lg">
-              <button 
-                onClick={() => setViewMode('shifts')}
-                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
-                  viewMode === 'shifts' 
-                    ? 'bg-white shadow-sm text-primary-600' 
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                <CalendarIcon className="w-4 h-4" />
-                <span>Nach Schichttypen</span>
-              </button>
-            </div>
-          </CardBody>
-        </Card>
 
         {/* Week Navigation */}
         <Card glass>
