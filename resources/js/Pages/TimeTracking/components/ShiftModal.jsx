@@ -100,10 +100,10 @@ export default function ShiftModal({
 
   const getEmployeeHourInfo = (employee) => {
     if (!employee.max_monthly_hours) return null;
-    const planned = employee.monthly_planned_hours || 0;
-    const max = employee.max_monthly_hours;
+    const planned = parseFloat(employee.monthly_planned_hours) || 0;
+    const max = parseFloat(employee.max_monthly_hours) || 0;
     const remaining = max - planned;
-    const percentage = (planned / max) * 100;
+    const percentage = max > 0 ? (planned / max) * 100 : 0;
     
     return {
       planned,
