@@ -157,9 +157,12 @@ class DailyOverviewController extends Controller
                 return response()->json(['error' => 'Eintrag noch nicht ausgestempelt']);
             }
             
-            // WICHTIG: Zeitzone explizit setzen
-            $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
-            $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
+            // Hole die RAW Werte aus der DB
+            $rawEntry = \DB::table('time_entries')->where('id', $id)->first();
+            
+            // Parse mit UTC und konvertiere zu Europe/Berlin
+            $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'UTC')->setTimezone('Europe/Berlin');
+            $clockOut = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_out, 'UTC')->setTimezone('Europe/Berlin');
             
             // Prüfe ob über Mitternacht
             if ($clockOut->lt($clockIn)) {
@@ -187,6 +190,12 @@ class DailyOverviewController extends Controller
                 'affected_rows' => $affected,
                 'entry_id' => $id,
                 'employee' => $entry->employee->full_name,
+                'raw_times' => [
+                    'clock_in_raw' => $rawEntry->clock_in,
+                    'clock_out_raw' => $rawEntry->clock_out,
+                    'clock_in_berlin' => $clockIn->toDateTimeString(),
+                    'clock_out_berlin' => $clockOut->toDateTimeString(),
+                ],
                 'calculated' => [
                     'total_minutes' => $totalMinutes,
                     'break_minutes' => $breakMinutes,
