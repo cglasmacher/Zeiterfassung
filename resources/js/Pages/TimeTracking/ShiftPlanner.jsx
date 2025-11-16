@@ -40,6 +40,7 @@ export default function ShiftPlanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
+  const [closedDays, setClosedDays] = useState([]);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'shifts' | 'employees'
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
@@ -63,6 +64,7 @@ export default function ShiftPlanner() {
       });
       console.log('API Response:', res.data);
       setData(res.data);
+      setClosedDays(res.data.closed_days || []);
       
       if (!res.data.employees || res.data.employees.length === 0) {
         toast.error('Keine Mitarbeiter gefunden. Bitte erstellen Sie zuerst Mitarbeiter in den Einstellungen.');
@@ -354,7 +356,9 @@ export default function ShiftPlanner() {
     return data.shifts.filter(s => s.shift_date === dateStr);
   };
 
-  const days = Array.from({ length: 7 }, (_, i) => weekStart.add(i, "day"));
+  // Filtere geschlossene Tage aus
+  const days = Array.from({ length: 7 }, (_, i) => weekStart.add(i, "day"))
+    .filter(day => !closedDays.includes(day.day())); // day() gibt 0-6 zurück (0=Sonntag)
 
   const overloadedEmployees = useMemo(() => {
     if (!data?.employees) return [];

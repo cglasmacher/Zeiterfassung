@@ -38,43 +38,56 @@ class ShiftController extends Controller
         $types = ShiftType::where('active', true)->with('departments')->get();
         $departments = \App\Models\Department::all();
 
+        // Lade Einstellungen für geschlossene Tage
+        $closedDays = \App\Models\Setting::get('closed_days', []);
+
         return response()->json([
             'shifts' => $shifts,
             'employees' => $employees,
             'shift_types' => $types,
             'departments' => $departments,
+            'closed_days' => $closedDays,
         ]);
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'employee_id' => 'nullable|exists:employees,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'shift_type_id' => 'required|exists:shift_types,id',
-            'shift_date' => 'required|date',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i',
-        ]);
+        try {
+            $data = $request->validate([
+                'employee_id' => 'nullable|exists:employees,id',
+                'department_id' => 'nullable|exists:departments,id',
+                'shift_type_id' => 'required|exists:shift_types,id',
+                'shift_date' => 'required|date',
+                'start_time' => 'nullable|date_format:H:i',
+                'end_time' => 'nullable|date_format:H:i',
+            ]);
 
-        $type = ShiftType::find($data['shift_type_id']);
-        
-        $shift = Shift::create([
-            'employee_id' => $data['employee_id'] ?? null,
-            'department_id' => $data['department_id'] ?? null,
-            'shift_type_id' => $data['shift_type_id'],
-            'shift_date' => $data['shift_date'],
-            'start_time' => $data['start_time'] ?? $type->default_start,
-            'end_time' => $data['end_time'] ?? $type->default_end,
-            'planned_hours' => $this->calculatePlannedHours(
-                $data['start_time'] ?? $type->default_start,
-                $data['end_time'] ?? $type->default_end,
-                $type->default_break_minutes
-            ),
-            'status' => 'planned',
-        ]);
+            $type = ShiftType::find($data['shift_type_id']);
+            
+            if (!$type) {
+                return response()->json(['error' => 'Schichttyp nicht gefunden'], 404);
+            }
+            
+            $startTime = $data['start_time'] ?? $type->default_start;
+            $endTime = $data['end_time'] ?? $type->default_end;
+            $breakMinutes = $type->default_break_minutes ?? 0;
+            
+            $shift = Shift::create([
+                'employee_id' => $data['employee_id'] ?? null,
+                'department_id' => $data['department_id'] ?? null,
+                'shift_type_id' => $data['shift_type_id'],
+                'shift_date' => $data['shift_date'],
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'planned_hours' => $this->calculatePlannedHours($startTime, $endTime, $breakMinutes),
+                'status' => 'planned',
+            ]);
 
-        return response()->json(['shift' => $shift->load('employee', 'shiftType', 'department')]);
+            return response()->json(['shift' => $shift->load('employee', 'shiftType', 'department')]);
+        } catch (\Exception $e) {
+            \Log::error('Error creating shift: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function update(Request $request, $id)
