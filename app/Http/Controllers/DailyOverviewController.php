@@ -157,9 +157,11 @@ class DailyOverviewController extends Controller
                 return response()->json(['error' => 'Eintrag noch nicht ausgestempelt']);
             }
             
-            $clockIn = Carbon::parse($entry->clock_in);
-            $clockOut = Carbon::parse($entry->clock_out);
+            // WICHTIG: Zeitzone explizit setzen
+            $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
+            $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
             
+            // Prüfe ob über Mitternacht
             if ($clockOut->lt($clockIn)) {
                 $clockOut = $clockOut->copy()->addDay();
             }
@@ -266,8 +268,9 @@ class DailyOverviewController extends Controller
         $details = [];
 
         foreach ($entries as $entry) {
-            $clockIn = $entry->clock_in;
-            $clockOut = $entry->clock_out;
+            // WICHTIG: Zeitzone explizit setzen
+            $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
+            $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
 
             if ($clockOut->lt($clockIn)) {
                 $clockOut = $clockOut->copy()->addDay();

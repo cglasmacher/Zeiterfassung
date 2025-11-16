@@ -67,8 +67,9 @@ class TimeEntryController extends Controller
         // Auf nächste Viertelstunde runden
         $entry->clock_out = $this->roundToNearestQuarter(now());
 
-        $clockIn = $entry->clock_in;
-        $clockOut = $entry->clock_out;
+        // WICHTIG: Zeitzone explizit setzen
+        $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
+        $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
 
         // Wenn über Mitternacht → Tageswechsel berücksichtigen
         if ($clockOut->lt($clockIn)) {

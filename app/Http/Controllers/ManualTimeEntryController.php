@@ -64,9 +64,10 @@ class ManualTimeEntryController extends Controller
             ], 422);
         }
 
-        $clockIn = Carbon::parse($entry->clock_in);
+        // WICHTIG: Zeitzone explizit setzen
+        $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
         // Auf nächste Viertelstunde runden
-        $clockOut = $this->roundToNearestQuarter(Carbon::parse($data['clock_out']));
+        $clockOut = $this->roundToNearestQuarter(Carbon::parse($data['clock_out'])->setTimezone('Europe/Berlin'));
         
         // Stelle sicher, dass clock_out nach clock_in liegt
         if ($clockOut->lt($clockIn)) {
