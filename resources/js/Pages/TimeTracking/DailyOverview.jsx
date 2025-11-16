@@ -76,7 +76,7 @@ export default function DailyOverview() {
     try {
       const response = await axios.post('/api/daily-overview/shift-end-report', {
         date,
-        reset_paid_status: true
+        reset_paid_status: false
       }, {
         responseType: 'blob'
       });

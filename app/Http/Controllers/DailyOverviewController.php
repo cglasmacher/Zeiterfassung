@@ -146,6 +146,48 @@ class DailyOverviewController extends Controller
     }
 
     /**
+     * Debug endpoint to check employee and entry data
+     */
+    public function debugEntry($id)
+    {
+        $entry = TimeEntry::with('employee')->findOrFail($id);
+        
+        $clockIn = $entry->clock_in;
+        $clockOut = $entry->clock_out;
+        
+        if (!$clockOut) {
+            return response()->json(['error' => 'Entry not clocked out yet']);
+        }
+        
+        if ($clockOut->lt($clockIn)) {
+            $clockOut = $clockOut->copy()->addDay();
+        }
+        
+        $totalMinutes = $clockOut->diffInMinutes($clockIn);
+        $breakMinutes = $entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60);
+        $workMinutes = max(0, $totalMinutes - $breakMinutes);
+        $workHours = $workMinutes / 60;
+        $hourlyRate = $entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0;
+        $grossWage = $workHours * $hourlyRate;
+        
+        return response()->json([
+            'entry_id' => $entry->id,
+            'employee' => $entry->employee->full_name,
+            'employee_hourly_rate' => $entry->employee->hourly_rate,
+            'clock_in' => $clockIn->toDateTimeString(),
+            'clock_out' => $clockOut->toDateTimeString(),
+            'total_minutes' => $totalMinutes,
+            'break_minutes' => $breakMinutes,
+            'work_minutes' => $workMinutes,
+            'work_hours' => $workHours,
+            'hourly_rate_used' => $hourlyRate,
+            'calculated_gross_wage' => round($grossWage, 2),
+            'stored_total_hours' => $entry->total_hours,
+            'stored_gross_wage' => $entry->gross_wage,
+        ]);
+    }
+
+    /**
      * Recalculate wages for entries on a specific date
      */
     public function recalculateWages(Request $request)
