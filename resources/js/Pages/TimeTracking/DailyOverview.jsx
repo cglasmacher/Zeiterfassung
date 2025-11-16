@@ -32,6 +32,12 @@ export default function DailyOverview() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'cash'
   const [processingPaid, setProcessingPaid] = useState({});
+  const [showExpensesModal, setShowExpensesModal] = useState(false);
+  const [expenses, setExpenses] = useState({
+    purchases: [], // {amount: '', recipient: ''}
+    advances: [], // {amount: '', recipient: ''}
+    other: [], // {amount: '', reason: ''}
+  });
   const toast = useToast();
 
   useEffect(() => {
@@ -72,11 +78,37 @@ export default function DailyOverview() {
     }
   };
 
+  const openExpensesModal = () => {
+    setShowExpensesModal(true);
+  };
+
+  const addExpense = (type) => {
+    setExpenses(prev => ({
+      ...prev,
+      [type]: [...prev[type], type === 'other' ? { amount: '', reason: '' } : { amount: '', recipient: '' }]
+    }));
+  };
+
+  const removeExpense = (type, index) => {
+    setExpenses(prev => ({
+      ...prev,
+      [type]: prev[type].filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateExpense = (type, index, field, value) => {
+    setExpenses(prev => ({
+      ...prev,
+      [type]: prev[type].map((item, i) => i === index ? { ...item, [field]: value } : item)
+    }));
+  };
+
   const generateShiftEndReport = async () => {
     try {
       const response = await axios.post('/api/daily-overview/shift-end-report', {
         date,
-        reset_paid_status: false
+        reset_paid_status: false,
+        expenses: expenses
       }, {
         responseType: 'blob'
       });
@@ -91,6 +123,8 @@ export default function DailyOverview() {
       link.remove();
       
       toast.success('Schichtende-Report erstellt');
+      setShowExpensesModal(false);
+      setExpenses({ purchases: [], advances: [], other: [] }); // Reset
       loadData(); // Reload to show reset status
     } catch (error) {
       console.error('Error generating report:', error);
@@ -320,7 +354,7 @@ export default function DailyOverview() {
                 </div>
                 <Button
                   variant={data.unpaid_count > 0 ? "outline" : "primary"}
-                  onClick={generateShiftEndReport}
+                  onClick={openExpensesModal}
                   icon={<FileText className="w-4 h-4" />}
                 >
                   Schichtende
@@ -435,6 +469,122 @@ export default function DailyOverview() {
           </div>
         )}
       </div>
+
+      {/* Expenses Modal */}
+      {showExpensesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-neutral-200">
+              <h2 className="text-2xl font-bold text-neutral-900">Schichtende - Barausgaben</h2>
+              <p className="text-sm text-neutral-600 mt-1">Erfassen Sie zusätzliche Barausgaben für diesen Tag</p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Einkäufe */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-neutral-900">Einkäufe</h3>
+                  <Button size="sm" variant="outline" onClick={() => addExpense('purchases')}>
+                    + Hinzufügen
+                  </Button>
+                </div>
+                {expenses.purchases.map((purchase, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Betrag (€)"
+                      value={purchase.amount}
+                      onChange={(e) => updateExpense('purchases', index, 'amount', e.target.value)}
+                      className="w-32"
+                    />
+                    <Input
+                      placeholder="An: (z.B. REWE)"
+                      value={purchase.recipient}
+                      onChange={(e) => updateExpense('purchases', index, 'recipient', e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => removeExpense('purchases', index)}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Auslagen */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-neutral-900">Auslagen</h3>
+                  <Button size="sm" variant="outline" onClick={() => addExpense('advances')}>
+                    + Hinzufügen
+                  </Button>
+                </div>
+                {expenses.advances.map((advance, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Betrag (€)"
+                      value={advance.amount}
+                      onChange={(e) => updateExpense('advances', index, 'amount', e.target.value)}
+                      className="w-32"
+                    />
+                    <Input
+                      placeholder="An: (z.B. Max Mustermann)"
+                      value={advance.recipient}
+                      onChange={(e) => updateExpense('advances', index, 'recipient', e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => removeExpense('advances', index)}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sonstige Entnahmen */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-neutral-900">Sonstige Entnahmen</h3>
+                  <Button size="sm" variant="outline" onClick={() => addExpense('other')}>
+                    + Hinzufügen
+                  </Button>
+                </div>
+                {expenses.other.map((other, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Betrag (€)"
+                      value={other.amount}
+                      onChange={(e) => updateExpense('other', index, 'amount', e.target.value)}
+                      className="w-32"
+                    />
+                    <Input
+                      placeholder="Grund: (z.B. Reparatur)"
+                      value={other.reason}
+                      onChange={(e) => updateExpense('other', index, 'reason', e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button size="sm" variant="outline" onClick={() => removeExpense('other', index)}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-neutral-200 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowExpensesModal(false)}>
+                Abbrechen
+              </Button>
+              <Button variant="primary" onClick={generateShiftEndReport} icon={<FileText className="w-4 h-4" />}>
+                PDF erstellen
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </TimeTrackingLayout>
   );
 }

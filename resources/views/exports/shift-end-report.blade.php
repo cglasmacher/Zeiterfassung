@@ -177,10 +177,71 @@
         </div>
     @endforeach
 
+    <div class="total-section" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
+        <div class="total-row" style="font-size: 12pt; margin-bottom: 10px;">
+            <span>Subsumme Löhne:</span>
+            <span>€{{ number_format($total_wages, 2) }}</span>
+        </div>
+    </div>
+
+    @if(!empty($expenses['purchases']) || !empty($expenses['advances']) || !empty($expenses['other']))
+        <div class="department-section">
+            <div class="department-title">Andere Ausgaben</div>
+            
+            <table class="employee-table">
+                <thead>
+                    <tr>
+                        <th>Typ</th>
+                        <th>Beschreibung</th>
+                        <th style="text-align: right;">Betrag</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($expenses['purchases'] as $purchase)
+                        @if(!empty($purchase['amount']))
+                            <tr>
+                                <td>Einkauf</td>
+                                <td>An: {{ $purchase['recipient'] ?? '-' }}</td>
+                                <td class="amount">€{{ number_format($purchase['amount'], 2) }}</td>
+                            </tr>
+                        @endif
+                    @endforeach
+                    
+                    @foreach($expenses['advances'] as $advance)
+                        @if(!empty($advance['amount']))
+                            <tr>
+                                <td>Auslage</td>
+                                <td>An: {{ $advance['recipient'] ?? '-' }}</td>
+                                <td class="amount">€{{ number_format($advance['amount'], 2) }}</td>
+                            </tr>
+                        @endif
+                    @endforeach
+                    
+                    @foreach($expenses['other'] as $other)
+                        @if(!empty($other['amount']))
+                            <tr>
+                                <td>Sonstige Entnahme</td>
+                                <td>Grund: {{ $other['reason'] ?? '-' }}</td>
+                                <td class="amount">€{{ number_format($other['amount'], 2) }}</td>
+                            </tr>
+                        @endif
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        <div class="total-section" style="background-color: #f8fafc; border: 1px solid #cbd5e1;">
+            <div class="total-row" style="font-size: 12pt; margin-bottom: 10px;">
+                <span>Subsumme andere Ausgaben:</span>
+                <span>€{{ number_format($total_expenses, 2) }}</span>
+            </div>
+        </div>
+    @endif
+
     <div class="total-section">
         <div class="total-row">
             <span>Gesamtsumme Barauszahlung:</span>
-            <span>€{{ number_format($total_amount, 2) }}</span>
+            <span>€{{ number_format($grand_total, 2) }}</span>
         </div>
     </div>
 

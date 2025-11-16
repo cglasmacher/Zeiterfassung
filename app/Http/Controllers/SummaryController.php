@@ -44,17 +44,42 @@ class SummaryController extends Controller
     {
         $employee = Employee::findOrFail($employeeId);
 
-        $summary = MonthlyTimeSummary::firstOrCreate(
-            ['employee_id' => $employee->id, 'year' => $year, 'month' => $month],
-            ['total_hours' => 0, 'total_break_minutes' => 0, 'working_days' => 0]
-        );
+        // Berechne direkt aus TimeEntries
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfMonth();
+        $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
+
+        // Hole alle abgeschlossenen Einträge für den Monat
+        $entries = \DB::table('time_entries')
+            ->where('employee_id', $employeeId)
+            ->whereBetween('clock_in', [$startOfMonth, $endOfMonth])
+            ->whereNotNull('clock_out')
+            ->get();
+
+        $totalHours = 0;
+        $totalBreakMinutes = 0;
+        $totalGrossWage = 0;
+        $workingDays = [];
+
+        foreach ($entries as $entry) {
+            $totalHours += (float)($entry->total_hours ?? 0);
+            $totalBreakMinutes += (float)($entry->break_minutes ?? 0);
+            $totalGrossWage += (float)($entry->gross_wage ?? 0);
+            
+            // Zähle eindeutige Arbeitstage
+            $day = Carbon::parse($entry->clock_in)->format('Y-m-d');
+            if (!in_array($day, $workingDays)) {
+                $workingDays[] = $day;
+            }
+        }
 
         return response()->json([
             'employee' => $employee->full_name,
-            'month_label' => $summary->label,
-            'total_hours' => $summary->total_hours,
-            'total_break_minutes' => $summary->total_break_minutes,
-            'working_days' => $summary->working_days,
+            'month_label' => Carbon::create($year, $month, 1)->locale('de')->isoFormat('MMMM YYYY'),
+            'total_hours' => round($totalHours, 2),
+            'total_break_minutes' => round($totalBreakMinutes, 0),
+            'total_gross_wage' => round($totalGrossWage, 2),
+            'working_days' => count($workingDays),
+            'entries_count' => count($entries),
         ]);
     }
 

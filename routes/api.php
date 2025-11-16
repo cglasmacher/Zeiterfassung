@@ -10,6 +10,7 @@ use App\Http\Controllers\ManualTimeEntryController;
 use App\Http\Controllers\TimeEntryManipulationController;
 use App\Http\Controllers\LexwareExportController;
 use App\Http\Controllers\DailyOverviewController;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -83,4 +84,9 @@ Route::prefix('daily-overview')->group(function () {
     Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']);
     Route::get('/debug-entry/{id}', [DailyOverviewController::class, 'debugEntry']);
     Route::get('/force-fix/{id}', [DailyOverviewController::class, 'forceFix']);
+});
+
+Route::prefix('settings')->group(function () {
+    Route::get('/', [SettingsController::class, 'index']);
+    Route::post('/', [SettingsController::class, 'update']);
 });

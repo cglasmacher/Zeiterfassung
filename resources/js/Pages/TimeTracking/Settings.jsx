@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { Card, CardBody } from '@/Components/ui/Card';
-import { Building2, Users, Clock, Settings as SettingsIcon } from 'lucide-react';
+import { Building2, Users, Clock, Settings as SettingsIcon, CalendarDays } from 'lucide-react';
 import DepartmentsSettings from './Settings/DepartmentsSettings';
 import ShiftTypesSettings from './Settings/ShiftTypesSettings';
 import EmployeesSettings from './Settings/EmployeesSettings';
+import GeneralSettings from './Settings/GeneralSettings';
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('departments');
+  const [activeTab, setActiveTab] = useState('general');
 
   const tabs = [
+    { id: 'general', label: 'Allgemein', icon: SettingsIcon },
     { id: 'departments', label: 'Stationen', icon: Building2 },
     { id: 'shift-types', label: 'Schichttypen', icon: Clock },
     { id: 'employees', label: 'Mitarbeiter', icon: Users },
@@ -60,6 +62,7 @@ export default function Settings() {
 
         {/* Tab Content */}
         <div>
+          {activeTab === 'general' && <GeneralSettings />}
           {activeTab === 'departments' && <DepartmentsSettings />}
           {activeTab === 'shift-types' && <ShiftTypesSettings />}
           {activeTab === 'employees' && <EmployeesSettings />}

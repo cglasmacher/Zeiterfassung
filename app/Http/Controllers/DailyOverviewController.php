@@ -125,11 +125,33 @@ class DailyOverviewController extends Controller
         $totalAmount = $entries->sum('gross_wage');
         $unpaidCount = $entries->filter(fn($e) => is_null($e->paid_out_at))->count();
 
+        // Verarbeite zusätzliche Ausgaben
+        $expenses = $request->input('expenses', [
+            'purchases' => [],
+            'advances' => [],
+            'other' => []
+        ]);
+
+        // Berechne Gesamtsumme der Ausgaben
+        $totalExpenses = 0;
+        foreach ($expenses['purchases'] as $purchase) {
+            $totalExpenses += (float)($purchase['amount'] ?? 0);
+        }
+        foreach ($expenses['advances'] as $advance) {
+            $totalExpenses += (float)($advance['amount'] ?? 0);
+        }
+        foreach ($expenses['other'] as $other) {
+            $totalExpenses += (float)($other['amount'] ?? 0);
+        }
+
         $data = [
             'date' => Carbon::parse($date)->format('d.m.Y'),
             'time' => now()->format('H:i'),
             'grouped_entries' => $groupedByDepartment,
-            'total_amount' => $totalAmount,
+            'total_wages' => $totalAmount,
+            'expenses' => $expenses,
+            'total_expenses' => $totalExpenses,
+            'grand_total' => $totalAmount + $totalExpenses,
             'unpaid_count' => $unpaidCount,
         ];
 
