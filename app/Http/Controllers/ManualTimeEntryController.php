@@ -91,17 +91,23 @@ class ManualTimeEntryController extends Controller
         $workHours = $workMinutes / 60;
         
         // Lohnberechnung
-        $hourlyRate = $employee->hourly_rate ?? 0;
+        $hourlyRate = (float)($employee->hourly_rate ?? 0);
         $grossWage = $workHours * $hourlyRate;
 
-        // Explizit alle Felder setzen und speichern
-        $entry->clock_out = $clockOut;
-        $entry->break_minutes = $breakMinutes;
-        $entry->total_hours = round($workHours, 2);
-        $entry->gross_wage = round($grossWage, 2);
-        $entry->hours_worked = round($workHours, 2);
-        $entry->shift_id = null;
-        $entry->save();
+        // DIREKTES DB UPDATE - umgeht alle Model-Probleme
+        \DB::table('time_entries')
+            ->where('id', $entry->id)
+            ->update([
+                'clock_out' => $clockOut->toDateTimeString(),
+                'break_minutes' => $breakMinutes,
+                'total_hours' => round($workHours, 2),
+                'gross_wage' => round($grossWage, 2),
+                'hours_worked' => round($workHours, 2),
+                'updated_at' => now(),
+            ]);
+
+        // Lade den Eintrag neu
+        $entry->refresh();
 
         return response()->json([
             'entry' => $entry->load('employee'),

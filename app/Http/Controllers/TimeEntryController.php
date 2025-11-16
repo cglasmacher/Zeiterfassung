@@ -85,14 +85,22 @@ class TimeEntryController extends Controller
         $workMinutes = max(0, $totalMinutes - $breakMinutes);
         $workHours = $workMinutes / 60;
         
-        $hourlyRate = $employee->hourly_rate ?? 0;
+        $hourlyRate = (float)($employee->hourly_rate ?? 0);
         $grossWage = $workHours * $hourlyRate;
 
-        $entry->break_minutes = $breakMinutes;
-        $entry->hours_worked = $workHours;
-        $entry->total_hours = round($workHours, 2);
-        $entry->gross_wage = round($grossWage, 2);
-        $entry->save();
+        // DIREKTES DB UPDATE
+        \DB::table('time_entries')
+            ->where('id', $entry->id)
+            ->update([
+                'clock_out' => $entry->clock_out->toDateTimeString(),
+                'break_minutes' => $breakMinutes,
+                'total_hours' => round($workHours, 2),
+                'gross_wage' => round($grossWage, 2),
+                'hours_worked' => round($workHours, 2),
+                'updated_at' => now(),
+            ]);
+
+        $entry->refresh();
 
         //Tageszusammenfassung aktualisieren
         \App\Models\DailyTimeSummary::updateForDay(

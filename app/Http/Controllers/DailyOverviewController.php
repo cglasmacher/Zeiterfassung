@@ -202,6 +202,7 @@ class DailyOverviewController extends Controller
             ->get();
 
         $updated = 0;
+        $details = [];
 
         foreach ($entries as $entry) {
             $clockIn = $entry->clock_in;
@@ -212,19 +213,31 @@ class DailyOverviewController extends Controller
             }
 
             $totalMinutes = $clockOut->diffInMinutes($clockIn);
-            $breakMinutes = $entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60);
+            $breakMinutes = (float)($entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60));
             
             $workMinutes = max(0, $totalMinutes - $breakMinutes);
             $workHours = $workMinutes / 60;
             
-            $hourlyRate = $entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0;
+            $hourlyRate = (float)($entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0);
             $grossWage = $workHours * $hourlyRate;
 
-            $entry->update([
-                'break_minutes' => $breakMinutes,
-                'total_hours' => round($workHours, 2),
-                'gross_wage' => round($grossWage, 2),
-            ]);
+            // DIREKTES DB UPDATE
+            \DB::table('time_entries')
+                ->where('id', $entry->id)
+                ->update([
+                    'break_minutes' => $breakMinutes,
+                    'total_hours' => round($workHours, 2),
+                    'gross_wage' => round($grossWage, 2),
+                    'hours_worked' => round($workHours, 2),
+                    'updated_at' => now(),
+                ]);
+
+            $details[] = [
+                'id' => $entry->id,
+                'employee' => $entry->employee->full_name,
+                'hours' => round($workHours, 2),
+                'wage' => round($grossWage, 2),
+            ];
 
             $updated++;
         }
@@ -232,6 +245,7 @@ class DailyOverviewController extends Controller
         return response()->json([
             'message' => "Erfolgreich {$updated} Einträge neu berechnet",
             'updated_count' => $updated,
+            'details' => $details,
         ]);
     }
 }
