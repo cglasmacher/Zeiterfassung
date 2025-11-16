@@ -233,7 +233,7 @@ class ShiftController extends Controller
         \Log::info('Save Template - Found ' . $shifts->count() . ' shifts');
 
         $templateData = $shifts->map(function($shift) use ($weekStart) {
-            $dayOffset = Carbon::parse($shift->shift_date)->diffInDays($weekStart);
+            $dayOffset = $weekStart->diffInDays(Carbon::parse($shift->shift_date));
             $data = [
                 'day_offset' => $dayOffset,
                 'employee_id' => $shift->employee_id,
