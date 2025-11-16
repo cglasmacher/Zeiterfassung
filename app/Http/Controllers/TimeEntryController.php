@@ -67,16 +67,18 @@ class TimeEntryController extends Controller
         // Auf nächste Viertelstunde runden
         $entry->clock_out = $this->roundToNearestQuarter(now());
 
-        // WICHTIG: Zeitzone explizit setzen
-        $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
-        $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
+        // Parse DIREKT als Europe/Berlin (DB speichert bereits lokale Zeit!)
+        $rawEntry = \DB::table('time_entries')->where('id', $entry->id)->first();
+        $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'Europe/Berlin');
+        $clockOut = $this->roundToNearestQuarter(now());
 
         // Wenn über Mitternacht → Tageswechsel berücksichtigen
         if ($clockOut->lt($clockIn)) {
             $clockOut->addDay();
         }
 
-        $totalMinutes = $clockOut->diffInMinutes($clockIn);
+        // Berechne Minuten MANUELL
+        $totalMinutes = ($clockOut->timestamp - $clockIn->timestamp) / 60;
         $hours = $totalMinutes / 60;
 
         // Pausenregel anwenden

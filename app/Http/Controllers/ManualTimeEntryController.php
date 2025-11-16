@@ -64,10 +64,12 @@ class ManualTimeEntryController extends Controller
             ], 422);
         }
 
-        // WICHTIG: Zeitzone explizit setzen
-        $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
+        // Parse DIREKT als Europe/Berlin (DB speichert bereits lokale Zeit!)
+        $rawEntry = \DB::table('time_entries')->where('id', $entry->id)->first();
+        $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'Europe/Berlin');
+        
         // Auf nächste Viertelstunde runden
-        $clockOut = $this->roundToNearestQuarter(Carbon::parse($data['clock_out'])->setTimezone('Europe/Berlin'));
+        $clockOut = $this->roundToNearestQuarter(Carbon::parse($data['clock_out'], 'Europe/Berlin'));
         
         // Stelle sicher, dass clock_out nach clock_in liegt
         if ($clockOut->lt($clockIn)) {
@@ -76,8 +78,8 @@ class ManualTimeEntryController extends Controller
             ], 422);
         }
         
-        // Berechne Gesamtminuten
-        $totalMinutes = $clockOut->diffInMinutes($clockIn);
+        // Berechne Minuten MANUELL
+        $totalMinutes = ($clockOut->timestamp - $clockIn->timestamp) / 60;
         
         // Pausenzeit (automatisch oder manuell)
         $breakMinutes = isset($data['break_minutes']) ? (float)$data['break_minutes'] : $this->calculateAutoBreak($totalMinutes);

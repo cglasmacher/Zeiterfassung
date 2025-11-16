@@ -277,7 +277,8 @@ class DailyOverviewController extends Controller
         $startOfDay = Carbon::parse($date)->startOfDay();
         $endOfDay = Carbon::parse($date)->endOfDay();
 
-        $entries = TimeEntry::with('employee')
+        // Hole RAW Einträge aus der DB
+        $rawEntries = \DB::table('time_entries')
             ->whereBetween('clock_in', [$startOfDay, $endOfDay])
             ->whereNotNull('clock_out')
             ->get();
@@ -285,38 +286,39 @@ class DailyOverviewController extends Controller
         $updated = 0;
         $details = [];
 
-        foreach ($entries as $entry) {
-            // WICHTIG: Zeitzone explizit setzen
-            $clockIn = Carbon::parse($entry->clock_in)->setTimezone('Europe/Berlin');
-            $clockOut = Carbon::parse($entry->clock_out)->setTimezone('Europe/Berlin');
+        foreach ($rawEntries as $rawEntry) {
+            // Lade Employee für hourly_rate
+            $employee = \App\Models\Employee::find($rawEntry->employee_id);
+            
+            if (!$employee) continue;
+
+            // Parse DIREKT als Europe/Berlin (DB speichert bereits lokale Zeit!)
+            $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'Europe/Berlin');
+            $clockOut = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_out, 'Europe/Berlin');
 
             if ($clockOut->lt($clockIn)) {
                 $clockOut = $clockOut->copy()->addDay();
             }
 
-            $totalMinutes = $clockOut->diffInMinutes($clockIn);
-            $breakMinutes = (float)($entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60));
+            // Berechne Minuten MANUELL
+            $totalMinutes = ($clockOut->timestamp - $clockIn->timestamp) / 60;
+            $breakMinutes = (float)($rawEntry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60));
             
             $workMinutes = max(0, $totalMinutes - $breakMinutes);
             $workHours = $workMinutes / 60;
             
-            $hourlyRate = (float)($entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0);
+            $hourlyRate = (float)($rawEntry->override_hourly_rate ?? $employee->hourly_rate ?? 0);
             $grossWage = $workHours * $hourlyRate;
 
-            // DIREKTES DB UPDATE
-            \DB::table('time_entries')
-                ->where('id', $entry->id)
-                ->update([
-                    'break_minutes' => $breakMinutes,
-                    'total_hours' => round($workHours, 2),
-                    'gross_wage' => round($grossWage, 2),
-                    'hours_worked' => round($workHours, 2),
-                    'updated_at' => now(),
-                ]);
+            // RAW SQL UPDATE
+            \DB::update(
+                'UPDATE time_entries SET break_minutes = ?, total_hours = ?, gross_wage = ?, hours_worked = ?, updated_at = ? WHERE id = ?',
+                [$breakMinutes, round($workHours, 2), round($grossWage, 2), round($workHours, 2), now(), $rawEntry->id]
+            );
 
             $details[] = [
-                'id' => $entry->id,
-                'employee' => $entry->employee->full_name,
+                'id' => $rawEntry->id,
+                'employee' => $employee->full_name,
                 'hours' => round($workHours, 2),
                 'wage' => round($grossWage, 2),
             ];
