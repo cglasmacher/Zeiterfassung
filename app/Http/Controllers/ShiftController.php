@@ -296,12 +296,17 @@ class ShiftController extends Controller
             ->get();
 
         $departments = \App\Models\Department::all();
+        
+        // Debug: Log ALL shift types (including inactive ones)
+        $allShiftTypes = ShiftType::all();
+        \Log::info('PDF Export - ALL Shift Types (including inactive):', $allShiftTypes->map(fn($st) => ['id' => $st->id, 'name' => $st->name, 'active' => $st->active, 'print_num' => $st->print_num])->toArray());
+        
         $shiftTypes = ShiftType::where('active', true)
             ->orderByRaw('print_num IS NULL, print_num ASC, id ASC')
             ->get();
 
         // Debug: Log shift types and their IDs
-        \Log::info('PDF Export - Shift Types:', $shiftTypes->map(fn($st) => ['id' => $st->id, 'name' => $st->name, 'print_num' => $st->print_num])->toArray());
+        \Log::info('PDF Export - Active Shift Types:', $shiftTypes->map(fn($st) => ['id' => $st->id, 'name' => $st->name, 'print_num' => $st->print_num])->toArray());
         
         // Debug: Log actual shifts with their shift_type_id
         \Log::info('PDF Export - Shifts:', $shifts->map(fn($s) => [
@@ -350,8 +355,11 @@ class ShiftController extends Controller
                                $shift->shift_type_id === $shiftType->id;
                     });
                     
-                    $employees = $dayShifts->map(function($shift) {
-                        return $shift->employee ? $shift->employee->first_name . ' ' . substr($shift->employee->last_name, 0, 1) . '.' : 'Offen';
+                    $employees = $dayShifts->map(function($shift) use ($shiftType) {
+                        $empName = $shift->employee ? $shift->employee->first_name . ' ' . substr($shift->employee->last_name, 0, 1) . '.' : 'Offen';
+                        // Debug: Include shift type info
+                        \Log::info("Grid building - ShiftType: {$shiftType->name} (ID: {$shiftType->id}), Shift ID: {$shift->id}, Shift Type ID: {$shift->shift_type_id}, Employee: {$empName}");
+                        return $empName;
                     })->toArray();
                     
                     $shiftsByDepartment[$deptId ?? 'null']['grid'][$dateStr][$shiftType->id] = $employees;
