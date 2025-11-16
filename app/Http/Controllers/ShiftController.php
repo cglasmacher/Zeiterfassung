@@ -224,23 +224,32 @@ class ShiftController extends Controller
         $weekStart = Carbon::parse($data['week_start']);
         $weekEnd = $weekStart->copy()->addDays(6);
 
+        \Log::info('Save Template - Week Start: ' . $weekStart->format('Y-m-d') . ', Week End: ' . $weekEnd->format('Y-m-d'));
+
         $shifts = Shift::with(['employee', 'shiftType', 'department'])
             ->whereBetween('shift_date', [$weekStart, $weekEnd])
             ->get();
 
+        \Log::info('Save Template - Found ' . $shifts->count() . ' shifts');
+
+        $templateData = $shifts->map(function($shift) use ($weekStart) {
+            $dayOffset = Carbon::parse($shift->shift_date)->diffInDays($weekStart);
+            $data = [
+                'day_offset' => $dayOffset,
+                'employee_id' => $shift->employee_id,
+                'department_id' => $shift->department_id,
+                'shift_type_id' => $shift->shift_type_id,
+                'start_time' => $shift->start_time,
+                'end_time' => $shift->end_time,
+                'planned_hours' => $shift->planned_hours,
+            ];
+            \Log::info('Save Template - Shift: ' . $shift->id . ', Date: ' . $shift->shift_date . ', Day Offset: ' . $dayOffset, $data);
+            return $data;
+        })->toArray();
+
         $template = \App\Models\ShiftTemplate::create([
             'name' => $data['name'],
-            'template_data' => $shifts->map(function($shift) use ($weekStart) {
-                return [
-                    'day_offset' => Carbon::parse($shift->shift_date)->diffInDays($weekStart),
-                    'employee_id' => $shift->employee_id,
-                    'department_id' => $shift->department_id,
-                    'shift_type_id' => $shift->shift_type_id,
-                    'start_time' => $shift->start_time,
-                    'end_time' => $shift->end_time,
-                    'planned_hours' => $shift->planned_hours,
-                ];
-            })->toArray(),
+            'template_data' => $templateData,
         ]);
 
         return response()->json([
@@ -264,9 +273,14 @@ class ShiftController extends Controller
         $template = \App\Models\ShiftTemplate::findOrFail($id);
         $weekStart = Carbon::parse($data['week_start']);
 
+        \Log::info('Load Template - Template: ' . $template->name . ', Target Week Start: ' . $weekStart->format('Y-m-d'));
+        \Log::info('Load Template - Template Data Count: ' . count($template->template_data));
+
         $createdCount = 0;
         foreach ($template->template_data as $shiftData) {
             $shiftDate = $weekStart->copy()->addDays($shiftData['day_offset']);
+
+            \Log::info('Load Template - Creating shift with day_offset: ' . $shiftData['day_offset'] . ', Target Date: ' . $shiftDate->format('Y-m-d'));
 
             Shift::create([
                 'employee_id' => $shiftData['employee_id'],
@@ -280,6 +294,8 @@ class ShiftController extends Controller
             ]);
             $createdCount++;
         }
+
+        \Log::info('Load Template - Created ' . $createdCount . ' shifts');
 
         return response()->json([
             'message' => "$createdCount Schichten aus Vorlage geladen",
