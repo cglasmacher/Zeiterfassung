@@ -296,7 +296,9 @@ class ShiftController extends Controller
             ->get();
 
         $departments = \App\Models\Department::all();
-        $shiftTypes = ShiftType::where('active', true)->orderBy('name')->get();
+        $shiftTypes = ShiftType::where('active', true)
+            ->orderByRaw('print_num IS NULL, print_num ASC, id ASC')
+            ->get();
 
         // Lade Einstellungen für geschlossene Tage
         $closedDays = \App\Models\Setting::get('closed_days', []);

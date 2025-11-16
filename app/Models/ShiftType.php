@@ -15,6 +15,7 @@ class ShiftType extends Model
         'default_end',
         'default_break_minutes',
         'active',
+        'print_num',
     ];
 
     // Ein Schichttyp kann mehreren Schichten zugewiesen werden
