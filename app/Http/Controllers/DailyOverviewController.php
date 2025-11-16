@@ -160,9 +160,9 @@ class DailyOverviewController extends Controller
             // Hole die RAW Werte aus der DB
             $rawEntry = \DB::table('time_entries')->where('id', $id)->first();
             
-            // Parse mit UTC und konvertiere zu Europe/Berlin
-            $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'UTC')->setTimezone('Europe/Berlin');
-            $clockOut = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_out, 'UTC')->setTimezone('Europe/Berlin');
+            // Parse DIREKT als Europe/Berlin (DB speichert bereits lokale Zeit!)
+            $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'Europe/Berlin');
+            $clockOut = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_out, 'Europe/Berlin');
             
             // Prüfe ob über Mitternacht
             if ($clockOut->lt($clockIn)) {
