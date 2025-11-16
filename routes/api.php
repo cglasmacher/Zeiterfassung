@@ -11,6 +11,7 @@ use App\Http\Controllers\TimeEntryManipulationController;
 use App\Http\Controllers\LexwareExportController;
 use App\Http\Controllers\DailyOverviewController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
@@ -89,4 +90,11 @@ Route::prefix('daily-overview')->group(function () {
 Route::prefix('settings')->group(function () {
     Route::get('/', [SettingsController::class, 'index']);
     Route::post('/', [SettingsController::class, 'update']);
+});
+
+Route::prefix('dashboard')->group(function () {
+    Route::get('/stats', [DashboardController::class, 'stats']);
+    Route::get('/absences', [DashboardController::class, 'absences']);
+    Route::get('/alerts', [DashboardController::class, 'alerts']);
+    Route::get('/recent-activity', [DashboardController::class, 'recentActivity']);
 });

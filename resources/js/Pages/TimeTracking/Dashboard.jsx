@@ -27,21 +27,35 @@ export default function Dashboard() {
     presentToday: 0,
     absentToday: 0,
   });
+  const [absences, setAbsences] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load current summary
-    axios.get('/api/summary/current?rfid_tag=ABCD1234').then(res => setSummary(res.data));
-    
-    // Simulate loading stats (replace with real API calls)
-    setStats({
-      activeEmployees: 24,
-      totalHoursToday: 156.5,
-      scheduledShifts: 18,
-      weeklyOvertime: 12.3,
-      presentToday: 15,
-      absentToday: 3,
-    });
+    loadDashboardData();
   }, []);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [statsRes, absencesRes, alertsRes, activityRes] = await Promise.all([
+        axios.get('/api/dashboard/stats'),
+        axios.get('/api/dashboard/absences'),
+        axios.get('/api/dashboard/alerts'),
+        axios.get('/api/dashboard/recent-activity'),
+      ]);
+
+      setStats(statsRes.data);
+      setAbsences(absencesRes.data);
+      setAlerts(alertsRes.data);
+      setRecentActivity(activityRes.data);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend = null }) => (
     <Card className="overflow-hidden">
@@ -227,12 +241,13 @@ export default function Dashboard() {
                 <CardDescription>Heute nicht anwesend</CardDescription>
               </CardHeader>
               <CardBody>
-                <div className="space-y-3">
-                  {[
-                    { name: 'Max Mustermann', reason: 'Urlaub', color: 'primary' },
-                    { name: 'Anna Schmidt', reason: 'Krank', color: 'error' },
-                    { name: 'Tom Weber', reason: 'Frei', color: 'neutral' },
-                  ].map((absence, i) => (
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                  </div>
+                ) : absences.length > 0 ? (
+                  <div className="space-y-3">
+                    {absences.map((absence, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-400 flex items-center justify-center text-white text-sm font-semibold">
@@ -246,9 +261,12 @@ export default function Dashboard() {
                       <Badge variant={absence.color} className="text-xs">
                         {absence.reason}
                       </Badge>
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">Keine Abwesenheiten heute</p>
+                )}
               </CardBody>
             </Card>
 
@@ -261,16 +279,37 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardBody>
-                <div className="space-y-3">
-                  <div className="p-3 bg-warning-50 rounded-lg border border-warning-200">
-                    <p className="text-sm font-medium text-warning-900">Offene Schichten</p>
-                    <p className="text-xs text-warning-700 mt-1">3 Schichten für morgen noch nicht besetzt</p>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
                   </div>
-                  <div className="p-3 bg-error-50 rounded-lg border border-error-200">
-                    <p className="text-sm font-medium text-error-900">Überstunden-Limit</p>
-                    <p className="text-xs text-error-700 mt-1">2 Mitarbeiter über 40h/Woche</p>
+                ) : alerts.length > 0 ? (
+                  <div className="space-y-3">
+                    {alerts.map((alert, i) => (
+                      <div 
+                        key={i} 
+                        className={`p-3 rounded-lg border ${
+                          alert.type === 'error' 
+                            ? 'bg-error-50 border-error-200' 
+                            : 'bg-warning-50 border-warning-200'
+                        }`}
+                      >
+                        <p className={`text-sm font-medium ${
+                          alert.type === 'error' ? 'text-error-900' : 'text-warning-900'
+                        }`}>
+                          {alert.title}
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          alert.type === 'error' ? 'text-error-700' : 'text-warning-700'
+                        }`}>
+                          {alert.message}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">Keine Hinweise</p>
+                )}
               </CardBody>
             </Card>
 
@@ -280,21 +319,25 @@ export default function Dashboard() {
                 <CardTitle>Letzte Aktivitäten</CardTitle>
               </CardHeader>
               <CardBody>
-                <div className="space-y-3">
-                  {[
-                    { action: 'Schicht erstellt', time: 'vor 5 Min', user: 'Admin' },
-                    { action: 'MA eingestempelt', time: 'vor 12 Min', user: 'Lisa Müller' },
-                    { action: 'Export erstellt', time: 'vor 1 Std', user: 'Admin' },
-                  ].map((activity, i) => (
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                  </div>
+                ) : recentActivity.length > 0 ? (
+                  <div className="space-y-3">
+                    {recentActivity.map((activity, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-neutral-900">{activity.action}</p>
                         <p className="text-xs text-neutral-500">{activity.user} • {activity.time}</p>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">Keine Aktivitäten</p>
+                )}
               </CardBody>
             </Card>
           </div>

@@ -79,28 +79,15 @@ export default function ShiftPlanner() {
 
   // Berechne Statistiken
   const stats = useMemo(() => {
-    if (!data) return { totalShifts: 0, totalHours: 0, openShifts: 0, conflicts: 0 };
+    if (!data) return { totalShifts: 0, totalHours: 0, openShifts: 0 };
 
     const totalShifts = data.shifts?.length || 0;
-    const totalHours = data.shifts?.reduce((sum, s) => sum + (s.planned_hours || 8), 0) || 0;
+    const totalHours = data.shifts?.reduce((sum, s) => sum + (parseFloat(s.planned_hours) || 0), 0) || 0;
     
-    // Berechne offene Schichten (Tage ohne Schicht für aktive Mitarbeiter)
-    const days = 7;
-    const activeEmployees = data.employees?.filter(e => e.active).length || 0;
-    const possibleShifts = activeEmployees * days;
-    const openShifts = Math.max(0, possibleShifts - totalShifts);
-    
-    // Berechne Konflikte (Mitarbeiter mit mehreren Schichten am selben Tag)
-    const conflicts = data.shifts?.reduce((count, shift) => {
-      const sameDay = data.shifts.filter(s => 
-        s.employee_id === shift.employee_id && 
-        s.shift_date === shift.shift_date &&
-        s.id !== shift.id
-      );
-      return count + (sameDay.length > 0 ? 1 : 0);
-    }, 0) || 0;
+    // Berechne offene Schichten (Schichten ohne zugewiesenen Mitarbeiter)
+    const openShifts = data.shifts?.filter(s => !s.employee_id).length || 0;
 
-    return { totalShifts, totalHours: parseFloat(totalHours.toFixed(2)), openShifts, conflicts: Math.floor(conflicts / 2) };
+    return { totalShifts, totalHours: parseFloat(totalHours.toFixed(2)), openShifts };
   }, [data]);
 
   // Gruppiere Zeilen basierend auf viewMode
@@ -582,7 +569,7 @@ export default function ShiftPlanner() {
         </Card>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardBody className="p-4">
               <div className="flex items-center justify-between">
@@ -629,19 +616,6 @@ export default function ShiftPlanner() {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardBody className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-tiny text-neutral-500 mb-1">Konflikte</p>
-                  <p className="text-2xl font-bold text-error-600">{stats.conflicts}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-error-100 flex items-center justify-center">
-                  <CalendarIcon className="w-6 h-6 text-error-600" />
-                </div>
-              </div>
-            </CardBody>
-          </Card>
         </div>
 
         {/* Shift Grid */}
