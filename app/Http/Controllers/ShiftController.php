@@ -53,6 +53,8 @@ class ShiftController extends Controller
     public function store(Request $request)
     {
         try {
+            \Log::info('Shift store request:', $request->all());
+            
             $data = $request->validate([
                 'employee_id' => 'nullable|exists:employees,id',
                 'department_id' => 'nullable|exists:departments,id',
@@ -62,15 +64,30 @@ class ShiftController extends Controller
                 'end_time' => 'nullable|date_format:H:i',
             ]);
 
+            \Log::info('Validated data:', $data);
+
             $type = ShiftType::find($data['shift_type_id']);
             
             if (!$type) {
+                \Log::error('ShiftType not found: ' . $data['shift_type_id']);
                 return response()->json(['error' => 'Schichttyp nicht gefunden'], 404);
             }
+            
+            \Log::info('ShiftType found:', $type->toArray());
             
             $startTime = $data['start_time'] ?? $type->default_start;
             $endTime = $data['end_time'] ?? $type->default_end;
             $breakMinutes = $type->default_break_minutes ?? 0;
+            
+            \Log::info('Calculated times:', [
+                'start' => $startTime,
+                'end' => $endTime,
+                'break' => $breakMinutes
+            ]);
+            
+            $plannedHours = $this->calculatePlannedHours($startTime, $endTime, $breakMinutes);
+            
+            \Log::info('Planned hours: ' . $plannedHours);
             
             $shift = Shift::create([
                 'employee_id' => $data['employee_id'] ?? null,
@@ -79,14 +96,23 @@ class ShiftController extends Controller
                 'shift_date' => $data['shift_date'],
                 'start_time' => $startTime,
                 'end_time' => $endTime,
-                'planned_hours' => $this->calculatePlannedHours($startTime, $endTime, $breakMinutes),
+                'planned_hours' => $plannedHours,
                 'status' => 'planned',
             ]);
 
+            \Log::info('Shift created successfully:', $shift->toArray());
+
             return response()->json(['shift' => $shift->load('employee', 'shiftType', 'department')]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error:', $e->errors());
+            return response()->json(['error' => 'Validierungsfehler', 'details' => $e->errors()], 422);
         } catch (\Exception $e) {
             \Log::error('Error creating shift: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+            ], 500);
         }
     }
 
