@@ -330,7 +330,10 @@ class ShiftController extends Controller
             
             $pdf->setPaper('a4', 'landscape');
 
-            return $pdf->stream('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf"',
+            ]);
         } catch (\Exception $e) {
             \Log::error('PDF generation error: ' . $e->getMessage());
             

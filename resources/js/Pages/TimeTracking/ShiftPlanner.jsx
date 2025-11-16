@@ -322,16 +322,16 @@ export default function ShiftPlanner() {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `dienstplan_${weekStart.format('YYYY-MM-DD')}.html`);
+      link.setAttribute('download', `Dienstplan_${weekStart.format('YYYY-MM-DD')}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      toast.success('Dienstplan exportiert! Öffnen Sie die Datei und drucken Sie als PDF.');
+      toast.success('Dienstplan als PDF exportiert!');
     } catch (error) {
       console.error('Error exporting:', error);
       toast.error('Fehler beim Export');
