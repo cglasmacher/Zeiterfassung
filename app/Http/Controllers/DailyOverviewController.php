@@ -146,6 +146,67 @@ class DailyOverviewController extends Controller
     }
 
     /**
+     * FORCE FIX - Berechnet und speichert einen einzelnen Eintrag
+     */
+    public function forceFix($id)
+    {
+        try {
+            $entry = TimeEntry::with('employee')->findOrFail($id);
+            
+            if (!$entry->clock_out) {
+                return response()->json(['error' => 'Eintrag noch nicht ausgestempelt']);
+            }
+            
+            $clockIn = Carbon::parse($entry->clock_in);
+            $clockOut = Carbon::parse($entry->clock_out);
+            
+            if ($clockOut->lt($clockIn)) {
+                $clockOut = $clockOut->copy()->addDay();
+            }
+            
+            $totalMinutes = $clockOut->diffInMinutes($clockIn);
+            $breakMinutes = (float)($entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60));
+            $workMinutes = max(0, $totalMinutes - $breakMinutes);
+            $workHours = $workMinutes / 60;
+            $hourlyRate = (float)($entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0);
+            $grossWage = $workHours * $hourlyRate;
+            
+            // RAW SQL UPDATE
+            $affected = \DB::update(
+                'UPDATE time_entries SET break_minutes = ?, total_hours = ?, gross_wage = ?, hours_worked = ?, updated_at = ? WHERE id = ?',
+                [$breakMinutes, round($workHours, 2), round($grossWage, 2), round($workHours, 2), now(), $id]
+            );
+            
+            // Prüfe ob Update erfolgreich
+            $updated = \DB::table('time_entries')->where('id', $id)->first();
+            
+            return response()->json([
+                'success' => true,
+                'affected_rows' => $affected,
+                'entry_id' => $id,
+                'employee' => $entry->employee->full_name,
+                'calculated' => [
+                    'total_minutes' => $totalMinutes,
+                    'break_minutes' => $breakMinutes,
+                    'work_hours' => round($workHours, 2),
+                    'hourly_rate' => $hourlyRate,
+                    'gross_wage' => round($grossWage, 2),
+                ],
+                'stored_after_update' => [
+                    'break_minutes' => $updated->break_minutes,
+                    'total_hours' => $updated->total_hours,
+                    'gross_wage' => $updated->gross_wage,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    }
+
+    /**
      * Debug endpoint to check employee and entry data
      */
     public function debugEntry($id)
