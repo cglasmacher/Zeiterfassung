@@ -164,12 +164,20 @@ class DailyOverviewController extends Controller
             $clockIn = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_in, 'Europe/Berlin');
             $clockOut = Carbon::createFromFormat('Y-m-d H:i:s', $rawEntry->clock_out, 'Europe/Berlin');
             
+            // DEBUG: Zeige die Timestamps
+            $debug = [
+                'clockIn_timestamp' => $clockIn->timestamp,
+                'clockOut_timestamp' => $clockOut->timestamp,
+                'diff_seconds' => $clockOut->timestamp - $clockIn->timestamp,
+            ];
+            
             // Prüfe ob über Mitternacht
             if ($clockOut->lt($clockIn)) {
                 $clockOut = $clockOut->copy()->addDay();
             }
             
-            $totalMinutes = $clockOut->diffInMinutes($clockIn);
+            // Berechne Minuten MANUELL
+            $totalMinutes = ($clockOut->timestamp - $clockIn->timestamp) / 60;
             $breakMinutes = (float)($entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60));
             $workMinutes = max(0, $totalMinutes - $breakMinutes);
             $workHours = $workMinutes / 60;
@@ -196,6 +204,7 @@ class DailyOverviewController extends Controller
                     'clock_in_berlin' => $clockIn->toDateTimeString(),
                     'clock_out_berlin' => $clockOut->toDateTimeString(),
                 ],
+                'debug' => $debug,
                 'calculated' => [
                     'total_minutes' => $totalMinutes,
                     'break_minutes' => $breakMinutes,
