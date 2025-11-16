@@ -30,16 +30,18 @@ export default function ShiftModal({
       setFormData({
         shift_type_id: shift.shift_type_id || '',
         employee_id: shift.employee_id || '',
-        department_id: shift.department_id || (departments?.[0]?.id || ''),
+        department_id: shift.department_id || '',
         shift_date: shift.shift_date || date || '',
         start_time: shift.start_time?.substring(0, 5) || '',
         end_time: shift.end_time?.substring(0, 5) || '',
       });
     } else {
+      // Bei neuer Schicht: Kein Department vorauswählen
+      // Es wird automatisch gesetzt, wenn ein ShiftType ausgewählt wird
       setFormData({
         shift_type_id: '',
         employee_id: '',
-        department_id: departments?.[0]?.id || '', // Setze ersten Bereich als Standard
+        department_id: '',
         shift_date: date || '',
         start_time: '',
         end_time: '',
@@ -50,9 +52,21 @@ export default function ShiftModal({
 
   const handleShiftTypeChange = (shiftTypeId) => {
     const shiftType = shiftTypes.find(st => st.id === parseInt(shiftTypeId));
+    
+    // Automatisch das erste Department des ShiftTypes setzen, falls vorhanden
+    let newDepartmentId = formData.department_id;
+    if (shiftType?.departments && shiftType.departments.length > 0) {
+      // Wenn das aktuelle Department nicht in der Liste ist, nimm das erste
+      const currentDeptInList = shiftType.departments.find(d => d.id === parseInt(formData.department_id));
+      if (!currentDeptInList) {
+        newDepartmentId = shiftType.departments[0].id;
+      }
+    }
+    
     setFormData({
       ...formData,
       shift_type_id: shiftTypeId,
+      department_id: newDepartmentId,
       start_time: shiftType?.default_start?.substring(0, 5) || '',
       end_time: shiftType?.default_end?.substring(0, 5) || '',
     });
