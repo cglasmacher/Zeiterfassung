@@ -98,6 +98,17 @@ export default function DailyOverview() {
     }
   };
 
+  const recalculateWages = async () => {
+    try {
+      const response = await axios.post('/api/daily-overview/recalculate-wages', { date });
+      toast.success(response.data.message);
+      loadData(); // Reload to show updated values
+    } catch (error) {
+      console.error('Error recalculating wages:', error);
+      toast.error('Fehler beim Neuberechnen der Löhne');
+    }
+  };
+
   const goToPreviousDay = () => setDate(dayjs(date).subtract(1, 'day').format('YYYY-MM-DD'));
   const goToNextDay = () => setDate(dayjs(date).add(1, 'day').format('YYYY-MM-DD'));
   const goToToday = () => setDate(dayjs().format('YYYY-MM-DD'));
@@ -157,12 +168,22 @@ export default function DailyOverview() {
                 </Button>
               </div>
 
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-auto"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={recalculateWages}
+                  icon={<TrendingUp className="w-4 h-4" />}
+                >
+                  Löhne neu berechnen
+                </Button>
+                <Input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-auto"
+                />
+              </div>
             </div>
           </CardBody>
         </Card>

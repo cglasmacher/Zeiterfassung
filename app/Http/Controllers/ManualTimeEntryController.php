@@ -94,13 +94,14 @@ class ManualTimeEntryController extends Controller
         $hourlyRate = $employee->hourly_rate ?? 0;
         $grossWage = $workHours * $hourlyRate;
 
-        $entry->update([
-            'clock_out' => $data['clock_out'],
-            'break_minutes' => $breakMinutes,
-            'total_hours' => round($workHours, 2),
-            'gross_wage' => round($grossWage, 2),
-            'shift_id' => null, // Stelle sicher, dass keine Schicht verknüpft ist
-        ]);
+        // Explizit alle Felder setzen und speichern
+        $entry->clock_out = $clockOut;
+        $entry->break_minutes = $breakMinutes;
+        $entry->total_hours = round($workHours, 2);
+        $entry->gross_wage = round($grossWage, 2);
+        $entry->hours_worked = round($workHours, 2);
+        $entry->shift_id = null;
+        $entry->save();
 
         return response()->json([
             'entry' => $entry->load('employee'),
