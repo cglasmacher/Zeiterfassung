@@ -41,7 +41,7 @@ export default function ShiftPlanner() {
   const [loading, setLoading] = useState(true);
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [closedDays, setClosedDays] = useState([]);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'shifts' | 'employees'
+  const [viewMode, setViewMode] = useState('shifts'); // 'shifts' only
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -466,18 +466,6 @@ export default function ShiftPlanner() {
         <Card glass>
           <CardBody className="p-2">
             <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-lg">
-              <button 
-                onClick={() => setViewMode('grid')}
-                className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${
-                  viewMode === 'grid' 
-                    ? 'bg-white shadow-sm text-primary-600' 
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>Nach Mitarbeitern</span>
-              </button>
-              
               <button 
                 onClick={() => setViewMode('shifts')}
                 className={`flex-1 px-4 py-2.5 rounded-md transition-all flex items-center justify-center gap-2 font-medium ${

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\{Shift, ShiftType, Employee};
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ShiftController extends Controller
 {
