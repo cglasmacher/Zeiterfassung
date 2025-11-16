@@ -81,8 +81,17 @@ class TimeEntryController extends Controller
         // Pausenregel anwenden
         $breakMinutes = BreakRule::calculateBreakForHours($hours);
 
+        // Berechne Netto-Arbeitszeit und Lohn
+        $workMinutes = max(0, $totalMinutes - $breakMinutes);
+        $workHours = $workMinutes / 60;
+        
+        $hourlyRate = $employee->hourly_rate ?? 0;
+        $grossWage = $workHours * $hourlyRate;
+
         $entry->break_minutes = $breakMinutes;
-        $entry->hours_worked = max(($totalMinutes - $breakMinutes) / 60, 0);
+        $entry->hours_worked = $workHours;
+        $entry->total_hours = round($workHours, 2);
+        $entry->gross_wage = round($grossWage, 2);
         $entry->save();
 
         //Tageszusammenfassung aktualisieren
