@@ -310,15 +310,22 @@ class ShiftController extends Controller
             }
         }
 
-        $html = view('exports.shift-plan', [
+        // Lade Einstellungen für geschlossene Tage
+        $closedDays = \App\Models\Setting::get('closed_days', []);
+        
+        // Filtere Tage basierend auf geschlossenen Tagen
+        $days = array_filter(
+            array_map(fn($i) => $weekStart->copy()->addDays($i), range(0, 6)),
+            fn($day) => !in_array($day->dayOfWeek, $closedDays)
+        );
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.shift-plan', [
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
             'shiftsByEmployee' => $shiftsByEmployee,
-            'days' => array_map(fn($i) => $weekStart->copy()->addDays($i), range(0, 6)),
-        ])->render();
+            'days' => array_values($days), // Re-index array
+        ]);
 
-        return response($html)
-            ->header('Content-Type', 'text/html')
-            ->header('Content-Disposition', 'attachment; filename="dienstplan_' . $weekStart->format('Y-m-d') . '.html"');
+        return $pdf->download('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
     }
 }
