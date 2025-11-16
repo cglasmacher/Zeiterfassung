@@ -82,5 +82,5 @@ Route::prefix('daily-overview')->group(function () {
     Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']);
     Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']);
     Route::get('/debug-entry/{id}', [DailyOverviewController::class, 'debugEntry']);
-    Route::post('/force-fix/{id}', [DailyOverviewController::class, 'forceFix']);
+    Route::get('/force-fix/{id}', [DailyOverviewController::class, 'forceFix']);
 });
