@@ -144,4 +144,52 @@ class DailyOverviewController extends Controller
 
         return $pdf->download('Schichtende_' . Carbon::parse($date)->format('Y-m-d') . '.pdf');
     }
+
+    /**
+     * Recalculate wages for entries on a specific date
+     */
+    public function recalculateWages(Request $request)
+    {
+        $date = $request->input('date', Carbon::today()->toDateString());
+        $startOfDay = Carbon::parse($date)->startOfDay();
+        $endOfDay = Carbon::parse($date)->endOfDay();
+
+        $entries = TimeEntry::with('employee')
+            ->whereBetween('clock_in', [$startOfDay, $endOfDay])
+            ->whereNotNull('clock_out')
+            ->get();
+
+        $updated = 0;
+
+        foreach ($entries as $entry) {
+            $clockIn = $entry->clock_in;
+            $clockOut = $entry->clock_out;
+
+            if ($clockOut->lt($clockIn)) {
+                $clockOut = $clockOut->copy()->addDay();
+            }
+
+            $totalMinutes = $clockOut->diffInMinutes($clockIn);
+            $breakMinutes = $entry->break_minutes ?? \App\Models\BreakRule::calculateBreakForHours($totalMinutes / 60);
+            
+            $workMinutes = max(0, $totalMinutes - $breakMinutes);
+            $workHours = $workMinutes / 60;
+            
+            $hourlyRate = $entry->override_hourly_rate ?? $entry->employee->hourly_rate ?? 0;
+            $grossWage = $workHours * $hourlyRate;
+
+            $entry->update([
+                'break_minutes' => $breakMinutes,
+                'total_hours' => round($workHours, 2),
+                'gross_wage' => round($grossWage, 2),
+            ]);
+
+            $updated++;
+        }
+
+        return response()->json([
+            'message' => "Erfolgreich {$updated} Einträge neu berechnet",
+            'updated_count' => $updated,
+        ]);
+    }
 }

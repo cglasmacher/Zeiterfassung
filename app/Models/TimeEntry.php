@@ -89,8 +89,17 @@ class TimeEntry extends Model
         // Pause anhand BreakRule berechnen
         $breakMinutes = \App\Models\BreakRule::calculateBreakForHours($hours);
 
+        // Berechne Netto-Arbeitszeit und Lohn
+        $workMinutes = max(0, $totalMinutes - $breakMinutes);
+        $workHours = $workMinutes / 60;
+        
+        $hourlyRate = $employee->hourly_rate ?? 0;
+        $grossWage = $workHours * $hourlyRate;
+
         $entry->break_minutes = $breakMinutes;
-        $entry->hours_worked = max(($totalMinutes - $breakMinutes) / 60, 0);
+        $entry->hours_worked = $workHours;
+        $entry->total_hours = round($workHours, 2);
+        $entry->gross_wage = round($grossWage, 2);
         $entry->save();
 
         return $entry;
@@ -110,8 +119,18 @@ class TimeEntry extends Model
 
         $breakMinutes = \App\Models\BreakRule::calculateBreakForHours($hours);
 
+        // Berechne Netto-Arbeitszeit und Lohn
+        $workMinutes = max(0, $totalMinutes - $breakMinutes);
+        $workHours = $workMinutes / 60;
+        
+        $employee = $this->employee;
+        $hourlyRate = $employee->hourly_rate ?? 0;
+        $grossWage = $workHours * $hourlyRate;
+
         $this->break_minutes = $breakMinutes;
-        $this->hours_worked = max(($totalMinutes - $breakMinutes) / 60, 0);
+        $this->hours_worked = $workHours;
+        $this->total_hours = round($workHours, 2);
+        $this->gross_wage = round($grossWage, 2);
         $this->save();
     }
 }
