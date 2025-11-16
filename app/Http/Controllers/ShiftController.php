@@ -90,7 +90,7 @@ class ShiftController extends Controller
             
             \Log::info('Planned hours: ' . $plannedHours);
             
-            $shift = Shift::create([
+            $shiftData = [
                 'employee_id' => $data['employee_id'] ?? null,
                 'department_id' => $data['department_id'] ?? null,
                 'shift_type_id' => $data['shift_type_id'],
@@ -99,7 +99,11 @@ class ShiftController extends Controller
                 'end_time' => $endTime,
                 'planned_hours' => $plannedHours,
                 'status' => 'planned',
-            ]);
+            ];
+            
+            \Log::info('Creating shift with data:', $shiftData);
+            
+            $shift = Shift::create($shiftData);
 
             \Log::info('Shift created successfully:', $shift->toArray());
 

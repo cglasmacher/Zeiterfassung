@@ -30,7 +30,7 @@ export default function ShiftModal({
       setFormData({
         shift_type_id: shift.shift_type_id || '',
         employee_id: shift.employee_id || '',
-        department_id: shift.department_id || '',
+        department_id: shift.department_id || (departments?.[0]?.id || ''),
         shift_date: shift.shift_date || date || '',
         start_time: shift.start_time?.substring(0, 5) || '',
         end_time: shift.end_time?.substring(0, 5) || '',
@@ -39,14 +39,14 @@ export default function ShiftModal({
       setFormData({
         shift_type_id: '',
         employee_id: '',
-        department_id: '',
+        department_id: departments?.[0]?.id || '', // Setze ersten Bereich als Standard
         shift_date: date || '',
         start_time: '',
         end_time: '',
       });
     }
     setErrors({});
-  }, [shift, date, isOpen]);
+  }, [shift, date, isOpen, departments]);
 
   const handleShiftTypeChange = (shiftTypeId) => {
     const shiftType = shiftTypes.find(st => st.id === parseInt(shiftTypeId));
