@@ -291,25 +291,8 @@ class ShiftController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $employees = Employee::where('active', true)->orderBy('last_name')->get();
+        $departments = \App\Models\Department::all();
         $shiftTypes = ShiftType::where('active', true)->orderBy('name')->get();
-
-        // Gruppiere Schichten nach Mitarbeiter und Datum
-        $shiftsByEmployee = [];
-        foreach ($employees as $employee) {
-            $shiftsByEmployee[$employee->id] = [
-                'employee' => $employee,
-                'shifts' => []
-            ];
-            for ($i = 0; $i < 7; $i++) {
-                $date = $weekStart->copy()->addDays($i);
-                $dayShifts = $shifts->filter(function($shift) use ($employee, $date) {
-                    return $shift->employee_id === $employee->id && 
-                           Carbon::parse($shift->shift_date)->isSameDay($date);
-                });
-                $shiftsByEmployee[$employee->id]['shifts'][$date->format('Y-m-d')] = $dayShifts;
-            }
-        }
 
         // Lade Einstellungen für geschlossene Tage
         $closedDays = \App\Models\Setting::get('closed_days', []);
@@ -319,13 +302,45 @@ class ShiftController extends Controller
             array_map(fn($i) => $weekStart->copy()->addDays($i), range(0, 6)),
             fn($day) => !in_array($day->dayOfWeek, $closedDays)
         );
+        $days = array_values($days); // Re-index
+
+        // Gruppiere Schichten nach Bereich -> Tag -> Schichttyp
+        $shiftsByDepartment = [];
+        
+        foreach ($departments as $department) {
+            $shiftsByDepartment[$department->id] = [
+                'department' => $department,
+                'grid' => [] // [date][shift_type_id] = [employees]
+            ];
+            
+            foreach ($days as $day) {
+                $dateStr = $day->format('Y-m-d');
+                $shiftsByDepartment[$department->id]['grid'][$dateStr] = [];
+                
+                foreach ($shiftTypes as $shiftType) {
+                    // Finde alle Mitarbeiter für diesen Tag, Bereich und Schichttyp
+                    $dayShifts = $shifts->filter(function($shift) use ($department, $day, $shiftType) {
+                        return $shift->department_id === $department->id &&
+                               Carbon::parse($shift->shift_date)->isSameDay($day) &&
+                               $shift->shift_type_id === $shiftType->id;
+                    });
+                    
+                    $employees = $dayShifts->map(function($shift) {
+                        return $shift->employee ? $shift->employee->first_name . ' ' . substr($shift->employee->last_name, 0, 1) . '.' : 'Offen';
+                    })->toArray();
+                    
+                    $shiftsByDepartment[$department->id]['grid'][$dateStr][$shiftType->id] = $employees;
+                }
+            }
+        }
 
         try {
             $pdf = Pdf::loadView('exports.shift-plan', [
                 'weekStart' => $weekStart,
                 'weekEnd' => $weekEnd,
-                'shiftsByEmployee' => $shiftsByEmployee,
-                'days' => array_values($days), // Re-index array
+                'shiftsByDepartment' => $shiftsByDepartment,
+                'shiftTypes' => $shiftTypes,
+                'days' => $days,
             ]);
             
             $pdf->setPaper('a4', 'landscape');
@@ -341,8 +356,9 @@ class ShiftController extends Controller
             $html = view('exports.shift-plan', [
                 'weekStart' => $weekStart,
                 'weekEnd' => $weekEnd,
-                'shiftsByEmployee' => $shiftsByEmployee,
-                'days' => array_values($days),
+                'shiftsByDepartment' => $shiftsByDepartment,
+                'shiftTypes' => $shiftTypes,
+                'days' => $days,
             ])->render();
             
             return response($html)

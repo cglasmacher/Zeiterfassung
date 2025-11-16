@@ -98,53 +98,50 @@
         <p>KW {{ $weekStart->week() }}</p>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th class="employee-name">Mitarbeiter</th>
-                @foreach($days as $day)
-                    <th class="day-cell {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
-                        {{ $day->format('D') }}<br>
-                        {{ $day->format('d.m.') }}
-                    </th>
-                @endforeach
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($shiftsByEmployee as $employeeData)
-                <tr>
-                    <td class="employee-name">
-                        {{ $employeeData['employee']->first_name }} {{ $employeeData['employee']->last_name }}
-                        @if($employeeData['employee']->employee_number)
-                            <br><small style="color: #666;">Nr. {{ $employeeData['employee']->employee_number }}</small>
-                        @endif
-                    </td>
-                    @foreach($days as $day)
-                        <td class="day-cell {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
-                            @php
-                                $dayShifts = $employeeData['shifts'][$day->format('Y-m-d')] ?? collect();
-                            @endphp
-                            @foreach($dayShifts as $shift)
-                                <div class="shift">
-                                    <div class="shift-time">
-                                        {{ substr($shift->start_time, 0, 5) }} - {{ substr($shift->end_time, 0, 5) }}
-                                    </div>
-                                    <div class="shift-type">
-                                        {{ $shift->shiftType->name ?? 'Schicht' }}
-                                    </div>
-                                    @if($shift->department)
-                                        <div class="shift-type">
-                                            {{ $shift->department->name }}
-                                        </div>
-                                    @endif
-                                </div>
+    @foreach($shiftsByDepartment as $deptData)
+        @if(!empty(array_filter($deptData['grid'], fn($day) => !empty(array_filter($day)))))
+            <div style="page-break-after: always;">
+                <h2 style="margin-bottom: 15px; color: #333; border-bottom: 2px solid #333; padding-bottom: 10px;">
+                    {{ $deptData['department']->name }}
+                </h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="min-width: 120px;">Wochentag</th>
+                            @foreach($shiftTypes as $shiftType)
+                                <th class="day-cell">{{ $shiftType->name }}</th>
                             @endforeach
-                        </td>
-                    @endforeach
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($days as $day)
+                            <tr>
+                                <td class="employee-name {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
+                                    <strong>{{ $day->locale('de')->isoFormat('dddd') }}</strong><br>
+                                    <small>{{ $day->format('d.m.Y') }}</small>
+                                </td>
+                                @foreach($shiftTypes as $shiftType)
+                                    @php
+                                        $employees = $deptData['grid'][$day->format('Y-m-d')][$shiftType->id] ?? [];
+                                    @endphp
+                                    <td class="day-cell {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
+                                        @if(!empty($employees))
+                                            @foreach($employees as $employee)
+                                                <div class="shift">{{ $employee }}</div>
+                                            @endforeach
+                                        @else
+                                            <span style="color: #ccc;">-</span>
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    @endforeach
 
     <div class="footer">
         <p>Erstellt am {{ now()->format('d.m.Y H:i') }} Uhr</p>
