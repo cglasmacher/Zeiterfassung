@@ -81,7 +81,16 @@ export default function ShiftModal({
       return;
     }
 
-    onSave(formData);
+    // Stelle sicher, dass department_id gesetzt ist
+    const dataToSave = { ...formData };
+    if (!dataToSave.department_id) {
+      const selectedShiftType = shiftTypes.find(st => st.id === parseInt(formData.shift_type_id));
+      if (selectedShiftType?.departments && selectedShiftType.departments.length > 0) {
+        dataToSave.department_id = selectedShiftType.departments[0].id;
+      }
+    }
+
+    onSave(dataToSave);
   };
 
   const selectedShiftType = shiftTypes.find(st => st.id === parseInt(formData.shift_type_id));
@@ -158,14 +167,14 @@ export default function ShiftModal({
         {selectedShiftType && selectedShiftType.departments?.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-              Station
+              Station *
             </label>
             <select
               className="input"
               value={formData.department_id}
               onChange={(e) => setFormData({ ...formData, department_id: e.target.value, employee_id: '' })}
+              required
             >
-              <option value="">Alle Stationen</option>
               {selectedShiftType.departments.map((dept) => (
                 <option key={dept.id} value={dept.id}>
                   {dept.name}

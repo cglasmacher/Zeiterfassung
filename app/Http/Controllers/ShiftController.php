@@ -67,7 +67,7 @@ class ShiftController extends Controller
 
             \Log::info('Validated data:', $data);
 
-            $type = ShiftType::find($data['shift_type_id']);
+            $type = ShiftType::with('departments')->find($data['shift_type_id']);
             
             if (!$type) {
                 \Log::error('ShiftType not found: ' . $data['shift_type_id']);
@@ -75,6 +75,12 @@ class ShiftController extends Controller
             }
             
             \Log::info('ShiftType found:', $type->toArray());
+            
+            // Wenn keine department_id angegeben wurde, nimm das erste Department vom ShiftType
+            if (empty($data['department_id']) && $type->departments && $type->departments->isNotEmpty()) {
+                $data['department_id'] = $type->departments->first()->id;
+                \Log::info('Auto-assigned department_id from ShiftType: ' . $data['department_id']);
+            }
             
             $startTime = $data['start_time'] ?? $type->default_start;
             $endTime = $data['end_time'] ?? $type->default_end;
@@ -134,9 +140,17 @@ class ShiftController extends Controller
             'end_time' => 'nullable|date_format:H:i',
         ]);
         
+        // Wenn shift_type_id geändert wird und keine department_id angegeben wurde
+        if (isset($data['shift_type_id']) && empty($data['department_id'])) {
+            $type = ShiftType::with('departments')->find($data['shift_type_id']);
+            if ($type && $type->departments && $type->departments->isNotEmpty()) {
+                $data['department_id'] = $type->departments->first()->id;
+            }
+        }
+        
         // Wenn Zeiten geändert werden, berechne planned_hours neu
         if (isset($data['start_time']) || isset($data['end_time'])) {
-            $shiftType = $shift->shiftType;
+            $shiftType = isset($data['shift_type_id']) ? ShiftType::find($data['shift_type_id']) : $shift->shiftType;
             $data['planned_hours'] = $this->calculatePlannedHours(
                 $data['start_time'] ?? $shift->start_time,
                 $data['end_time'] ?? $shift->end_time,
