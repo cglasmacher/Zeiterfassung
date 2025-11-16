@@ -3,6 +3,7 @@ import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/Components/ui/Card';
 import Badge from '@/Components/ui/Badge';
 import axios from 'axios';
+import { router } from '@inertiajs/react';
 import { 
   Users, 
   Clock, 
@@ -201,25 +202,37 @@ export default function Dashboard() {
               </CardHeader>
               <CardBody>
                 <div className="grid grid-cols-2 gap-4">
-                  <button className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group">
+                  <button 
+                    onClick={() => router.visit('/time-tracking/settings')}
+                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
+                  >
                     <Users className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Mitarbeiter hinzufügen</p>
+                    <p className="font-semibold text-neutral-900">Mitarbeiter erstellen</p>
                     <p className="text-sm text-neutral-500 mt-1">Neuen MA anlegen</p>
                   </button>
                   
-                  <button className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group">
+                  <button 
+                    onClick={() => router.visit('/time-tracking/shift-planner')}
+                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
+                  >
                     <Calendar className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
                     <p className="font-semibold text-neutral-900">Schicht planen</p>
                     <p className="text-sm text-neutral-500 mt-1">Neue Schicht erstellen</p>
                   </button>
                   
-                  <button className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group">
+                  <button 
+                    onClick={() => router.visit('/time-tracking/daily-overview')}
+                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
+                  >
                     <Activity className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Bericht erstellen</p>
-                    <p className="text-sm text-neutral-500 mt-1">Auswertung generieren</p>
+                    <p className="font-semibold text-neutral-900">Tagesübersicht</p>
+                    <p className="text-sm text-neutral-500 mt-1">Heutige Einträge</p>
                   </button>
                   
-                  <button className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group">
+                  <button 
+                    onClick={() => router.visit('/time-tracking/lexware-export')}
+                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
+                  >
                     <DollarSign className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
                     <p className="font-semibold text-neutral-900">Lohnexport</p>
                     <p className="text-sm text-neutral-500 mt-1">Lexware Export</p>
