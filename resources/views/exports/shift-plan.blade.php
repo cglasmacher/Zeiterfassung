@@ -110,7 +110,7 @@
                         <tr>
                             <th style="min-width: 120px;">Wochentag</th>
                             @foreach($shiftTypes as $shiftType)
-                                <th class="day-cell">{{ $shiftType->name }}</th>
+                                <th class="day-cell">{{ $shiftType->name }} (ID: {{ $shiftType->id }})</th>
                             @endforeach
                         </tr>
                     </thead>
@@ -128,7 +128,7 @@
                                     <td class="day-cell {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
                                         @if(!empty($employees))
                                             @foreach($employees as $employee)
-                                                <div class="shift">{{ $employee }}</div>
+                                                <div class="shift">{{ $employee }} <small style="color: #999;">({{ $shiftType->name }})</small></div>
                                             @endforeach
                                         @else
                                             <span style="color: #ccc;">-</span>

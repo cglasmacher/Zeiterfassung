@@ -300,6 +300,18 @@ class ShiftController extends Controller
             ->orderByRaw('print_num IS NULL, print_num ASC, id ASC')
             ->get();
 
+        // Debug: Log shift types and their IDs
+        \Log::info('PDF Export - Shift Types:', $shiftTypes->map(fn($st) => ['id' => $st->id, 'name' => $st->name, 'print_num' => $st->print_num])->toArray());
+        
+        // Debug: Log actual shifts with their shift_type_id
+        \Log::info('PDF Export - Shifts:', $shifts->map(fn($s) => [
+            'id' => $s->id,
+            'shift_type_id' => $s->shift_type_id,
+            'shift_type_name' => $s->shiftType->name ?? 'N/A',
+            'employee' => $s->employee ? $s->employee->first_name . ' ' . $s->employee->last_name : 'Offen',
+            'date' => $s->shift_date
+        ])->toArray());
+
         // Lade Einstellungen für geschlossene Tage
         $closedDays = \App\Models\Setting::get('closed_days', []);
         
