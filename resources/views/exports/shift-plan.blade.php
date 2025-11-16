@@ -98,10 +98,6 @@
         <p>KW {{ $weekStart->week() }}</p>
     </div>
 
-    <button class="no-print" onclick="window.print()" style="padding: 10px 20px; margin-bottom: 20px; cursor: pointer;">
-        Drucken / Als PDF speichern
-    </button>
-
     <table>
         <thead>
             <tr>
@@ -155,9 +151,5 @@
         <p>Hemingway Zeiterfassung</p>
     </div>
 
-    <script>
-        // Auto-print dialog on load (optional)
-        // window.onload = function() { window.print(); }
-    </script>
 </body>
 </html>

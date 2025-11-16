@@ -327,8 +327,10 @@ class ShiftController extends Controller
                 'shiftsByEmployee' => $shiftsByEmployee,
                 'days' => array_values($days), // Re-index array
             ]);
+            
+            $pdf->setPaper('a4', 'landscape');
 
-            return $pdf->download('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
+            return $pdf->stream('Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf');
         } catch (\Exception $e) {
             \Log::error('PDF generation error: ' . $e->getMessage());
             
