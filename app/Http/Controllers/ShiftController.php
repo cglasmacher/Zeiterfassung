@@ -307,20 +307,27 @@ class ShiftController extends Controller
         // Gruppiere Schichten nach Bereich -> Tag -> Schichttyp
         $shiftsByDepartment = [];
         
-        foreach ($departments as $department) {
-            $shiftsByDepartment[$department->id] = [
-                'department' => $department,
+        // Füge eine "Ohne Bereich" Kategorie hinzu für Schichten ohne department_id
+        $allDepartments = $departments->toArray();
+        array_unshift($allDepartments, (object)['id' => null, 'name' => 'Ohne Bereich']);
+        
+        foreach ($allDepartments as $department) {
+            $deptId = is_object($department) ? $department->id : $department['id'];
+            $deptName = is_object($department) ? $department->name : $department['name'];
+            
+            $shiftsByDepartment[$deptId ?? 'null'] = [
+                'department' => (object)['id' => $deptId, 'name' => $deptName],
                 'grid' => [] // [date][shift_type_id] = [employees]
             ];
             
             foreach ($days as $day) {
                 $dateStr = $day->format('Y-m-d');
-                $shiftsByDepartment[$department->id]['grid'][$dateStr] = [];
+                $shiftsByDepartment[$deptId ?? 'null']['grid'][$dateStr] = [];
                 
                 foreach ($shiftTypes as $shiftType) {
                     // Finde alle Mitarbeiter für diesen Tag, Bereich und Schichttyp
-                    $dayShifts = $shifts->filter(function($shift) use ($department, $day, $shiftType) {
-                        return $shift->department_id === $department->id &&
+                    $dayShifts = $shifts->filter(function($shift) use ($deptId, $day, $shiftType) {
+                        return $shift->department_id === $deptId &&
                                Carbon::parse($shift->shift_date)->isSameDay($day) &&
                                $shift->shift_type_id === $shiftType->id;
                     });
@@ -329,7 +336,7 @@ class ShiftController extends Controller
                         return $shift->employee ? $shift->employee->first_name . ' ' . substr($shift->employee->last_name, 0, 1) . '.' : 'Offen';
                     })->toArray();
                     
-                    $shiftsByDepartment[$department->id]['grid'][$dateStr][$shiftType->id] = $employees;
+                    $shiftsByDepartment[$deptId ?? 'null']['grid'][$dateStr][$shiftType->id] = $employees;
                 }
             }
         }

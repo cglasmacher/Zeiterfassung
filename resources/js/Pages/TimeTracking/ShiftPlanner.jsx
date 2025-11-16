@@ -100,7 +100,7 @@ export default function ShiftPlanner() {
       return count + (sameDay.length > 0 ? 1 : 0);
     }, 0) || 0;
 
-    return { totalShifts, totalHours, openShifts, conflicts: Math.floor(conflicts / 2) };
+    return { totalShifts, totalHours: parseFloat(totalHours.toFixed(2)), openShifts, conflicts: Math.floor(conflicts / 2) };
   }, [data]);
 
   // Gruppiere Zeilen basierend auf viewMode
@@ -544,7 +544,7 @@ export default function ShiftPlanner() {
                 <div>
                   <p className="text-tiny text-neutral-500 mb-1">Gesamtstunden</p>
                   <p className="text-2xl font-bold text-neutral-900">
-                    {stats.totalHours}h
+                    {stats.totalHours.toFixed(2)}h
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-success-100 flex items-center justify-center">
