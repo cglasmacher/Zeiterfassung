@@ -1,176 +1,220 @@
-import React, { useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  CalendarDays, 
-  Users, 
-  Download, 
-  Clock,
-  Menu,
-  X,
-  ChevronRight,
-  LogOut,
-  Settings,
-  Bell,
-  Edit3
-} from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { Head, Link, usePage } from "@inertiajs/react";
+import {
+    Menu,
+    X,
+    LogOut,
+    PanelLeftClose,
+    PanelLeftOpen,
+    ChevronRight,
+    UserRound,
+    ChevronDown,
+} from "lucide-react";
+import { navigation, currentNavigation } from "@/lib/navigation";
 
 export default function TimeTrackingLayout({ children }) {
-  const { url } = usePage();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const links = [
-    { href: '/timetracking', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/timetracking/handovers', label: 'Schichtübergabe', icon: Users },
-    { href: '/timetracking/cash-days', label: 'Tagesabschluss', icon: CalendarDays },
-    { href: '/timetracking/daily', label: 'Tagesübersicht', icon: Calendar },
-    { href: '/timetracking/monthly', label: 'Monatsübersicht', icon: CalendarDays },
-    { href: '/timetracking/planner', label: 'Dienstplan', icon: Clock },
-    { href: '/timetracking/manual-entry', label: 'Manuelle Erfassung', icon: Users },
-    { href: '/timetracking/time-manipulation', label: 'Stundenmanipulation', icon: Edit3 },
-    { href: '/timetracking/exports', label: 'Exporte', icon: Download },
-    { href: '/timetracking/settings', label: 'Einstellungen', icon: Settings },
-  ];
-
-  return (
-    <div className="min-h-screen flex bg-gradient-to-br from-neutral-50 via-primary-50/30 to-accent-50/20">
-      {/* Sidebar */}
-      <aside 
-        className={`${
-          sidebarOpen ? 'w-72' : 'w-20'
-        } bg-white shadow-xl transition-all duration-300 ease-in-out flex flex-col border-r border-neutral-200`}
-      >
-        {/* Logo & Toggle */}
-        <div className="p-6 border-b border-neutral-200 flex items-center justify-between">
-          {sidebarOpen ? (
-            <>
-              <div>
-                <h1 className="text-2xl font-bold text-gradient">Hemingway</h1>
-                <p className="text-xs text-neutral-500 mt-0.5">Zeiterfassung</p>
-              </div>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-neutral-600" />
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors mx-auto"
-            >
-              <Menu className="w-5 h-5 text-neutral-600" />
-            </button>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
-          {links.map(link => {
-            const Icon = link.icon;
-            const isActive = (url === link.href || (link.href !== '/timetracking' && url.startsWith(link.href + '/')));
-            
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`
-                  flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-                  ${isActive 
-                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' 
-                    : 'text-neutral-700 hover:bg-neutral-100'
-                  }
-                  ${!sidebarOpen && 'justify-center'}
-                `}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-neutral-600'}`} />
-                {sidebarOpen && (
-                  <>
-                    <span className="flex-1 font-medium">{link.label}</span>
-                    {isActive && <ChevronRight className="w-4 h-4" />}
-                  </>
-                )}
-              </Link>
+    const { url, props } = usePage();
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const [compact, setCompact] = useState(() => {
+        try {
+            return localStorage.getItem("hemingway.sidebar") === "compact";
+        } catch {
+            return false;
+        }
+    });
+    const current = currentNavigation(url.split("?")[0]);
+    const user = props.auth?.user;
+    const initials = (user?.name || "")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+    useEffect(() => {
+        setMobileOpen(false);
+    }, [url]);
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const escape = (event) => {
+            if (event.key === "Escape") setMobileOpen(false);
+        };
+        document.addEventListener("keydown", escape);
+        const previous = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", escape);
+            document.body.style.overflow = previous;
+        };
+    }, [mobileOpen]);
+    const toggleCompact = () => {
+        setCompact(!compact);
+        try {
+            localStorage.setItem(
+                "hemingway.sidebar",
+                compact ? "full" : "compact",
             );
-          })}
-        </nav>
-
-        {/* User Section */}
-        <div className="p-4 border-t border-neutral-200">
-          {sidebarOpen ? (
-            <div className="space-y-2">
-              <Link 
-                href="/logout" 
-                method="post" 
-                as="button"
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-error-50 transition-colors text-error-600"
-              >
-                <LogOut className="w-5 h-5" />
-                <span className="text-sm font-medium">Abmelden</span>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Link 
-                href="/logout" 
-                method="post" 
-                as="button"
-                className="w-full p-2.5 rounded-lg hover:bg-error-50 transition-colors flex justify-center"
-              >
-                <LogOut className="w-5 h-5 text-error-600" />
-              </Link>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="bg-white/80 backdrop-blur-lg border-b border-neutral-200 px-8 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-neutral-900">
-                {links.find(l => url === l.href || (l.href !== '/timetracking' && url.startsWith(l.href + '/')))?.label || 'Dashboard'}
-              </h2>
-              <p className="text-sm text-neutral-500 mt-0.5">
-                {new Date().toLocaleDateString('de-DE', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <button className="relative p-2 hover:bg-neutral-100 rounded-lg transition-colors">
-                <Bell className="w-5 h-5 text-neutral-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-error-500 rounded-full"></span>
-              </button>
-              
-              <div className="flex items-center gap-3 pl-4 border-l border-neutral-200">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-semibold">
-                  A
+        } catch {}
+    };
+    return (
+        <div className={`app-shell ${compact ? "nav-compact" : ""}`}>
+            <Head title={current.label} />
+            <a className="skip-link" href="#main-content">
+                Zum Inhalt
+            </a>
+            {mobileOpen && (
+                <button
+                    className="nav-overlay"
+                    aria-label="Navigation schließen"
+                    onClick={() => setMobileOpen(false)}
+                />
+            )}
+            <aside
+                className={`app-sidebar ${mobileOpen ? "mobile-open" : ""}`}
+                aria-label="Hauptnavigation"
+            >
+                <div className="brand-row">
+                    <Link
+                        href={route("dashboard")}
+                        className="brand-link"
+                        aria-label="Hemingway Übersicht"
+                    >
+                        <span className="brand-monogram">h.</span>
+                        <span className="brand-copy">
+                            <strong>Hemingway</strong>
+                            <span>Betriebsübersicht</span>
+                        </span>
+                    </Link>
+                    <button
+                        className="mobile-only nav-close"
+                        aria-label="Navigation schließen"
+                        onClick={() => setMobileOpen(false)}
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">Admin User</p>
-                  <p className="text-xs text-neutral-500">Manager</p>
+                <nav className="sidebar-navigation custom-scrollbar">
+                    {navigation.map((group) => (
+                        <div className="nav-group" key={group.label}>
+                            <p className="nav-group-label">{group.label}</p>
+                            <div className="space-y-1">
+                                {group.items.map((item) => {
+                                    const active = current.route === item.route;
+                                    const Icon = item.icon;
+                                    return (
+                                        <Link
+                                            key={item.route}
+                                            href={route(item.route)}
+                                            className={`nav-link ${active ? "active" : ""}`}
+                                            aria-current={
+                                                active ? "page" : undefined
+                                            }
+                                            title={
+                                                compact ? item.label : undefined
+                                            }
+                                        >
+                                            <Icon
+                                                size={18}
+                                                strokeWidth={1.65}
+                                            />
+                                            <span className="nav-text">
+                                                {item.label}
+                                            </span>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </nav>
+                <div className="sidebar-bottom">
+                    <button
+                        className="nav-link desktop-only"
+                        onClick={toggleCompact}
+                        aria-label={
+                            compact
+                                ? "Navigation erweitern"
+                                : "Navigation verkleinern"
+                        }
+                    >
+                        {compact ? (
+                            <PanelLeftOpen size={18} />
+                        ) : (
+                            <PanelLeftClose size={18} />
+                        )}
+                        <span className="nav-text">Navigation verkleinern</span>
+                    </button>
+                    <Link
+                        href={route("logout")}
+                        method="post"
+                        as="button"
+                        className="nav-link w-full"
+                        title="Abmelden"
+                    >
+                        <LogOut size={18} />
+                        <span className="nav-text">Abmelden</span>
+                    </Link>
                 </div>
-              </div>
+            </aside>
+            <div className="app-workspace">
+                <header className="app-topbar">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button
+                            className="mobile-only icon-button"
+                            aria-label="Navigation öffnen"
+                            aria-expanded={mobileOpen}
+                            onClick={() => setMobileOpen(true)}
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <div className="breadcrumb">
+                            <span>{current.group}</span>
+                            <ChevronRight size={13} />
+                            <strong>{current.label}</strong>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-5">
+                        <time className="hidden md:block text-xs text-neutral-600">
+                            {new Date().toLocaleDateString("de-DE", {
+                                timeZone: "Europe/Berlin",
+                                weekday: "short",
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                            })}
+                        </time>
+                        <details className="account-menu">
+                            <summary aria-label="Kontomenü öffnen">
+                                <span className="user-avatar">
+                                    {initials || <UserRound size={16} />}
+                                </span>
+                                <span className="hidden sm:block max-w-40 truncate text-sm">
+                                    {user?.name || "Mein Konto"}
+                                </span>
+                                <ChevronDown size={13} />
+                            </summary>
+                            <div className="account-dropdown">
+                                <p>{user?.email}</p>
+                                <Link href={route("profile.edit")}>
+                                    <UserRound size={15} />
+                                    Mein Profil
+                                </Link>
+                                <Link
+                                    href={route("logout")}
+                                    method="post"
+                                    as="button"
+                                >
+                                    <LogOut size={15} />
+                                    Abmelden
+                                </Link>
+                            </div>
+                        </details>
+                    </div>
+                </header>
+                <main id="main-content" className="app-content" tabIndex="-1">
+                    <div className="content-container">{children}</div>
+                </main>
             </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-          <div className="max-w-[1600px] mx-auto">
-            {children}
-          </div>
         </div>
-      </main>
-    </div>
-  );
+    );
 }

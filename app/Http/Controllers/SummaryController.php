@@ -2,17 +2,46 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\{
-    Employee,
-    DailyTimeSummary,
-    MonthlyTimeSummary,
-    TimeEntry
-};
+use App\Models\DailyTimeSummary;
+use App\Models\Employee;
+use App\Models\TimeEntry;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class SummaryController extends Controller
 {
+    public function monthOverview(Request $request)
+    {
+        $data = $request->validate([
+            'year' => 'required|integer|between:2000,2100',
+            'month' => 'required|integer|between:1,12',
+            'employee_id' => 'nullable|integer|exists:employees,id',
+        ]);
+        $start = Carbon::create($data['year'], $data['month'], 1)->startOfDay();
+        $end = $start->copy()->addMonth();
+        $entries = TimeEntry::with('employee')->where('clock_in', '>=', $start)->where('clock_in', '<', $end)
+            ->whereNotNull('clock_out')->when($data['employee_id'] ?? null, fn ($q, $id) => $q->where('employee_id', $id))
+            ->orderByDesc('clock_in')->get();
+        $rows = $entries->groupBy('employee_id')->map(function ($rows) {
+            return [
+                'employee_id' => $rows->first()->employee_id, 'name' => $rows->first()->employee?->full_name ?? 'Gelöschter Mitarbeiter',
+                'hours' => round($rows->sum('total_hours'), 2), 'break_minutes' => (int) $rows->sum('break_minutes'),
+                'gross_wage' => round($rows->sum('gross_wage'), 2),
+                'working_days' => $rows->map(fn ($row) => $row->clock_in->toDateString())->unique()->count(),
+                'entries_count' => $rows->count(),
+            ];
+        })->sortBy('name')->values();
+
+        return response()->json([
+            'rows' => $rows,
+            'totals' => ['hours' => round($entries->sum('total_hours'), 2), 'break_minutes' => (int) $entries->sum('break_minutes'),
+                'gross_wage' => round($entries->sum('gross_wage'), 2), 'employees' => $rows->count(), 'entries' => $entries->count()],
+            'entries' => $entries->map(fn ($row) => ['id' => $row->id, 'name' => $row->employee?->full_name ?? 'Gelöschter Mitarbeiter',
+                'clock_in' => $row->clock_in->toIso8601String(), 'clock_out' => $row->clock_out->toIso8601String(),
+                'hours' => (float) $row->total_hours, 'break_minutes' => (int) $row->break_minutes]),
+        ]);
+    }
+
     /**
      * Zeigt die tägliche Zusammenfassung eines Mitarbeiters
      * Beispiel: /api/summary/daily/1/2025-10-19
@@ -61,13 +90,13 @@ class SummaryController extends Controller
         $workingDays = [];
 
         foreach ($entries as $entry) {
-            $totalHours += (float)($entry->total_hours ?? 0);
-            $totalBreakMinutes += (float)($entry->break_minutes ?? 0);
-            $totalGrossWage += (float)($entry->gross_wage ?? 0);
-            
+            $totalHours += (float) ($entry->total_hours ?? 0);
+            $totalBreakMinutes += (float) ($entry->break_minutes ?? 0);
+            $totalGrossWage += (float) ($entry->gross_wage ?? 0);
+
             // Zähle eindeutige Arbeitstage
             $day = Carbon::parse($entry->clock_in)->format('Y-m-d');
-            if (!in_array($day, $workingDays)) {
+            if (! in_array($day, $workingDays)) {
                 $workingDays[] = $day;
             }
         }

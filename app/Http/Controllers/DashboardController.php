@@ -2,218 +2,76 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\{Employee, Shift, TimeEntry};
+use App\Models\Employee;
+use App\Models\Shift;
+use App\Models\TimeEntry;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function stats()
+    public function index()
     {
-        $today = Carbon::today();
-        $weekStart = Carbon::now()->startOfWeek();
-        $weekEnd = Carbon::now()->endOfWeek();
-
-        // Aktive Mitarbeiter
-        $activeEmployees = Employee::where('active', true)->count();
-
-        // Heutige offene Einträge (eingestempelt)
-        $presentToday = TimeEntry::whereDate('clock_in', $today)
-            ->whereNull('clock_out')
-            ->distinct('employee_id')
-            ->count('employee_id');
-
-        // Gesamte Arbeitsstunden heute
-        $totalHoursToday = TimeEntry::whereDate('clock_in', $today)
-            ->whereNotNull('clock_out')
-            ->sum('total_hours');
-
-        // Noch offene Stunden (aktuell eingestempelt)
-        $openEntries = TimeEntry::whereDate('clock_in', $today)
-            ->whereNull('clock_out')
-            ->get();
-        
-        foreach ($openEntries as $entry) {
-            $hoursSinceIn = Carbon::parse($entry->clock_in)->diffInMinutes(now()) / 60;
-            $totalHoursToday += $hoursSinceIn;
+        $now = now();
+        $today = $now->toDateString();
+        $open = TimeEntry::with('employee')->whereNull('clock_out')->where('clock_in', '<=', $now)->orderBy('clock_in')->get();
+        $entriesToday = TimeEntry::whereDate('clock_in', $today)->whereNotNull('clock_out')->get();
+        $shifts = Shift::with(['employee', 'department', 'shiftType'])->whereDate('shift_date', $today)->orderBy('start_time')->get();
+        $pending = DB::table('cash_days')->where('status', 'draft')->orderBy('business_date')->first();
+        $cashState = DB::table('cash_register_states')->find(1);
+        $failedDeliveries = DB::table('cash_deliveries')->where('status', 'failed')->count();
+        $alerts = [];
+        $unassigned = $shifts->whereNull('employee_id')->count();
+        if ($unassigned) {
+            $alerts[] = ['title' => 'Dienstplan ergänzen', 'message' => $unassigned.' Schicht(en) heute noch ohne Mitarbeiter.', 'href' => route('timetracking.planner', absolute: false)];
+        }
+        if ($pending) {
+            $alerts[] = ['title' => 'Tagesabschluss offen', 'message' => 'Geschäftstag '.$pending->business_date.' ist noch nicht abgeschlossen.', 'href' => route('cash.days', absolute: false)];
+        }
+        if ($failedDeliveries) {
+            $alerts[] = ['title' => 'Übertragung prüfen', 'message' => $failedDeliveries.' n8n-Übertragung(en) mit Fehlerstatus.', 'href' => route('cash.days', absolute: false)];
+        }
+        $stale = $open->filter(fn ($entry) => $entry->clock_in->lt($now->copy()->subHours(18)))->count();
+        if ($stale) {
+            $alerts[] = ['title' => 'Offene Zeiterfassung prüfen', 'message' => $stale.' Eintrag/Einträge seit mehr als 18 Stunden offen.', 'href' => route('timetracking.manual', absolute: false)];
         }
 
-        // Geplante Schichten diese Woche
-        $scheduledShifts = Shift::whereBetween('shift_date', [$weekStart, $weekEnd])->count();
+        $activities = TimeEntry::with('employee')->orderByDesc('updated_at')->limit(8)->get()->map(fn ($entry) => [
+            'id' => 'time-'.$entry->id, 'name' => $entry->employee?->full_name ?? 'Gelöschter Mitarbeiter',
+            'action' => $entry->clock_out ? 'Zeiteintrag abgeschlossen' : 'Eingestempelt',
+            'at' => $entry->updated_at->toIso8601String(), 'href' => route('timetracking.daily', absolute: false),
+        ]);
+        $cashActivities = DB::table('cash_handovers')->orderByDesc('created_at')->limit(5)->get()->map(function ($row) {
+            $snapshot = json_decode($row->snapshot, true);
 
-        // Überstunden diese Woche (Durchschnitt pro MA)
-        $weeklyEntries = TimeEntry::whereBetween('clock_in', [$weekStart, $weekEnd])
-            ->whereNotNull('clock_out')
-            ->selectRaw('employee_id, SUM(total_hours) as total')
-            ->groupBy('employee_id')
-            ->get();
-        
-        $overtimeTotal = 0;
-        $employeesWithOvertime = 0;
-        foreach ($weeklyEntries as $entry) {
-            $overtime = max(0, $entry->total - 40); // Über 40h = Überstunden
-            if ($overtime > 0) {
-                $overtimeTotal += $overtime;
-                $employeesWithOvertime++;
-            }
-        }
-        $weeklyOvertime = $employeesWithOvertime > 0 ? $overtimeTotal / $employeesWithOvertime : 0;
-
-        // Abwesenheiten heute (geplante Schichten ohne Zeiteinträge)
-        $scheduledToday = Shift::whereDate('shift_date', $today)
-            ->whereNotNull('employee_id')
-            ->pluck('employee_id')
-            ->unique();
-        
-        $presentEmployeeIds = TimeEntry::whereDate('clock_in', $today)
-            ->pluck('employee_id')
-            ->unique();
-        
-        $absentToday = $scheduledToday->diff($presentEmployeeIds)->count();
+            return ['id' => 'handover-'.$row->id, 'name' => $snapshot['label'], 'action' => 'Schichtübergabe bestätigt',
+                'at' => Carbon::parse($row->created_at)->toIso8601String(), 'href' => route('cash.handovers', absolute: false)];
+        });
+        $activities = $activities->concat($cashActivities)->sortByDesc('at')->take(6)->values();
 
         return response()->json([
-            'activeEmployees' => $activeEmployees,
-            'totalHoursToday' => round($totalHoursToday, 1),
-            'scheduledShifts' => $scheduledShifts,
-            'weeklyOvertime' => round($weeklyOvertime, 1),
-            'presentToday' => $presentToday,
-            'absentToday' => $absentToday,
+            'updated_at' => $now->toIso8601String(), 'date' => $today,
+            'stats' => [
+                'clocked_in' => $open->pluck('employee_id')->unique()->count(),
+                'active_employees' => Employee::where('active', true)->count(),
+                'completed_hours_today' => round($entriesToday->sum('total_hours'), 2),
+                'shifts_today' => $shifts->count(), 'unassigned_shifts_today' => $unassigned,
+                'open_cash_days' => DB::table('cash_days')->where('status', 'draft')->count(),
+            ],
+            'attendance' => $open->map(fn ($entry) => [
+                'id' => $entry->id, 'employee_id' => $entry->employee_id,
+                'name' => $entry->employee?->full_name ?? 'Gelöschter Mitarbeiter',
+                'clock_in' => $entry->clock_in->toIso8601String(),
+                'elapsed_minutes' => max(0, (int) round(($now->timestamp - $entry->clock_in->timestamp) / 60)),
+            ]),
+            'shifts' => $shifts->map(fn ($shift) => [
+                'id' => $shift->id, 'name' => $shift->employee?->full_name,
+                'department' => $shift->department?->name, 'type' => $shift->shiftType?->name,
+                'start' => substr($shift->start_time, 0, 5), 'end' => substr($shift->end_time, 0, 5),
+            ]),
+            'cash' => ['balance_cents' => $cashState?->balance_cents, 'last_business_date' => $cashState?->last_business_date,
+                'open_business_date' => $pending?->business_date, 'updated_at' => $cashState?->updated_at],
+            'alerts' => $alerts, 'activities' => $activities,
         ]);
-    }
-
-    public function absences()
-    {
-        $today = Carbon::today();
-        
-        // Mitarbeiter mit geplanten Schichten heute, aber ohne Zeiteinträge
-        $scheduledEmployees = Shift::whereDate('shift_date', $today)
-            ->whereNotNull('employee_id')
-            ->with('employee')
-            ->get()
-            ->pluck('employee')
-            ->unique('id');
-        
-        $presentEmployeeIds = TimeEntry::whereDate('clock_in', $today)
-            ->pluck('employee_id')
-            ->unique();
-        
-        $absences = $scheduledEmployees->filter(function($employee) use ($presentEmployeeIds) {
-            return !$presentEmployeeIds->contains($employee->id);
-        })->map(function($employee) {
-            return [
-                'name' => $employee->first_name . ' ' . $employee->last_name,
-                'reason' => 'Nicht erschienen', // Könnte erweitert werden mit Urlaubsverwaltung
-                'color' => 'error'
-            ];
-        })->values();
-
-        return response()->json($absences);
-    }
-
-    public function alerts()
-    {
-        $tomorrow = Carbon::tomorrow();
-        $weekStart = Carbon::now()->startOfWeek();
-        $weekEnd = Carbon::now()->endOfWeek();
-
-        $alerts = [];
-
-        // Offene Schichten für morgen
-        $openShiftsTomorrow = Shift::whereDate('shift_date', $tomorrow)
-            ->whereNull('employee_id')
-            ->count();
-        
-        if ($openShiftsTomorrow > 0) {
-            $alerts[] = [
-                'type' => 'warning',
-                'title' => 'Offene Schichten',
-                'message' => "$openShiftsTomorrow Schichten für morgen noch nicht besetzt"
-            ];
-        }
-
-        // Mitarbeiter über Überstunden-Limit
-        $weeklyEntries = TimeEntry::whereBetween('clock_in', [$weekStart, $weekEnd])
-            ->whereNotNull('clock_out')
-            ->selectRaw('employee_id, SUM(total_hours) as total')
-            ->groupBy('employee_id')
-            ->having('total', '>', 40)
-            ->count();
-        
-        if ($weeklyEntries > 0) {
-            $alerts[] = [
-                'type' => 'error',
-                'title' => 'Überstunden-Limit',
-                'message' => "$weeklyEntries Mitarbeiter über 40h/Woche"
-            ];
-        }
-
-        // Mitarbeiter über monatlichem Stundenkontingent
-        $monthStart = Carbon::now()->startOfMonth();
-        $monthEnd = Carbon::now()->endOfMonth();
-        
-        $monthlyHours = Shift::whereBetween('shift_date', [$monthStart, $monthEnd])
-            ->selectRaw('employee_id, SUM(planned_hours) as total_hours')
-            ->groupBy('employee_id')
-            ->get()
-            ->keyBy('employee_id');
-        
-        $overloadedCount = Employee::where('active', true)
-            ->whereNotNull('max_monthly_hours')
-            ->get()
-            ->filter(function($emp) use ($monthlyHours) {
-                $planned = $monthlyHours[$emp->id]->total_hours ?? 0;
-                return $planned > $emp->max_monthly_hours;
-            })
-            ->count();
-        
-        if ($overloadedCount > 0) {
-            $alerts[] = [
-                'type' => 'warning',
-                'title' => 'Monatliches Stundenlimit',
-                'message' => "$overloadedCount Mitarbeiter über ihrem monatlichen Limit"
-            ];
-        }
-
-        return response()->json($alerts);
-    }
-
-    public function recentActivity()
-    {
-        $activities = [];
-
-        // Letzte Zeiteinträge
-        $recentEntries = TimeEntry::with('employee')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-        
-        foreach ($recentEntries as $entry) {
-            $activities[] = [
-                'action' => $entry->clock_out ? 'MA ausgestempelt' : 'MA eingestempelt',
-                'time' => $entry->created_at->diffForHumans(),
-                'user' => $entry->employee->first_name . ' ' . $entry->employee->last_name
-            ];
-        }
-
-        // Letzte Schichten
-        $recentShifts = Shift::with('employee')
-            ->orderBy('created_at', 'desc')
-            ->limit(3)
-            ->get();
-        
-        foreach ($recentShifts as $shift) {
-            $activities[] = [
-                'action' => 'Schicht erstellt',
-                'time' => $shift->created_at->diffForHumans(),
-                'user' => $shift->employee ? $shift->employee->first_name . ' ' . $shift->employee->last_name : 'Offen'
-            ];
-        }
-
-        // Sortiere nach Zeit
-        usort($activities, function($a, $b) {
-            return strtotime($a['time']) - strtotime($b['time']);
-        });
-
-        return response()->json(array_slice($activities, 0, 5));
     }
 }
