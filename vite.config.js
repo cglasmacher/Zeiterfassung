@@ -6,10 +6,10 @@ import fs from 'node:fs';
 export default defineConfig({
     server: {
         host: '0.0.0.0',
-        https: {
+        https: fs.existsSync('./certs/zeiterfassung.local-key.pem') && fs.existsSync('./certs/zeiterfassung.local.pem') ? {
             key: fs.readFileSync('./certs/zeiterfassung.local-key.pem'),
             cert: fs.readFileSync('./certs/zeiterfassung.local.pem'),
-        },
+        } : undefined,
         hmr: {
             host: 'zeiterfassung.local',
         },

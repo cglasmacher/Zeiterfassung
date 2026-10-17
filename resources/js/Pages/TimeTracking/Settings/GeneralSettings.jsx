@@ -6,6 +6,7 @@ import axios from 'axios';
 import { Save } from 'lucide-react';
 
 export default function GeneralSettings() {
+  const [floatTarget, setFloatTarget] = useState('250.00');
   const [closedDays, setClosedDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
@@ -28,6 +29,7 @@ export default function GeneralSettings() {
     try {
       const res = await axios.get('/api/settings');
       setClosedDays(res.data.closed_days || []);
+      setFloatTarget(res.data.cash_float_target ?? '250.00');
     } catch (error) {
       console.error('Error loading settings:', error);
       toast.error('Fehler beim Laden der Einstellungen');
@@ -48,6 +50,7 @@ export default function GeneralSettings() {
     try {
       await axios.post('/api/settings', {
         closed_days: closedDays,
+        cash_float_target: floatTarget,
       });
       toast.success('Einstellungen gespeichert');
     } catch (error) {
@@ -71,6 +74,7 @@ export default function GeneralSettings() {
           </p>
         </CardHeader>
         <CardBody>
+          <div className="mb-6"><label className="block text-sm font-medium">Wechselgeld-Sollbestand (€)</label><input type="number" min="0" step="0.01" value={floatTarget} onChange={e => setFloatTarget(e.target.value)} className="rounded border-neutral-300 mt-2" /><p className="text-sm text-neutral-500 mt-2">Gilt für neue Geschäftstage. Tatsächliches Bargeld wird dadurch nicht verändert.</p></div>
           <div className="space-y-3">
             {weekDays.map((day) => (
               <label

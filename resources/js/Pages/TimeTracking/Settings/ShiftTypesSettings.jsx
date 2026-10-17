@@ -20,6 +20,7 @@ export default function ShiftTypesSettings() {
     default_end: '16:00',
     default_break_minutes: 30,
     active: true,
+    print_num: '',
     department_ids: [],
   });
   const [errors, setErrors] = useState({});
@@ -51,10 +52,11 @@ export default function ShiftTypesSettings() {
       setEditingShiftType(shiftType);
       setFormData({
         name: shiftType.name,
-        default_start: shiftType.default_start,
-        default_end: shiftType.default_end,
+        default_start: shiftType.default_start?.slice(0, 5),
+        default_end: shiftType.default_end?.slice(0, 5),
         default_break_minutes: shiftType.default_break_minutes,
         active: shiftType.active,
+        print_num: shiftType.print_num ?? '',
         department_ids: shiftType.departments?.map((d) => d.id) || [],
       });
     } else {
@@ -65,6 +67,7 @@ export default function ShiftTypesSettings() {
         default_end: '16:00',
         default_break_minutes: 30,
         active: true,
+    print_num: '',
         department_ids: [],
       });
     }
@@ -81,6 +84,7 @@ export default function ShiftTypesSettings() {
       default_end: '16:00',
       default_break_minutes: 30,
       active: true,
+    print_num: '',
       department_ids: [],
     });
     setErrors({});
@@ -136,7 +140,7 @@ export default function ShiftTypesSettings() {
     const [endHour, endMin] = end.split(':').map(Number);
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
-    const totalMinutes = endMinutes - startMinutes - breakMinutes;
+    const totalMinutes = ((endMinutes - startMinutes + 1440) % 1440) - breakMinutes;
     return (totalMinutes / 60).toFixed(1);
   };
 
@@ -205,7 +209,7 @@ export default function ShiftTypesSettings() {
                           <Icon className="w-5 h-5 text-primary-600" />
                         </div>
                         <div>
-                          <h4 className="font-semibold text-neutral-900">{shiftType.name}</h4>
+                          <h4 className="font-semibold text-neutral-900">{shiftType.name}</h4><p className="text-xs text-neutral-500">Reihenfolge: {shiftType.print_num ?? "am Ende"}</p>
                           <div className="flex items-center gap-2 mt-1">
                             {shiftType.active ? (
                               <Badge variant="success" className="text-xs">
@@ -329,6 +333,7 @@ export default function ShiftTypesSettings() {
             min="0"
             required
           />
+          <Input type="number" min="0" max="9999" label="Sortierreihenfolge (kleine Zahl zuerst)" value={formData.print_num} onChange={e => setFormData({ ...formData, print_num: e.target.value })} error={errors.print_num?.[0]} />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

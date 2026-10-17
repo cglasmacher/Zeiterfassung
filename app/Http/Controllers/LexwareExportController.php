@@ -18,7 +18,7 @@ class LexwareExportController extends Controller
         ]);
 
         $startDate = Carbon::parse($data['start_date']);
-        $endDate = Carbon::parse($data['end_date']);
+        $endDate = Carbon::parse($data['end_date'])->endOfDay();
         $format = $data['format'];
 
         // Hole nur Aushilfen/Teilzeitlöhner
@@ -182,7 +182,7 @@ class LexwareExportController extends Controller
         ]);
 
         $startDate = Carbon::parse($data['start_date']);
-        $endDate = Carbon::parse($data['end_date']);
+        $endDate = Carbon::parse($data['end_date'])->endOfDay();
 
         // Hole nur Aushilfen
         $employees = Employee::where('employment_type', 'temporary')

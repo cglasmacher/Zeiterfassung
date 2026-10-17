@@ -36,7 +36,7 @@ class ShiftController extends Controller
             return $employee;
         });
 
-        $types = ShiftType::where('active', true)->with('departments')->get();
+        $types = ShiftType::where('active', true)->with('departments')->orderByRaw('print_num IS NULL, print_num ASC, id ASC')->get();
         $departments = \App\Models\Department::all();
 
         // Lade Einstellungen für geschlossene Tage
@@ -172,6 +172,7 @@ class ShiftController extends Controller
     {
         $start = strtotime($startTime);
         $end = strtotime($endTime);
+        if ($end < $start) { $end += 86400; }
         $diff = ($end - $start) / 3600 - ($breakMinutes / 60);
         return max($diff, 0);
     }
@@ -192,7 +193,7 @@ class ShiftController extends Controller
 
         $copiedCount = 0;
         foreach ($sourceShifts as $shift) {
-            $dayOffset = Carbon::parse($shift->shift_date)->diffInDays($sourceStart);
+            $dayOffset = $sourceStart->diffInDays(Carbon::parse($shift->shift_date));
             $newDate = $targetStart->copy()->addDays($dayOffset);
 
             Shift::create([
@@ -312,101 +313,24 @@ class ShiftController extends Controller
 
     public function exportPDF(Request $request)
     {
-        $data = $request->validate([
-            'week_start' => 'required|date',
-        ]);
-
-        $weekStart = Carbon::parse($data['week_start']);
-        $weekEnd = $weekStart->copy()->addDays(6);
-
+        $data = $request->validate(['week_start' => 'required|date']);
+        $weekStart = Carbon::parse($data['week_start'])->startOfDay();
+        $weekEnd = $weekStart->copy()->addDays(6)->endOfDay();
         $shifts = Shift::with(['employee', 'shiftType', 'department'])
             ->whereBetween('shift_date', [$weekStart, $weekEnd])
-            ->orderBy('shift_date')
-            ->orderBy('start_time')
-            ->get();
-
-        $departments = \App\Models\Department::all();
-        $shiftTypes = ShiftType::where('active', true)
-            ->orderByRaw('print_num IS NULL, print_num ASC, id ASC')
-            ->get();
-
-        // Lade Einstellungen für geschlossene Tage
-        $closedDays = \App\Models\Setting::get('closed_days', []);
-        
-        // Filtere Tage basierend auf geschlossenen Tagen
-        $days = array_filter(
-            array_map(fn($i) => $weekStart->copy()->addDays($i), range(0, 6)),
-            fn($day) => !in_array($day->dayOfWeek, $closedDays)
-        );
-        $days = array_values($days); // Re-index
-
-        // Gruppiere Schichten nach Bereich -> Tag -> Schichttyp
-        $shiftsByDepartment = [];
-        
-        // Füge eine "Ohne Bereich" Kategorie hinzu für Schichten ohne department_id
-        $allDepartments = $departments->toArray();
-        array_unshift($allDepartments, (object)['id' => null, 'name' => 'Ohne Bereich']);
-        
-        foreach ($allDepartments as $department) {
-            $deptId = is_object($department) ? $department->id : $department['id'];
-            $deptName = is_object($department) ? $department->name : $department['name'];
-            
-            $shiftsByDepartment[$deptId ?? 'null'] = [
-                'department' => (object)['id' => $deptId, 'name' => $deptName],
-                'grid' => [] // [date][shift_type_id] = [employees]
-            ];
-            
-            foreach ($days as $day) {
-                $dateStr = $day->format('Y-m-d');
-                $shiftsByDepartment[$deptId ?? 'null']['grid'][$dateStr] = [];
-                
-                foreach ($shiftTypes as $shiftType) {
-                    // Finde alle Mitarbeiter für diesen Tag, Bereich und Schichttyp
-                    $dayShifts = $shifts->filter(function($shift) use ($deptId, $day, $shiftType) {
-                        return $shift->department_id === $deptId &&
-                               Carbon::parse($shift->shift_date)->isSameDay($day) &&
-                               $shift->shift_type_id === $shiftType->id;
-                    });
-                    
-                    $employees = $dayShifts->map(function($shift) {
-                        return $shift->employee ? $shift->employee->first_name . ' ' . substr($shift->employee->last_name, 0, 1) . '.' : 'Offen';
-                    })->toArray();
-                    
-                    $shiftsByDepartment[$deptId ?? 'null']['grid'][$dateStr][$shiftType->id] = $employees;
-                }
-            }
-        }
-
-        try {
-            $pdf = Pdf::loadView('exports.shift-plan', [
-                'weekStart' => $weekStart,
-                'weekEnd' => $weekEnd,
-                'shiftsByDepartment' => $shiftsByDepartment,
-                'shiftTypes' => $shiftTypes,
-                'days' => $days,
-            ]);
-            
-            $pdf->setPaper('a4', 'landscape');
-
-            return response($pdf->output(), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'attachment; filename="Dienstplan_' . $weekStart->format('Y-m-d') . '.pdf"',
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('PDF generation error: ' . $e->getMessage());
-            
-            // Fallback: Return HTML if PDF fails
-            $html = view('exports.shift-plan', [
-                'weekStart' => $weekStart,
-                'weekEnd' => $weekEnd,
-                'shiftsByDepartment' => $shiftsByDepartment,
-                'shiftTypes' => $shiftTypes,
-                'days' => $days,
-            ])->render();
-            
-            return response($html)
-                ->header('Content-Type', 'text/html')
-                ->header('Content-Disposition', 'inline');
-        }
+            ->orderBy('shift_date')->orderBy('start_time')->orderBy('id')->get();
+        $closedDays = array_map('intval', \App\Models\Setting::get('closed_days', []));
+        // A closed weekday must not hide an explicitly scheduled shift.
+        $days = collect(range(0, 6))->map(fn ($i) => $weekStart->copy()->addDays($i))
+            ->filter(fn ($day) => !in_array($day->dayOfWeek, $closedDays, true)
+                || $shifts->contains(fn ($shift) => Carbon::parse($shift->shift_date)->isSameDay($day)))->values();
+        $sections = $shifts->groupBy(fn ($shift) => $shift->department_id ?? 'none')->map(function ($rows) {
+            $types = $rows->pluck('shiftType')->filter()->unique('id')->sortBy(fn ($type) => [
+                $type->print_num === null ? 1 : 0, $type->print_num ?? 0, $type->id,
+            ])->values();
+            return ['name' => $rows->first()->department?->name ?? 'Ohne Bereich', 'types' => $types, 'shifts' => $rows];
+        })->sortBy('name');
+        return Pdf::loadView('exports.shift-plan', compact('weekStart', 'weekEnd', 'days', 'sections'))
+            ->setPaper('a4', 'landscape')->download('Dienstplan_'.$weekStart->format('Y-m-d').'.pdf');
     }
 }

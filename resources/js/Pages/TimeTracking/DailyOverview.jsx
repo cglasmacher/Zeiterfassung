@@ -159,6 +159,7 @@ export default function DailyOverview() {
   return (
     <TimeTrackingLayout>
       <div className="space-y-6 animate-fade-in">
+        <div className="p-4 bg-primary-50 rounded-lg text-sm">Diese Übersicht zeigt Zeitstempel. Die neue Kassenabrechnung finden Sie unter <a className="font-semibold underline" href="/timetracking/handovers">Schichtübergabe</a> und <a className="font-semibold underline" href="/timetracking/cash-days">Tagesabschluss</a>. Der bisherige Schichtende-Bericht ist ein separater Zeit-/Lohnbericht.</div>
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>

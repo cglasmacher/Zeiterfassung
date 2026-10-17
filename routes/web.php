@@ -37,3 +37,26 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// Session authentication and CSRF protection also apply to the cash JSON endpoints.
+Route::middleware('auth')->group(function () {
+    Route::get('/timetracking/handovers', fn () => Inertia::render('TimeTracking/Cash/Accounting', ['mode' => 'handover']));
+    Route::get('/timetracking/cash-days', fn () => Inertia::render('TimeTracking/Cash/Accounting', ['mode' => 'day']));
+    Route::prefix('api/cash')->controller(\App\Http\Controllers\CashAccountingController::class)->group(function () {
+        Route::get('/days', 'index');
+        Route::post('/days', 'store');
+        Route::get('/days/{id}', 'show');
+        Route::post('/days/{id}/handovers', 'handover');
+        Route::put('/days/{id}', 'save');
+        Route::post('/days/{id}/finalize', 'finalize');
+        Route::get('/days/{id}/pdf', 'pdf');
+        Route::post('/days/{id}/deliver', 'deliver');
+        Route::post('/vectron/sync', 'vectronSync');
+        Route::get('/vectron/summary', 'vectronSummary');
+    });
+});
+
+Route::middleware('auth')->prefix('api/settings')->group(function () {
+    Route::get('/', [\App\Http\Controllers\SettingsController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\SettingsController::class, 'update']);
+});
