@@ -2,14 +2,9 @@ import { Link } from "@inertiajs/react";
 
 export default function GuestLayout({ children }) {
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-[#f5f6f0]">
+        <div className="min-h-screen flex flex-col items-center justify-center px-5 py-12 bg-accent-50">
             <Link href="/" className="text-center mb-8">
-                <span
-                    className="block text-4xl text-[#29372a]"
-                    style={{ fontFamily: "Georgia, serif" }}
-                >
-                    Hemingway
-                </span>
+                <img src="/brand/hemingway-logo.png?v=20261018" className="guest-brand-logo" alt="Hemingway · Café · Bar · Restaurant" width="180" height="180" />
                 <span className="block mt-3 text-[10px] uppercase tracking-[0.2em] text-primary-700">
                     Team · Planung · Kasse
                 </span>
