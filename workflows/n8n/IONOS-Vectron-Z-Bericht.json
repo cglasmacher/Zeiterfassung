@@ -1,0 +1,209 @@
+{
+  "name": "Hemingway - IONOS Z-Berichte zur Zeiterfassung",
+  "nodes": [
+    {
+      "id": "ce81aced-2365-4d0d-8487-acfbf0817ee3",
+      "name": "IONOS Posteingang",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "downloadAttachments": true,
+        "format": "resolved",
+        "dataPropertyAttachmentsPrefixName": "attachment_",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]",
+          "forceReconnect": 60
+        }
+      }
+    },
+    {
+      "id": "348b1ad0-d8e4-4e8f-89ea-ce4b1b318b13",
+      "name": "Konfiguration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://DEINE-ZEITERFASSUNG-DOMAIN';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle PDFs dieses dedizierten Postfachs.\nconst allowedSender = '';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase()}, binary: item.binary, pairedItem: {item: i}}));"
+      }
+    },
+    {
+      "id": "1cd5ab4e-953f-4b88-b705-3d0233f32912",
+      "name": "PDF-Anhaenge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const result = [];\nfor (const [i, item] of $input.all().entries()) {\n  const from = item.json.from;\n  const sender = (from?.value?.[0]?.address || (typeof from === 'string' ? (from.match(/<([^>]+)>/)?.[1] || from) : '')).trim().toLowerCase();\n  if (item.json.allowed_sender && item.json.allowed_sender !== sender) continue;\n  for (const file of Object.values(item.binary || {})) {\n    if (file.mimeType !== 'application/pdf' && !/\\.pdf$/i.test(file.fileName || '')) continue;\n    result.push({json: {platform_url: item.json.platform_url, message_id: String(item.json.messageId || item.json.headers?.['message-id'] || item.json.uid || '').slice(0, 500)}, binary: {data: file}, pairedItem: {item: i}});\n  }\n}\nreturn result;"
+      }
+    },
+    {
+      "id": "2bbd72ff-7733-47f9-a7dc-3dca31c62788",
+      "name": "PDF-Text lesen",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "data",
+        "options": {
+          "keepSource": "both",
+          "joinPages": true,
+          "maxPages": 0
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "05c9b0c3-75d9-4e95-8ecd-fa1bf0750e8a",
+      "name": "Original und Metadaten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Bei nicht lesbaren/gescannten PDFs wird trotzdem das Original übertragen.\n// Ohne auswertbaren Text bleibt die Tageszuordnung in der Plattform offen.\nconst original = $('PDF-Anhaenge').item;\nreturn {json: {platform_url: original.json.platform_url, message_id: original.json.message_id, extracted_text: typeof $json.text === 'string' ? $json.text.slice(0, 1000000) : ''}, binary: original.binary};"
+      }
+    },
+    {
+      "id": "46a1c350-37dd-42c6-b230-e49fc7d5c86e",
+      "name": "An Zeiterfassung uebergeben",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.platform_url + '/api/integrations/vectron/z-reports' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "extracted_text",
+              "value": "={{ $json.extracted_text }}"
+            },
+            {
+              "name": "message_id",
+              "value": "={{ $json.message_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "e8ac76fa-6498-480a-9605-fd1a74c21b1f",
+      "name": "Einrichtung",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -400
+      ],
+      "parameters": {
+        "width": 900,
+        "height": 300,
+        "content": "## IONOS → Vectron-Z-Bericht → Zeiterfassung\n1. IMAP-Zugang wählen: imap.ionos.de · Port 993 · SSL/TLS · vollständige E-Mail-Adresse als Benutzername.\n2. In „Konfiguration“ die HTTPS-Adresse der Zeiterfassung eintragen. Eigenes Postfach nur für Berichte verwenden.\n3. HTTP Header Auth anlegen: Name `Authorization`, Wert `Bearer DEIN_IMPORT_TOKEN`. Dasselbe Geheimnis in der Plattform als `CASH_Z_REPORT_IMPORT_TOKEN` setzen (mindestens 32 Zeichen).\n4. Erst Plattform aktualisieren + Migration, dann eine echte Z-Bericht-Mail testen und Workflow aktivieren.\n\nPDFs werden privat gespeichert, Dubletten erkannt. Nicht lesbare PDFs erscheinen zur manuellen Tageszuordnung. E-Mail-Eingangsdatum wird NICHT als Geschäftstag verwendet. Umsätze werden nicht automatisch gebucht.\nBei Übertragungsfehlern: fehlgeschlagene Ausführung nach Korrektur erneut ausführen; IMAP markiert die Mail bereits beim Empfang als gelesen."
+      }
+    }
+  ],
+  "connections": {
+    "IONOS Posteingang": {
+      "main": [
+        [
+          {
+            "node": "Konfiguration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Konfiguration": {
+      "main": [
+        [
+          {
+            "node": "PDF-Anhaenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF-Anhaenge": {
+      "main": [
+        [
+          {
+            "node": "PDF-Text lesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF-Text lesen": {
+      "main": [
+        [
+          {
+            "node": "Original und Metadaten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Original und Metadaten": {
+      "main": [
+        [
+          {
+            "node": "An Zeiterfassung uebergeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
