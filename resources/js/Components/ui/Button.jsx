@@ -5,9 +5,9 @@ const variants = {
   secondary: 'btn-secondary',
   outline: 'btn-outline',
   ghost: 'btn-ghost',
-  success: 'btn bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 shadow-md hover:shadow-lg',
-  warning: 'btn bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500 shadow-md hover:shadow-lg',
-  error: 'btn bg-error-500 text-white hover:bg-error-600 focus:ring-error-500 shadow-md hover:shadow-lg',
+  success: 'btn bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 ',
+  warning: 'btn bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500 ',
+  error: 'btn bg-error-500 text-white hover:bg-error-600 focus:ring-error-500 ',
 };
 
 const sizes = {
@@ -25,6 +25,7 @@ export default function Button({
   disabled = false,
   loading = false,
   icon = null,
+  type = 'button',
   ...props 
 }) {
   const variantClass = variants[variant] || variants.primary;
@@ -32,6 +33,7 @@ export default function Button({
   
   return (
     <button
+      type={type}
       className={`${variantClass} ${sizeClass} ${className} ${disabled || loading ? 'opacity-50 cursor-not-allowed' : ''} inline-flex items-center justify-center gap-2`}
       disabled={disabled || loading}
       {...props}

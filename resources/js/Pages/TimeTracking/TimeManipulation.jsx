@@ -274,20 +274,7 @@ export default function TimeManipulation() {
   return (
     <TimeTrackingLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-warning-100 flex items-center justify-center">
-              <Edit3 className="w-6 h-6 text-warning-600" />
-            </div>
-            <div>
-              <h1 className="heading-2">Stundenmanipulation</h1>
-              <p className="text-small mt-1">
-                Zeiteinträge bearbeiten, aufteilen und verwalten
-              </p>
-            </div>
-          </div>
-        </div>
+        <div className="page-heading"><div><p className="eyebrow">Zeiterfassung</p><h1>Zeitkorrekturen</h1><p>Zeiteinträge bearbeiten, aufteilen und verwalten.</p></div></div>
 
         {/* Filters */}
         <Card glass>

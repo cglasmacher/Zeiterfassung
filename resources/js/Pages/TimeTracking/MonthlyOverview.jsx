@@ -1,325 +1,336 @@
-import React, { useEffect, useState } from 'react';
-import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
-import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/Components/ui/Card';
-import Button from '@/Components/ui/Button';
-import Badge from '@/Components/ui/Badge';
-import axios from 'axios';
-import dayjs from 'dayjs';
-import 'dayjs/locale/de';
-import { 
-  Calendar, 
-  Clock, 
-  Coffee,
-  TrendingUp,
-  Download,
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  CalendarDays
-} from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { Link } from "@inertiajs/react";
+import axios from "axios";
+import dayjs from "dayjs";
+import "dayjs/locale/de";
+import { ChevronLeft, ChevronRight, ArrowUpRight } from "lucide-react";
+import TimeTrackingLayout from "@/Layouts/TimeTrackingLayout";
+import Button from "@/Components/ui/Button";
+import {
+    formatHours,
+    formatMoney,
+    formatDate,
+    formatTime,
+} from "@/lib/navigation";
 
-dayjs.locale('de');
-
+dayjs.locale("de");
 export default function MonthlyOverview() {
-  const [year, setYear] = useState(2025);
-  const [month, setMonth] = useState(10);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, [year, month]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get(`/api/summary/monthly/1/${year}/${month}`);
-      setSummary(res.data);
-    } catch (error) {
-      console.error('Error loading monthly summary:', error);
-      setSummary(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const goToPreviousMonth = () => {
-    if (month === 1) {
-      setMonth(12);
-      setYear(year - 1);
-    } else {
-      setMonth(month - 1);
-    }
-  };
-
-  const goToNextMonth = () => {
-    if (month === 12) {
-      setMonth(1);
-      setYear(year + 1);
-    } else {
-      setMonth(month + 1);
-    }
-  };
-
-  const goToCurrentMonth = () => {
-    setYear(dayjs().year());
-    setMonth(dayjs().month() + 1);
-  };
-
-  const isCurrentMonth = year === dayjs().year() && month === dayjs().month() + 1;
-  const monthName = dayjs().month(month - 1).format('MMMM');
-
-  return (
-    <TimeTrackingLayout>
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="heading-2">Monatsübersicht</h1>
-            <p className="text-small mt-1">
-              {monthName} {year}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>
-              PDF Export
-            </Button>
-          </div>
-        </div>
-
-        {/* Month Navigation */}
-        <Card glass>
-          <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={goToPreviousMonth}
-                  icon={<ChevronLeft className="w-4 h-4" />}
-                >
-                  Vorheriger
-                </Button>
-                
-                <Button
-                  variant={isCurrentMonth ? "primary" : "outline"}
-                  size="sm"
-                  onClick={goToCurrentMonth}
-                  icon={<Calendar className="w-4 h-4" />}
-                >
-                  Aktueller Monat
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={goToNextMonth}
-                >
-                  Nächster
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <select 
-                  className="input py-2 text-sm"
-                  value={month}
-                  onChange={(e) => setMonth(parseInt(e.target.value))}
-                >
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {dayjs().month(i).format('MMMM')}
-                    </option>
-                  ))}
-                </select>
-                
-                <input 
-                  type="number" 
-                  className="input py-2 text-sm w-24"
-                  value={year}
-                  onChange={(e) => setYear(parseInt(e.target.value))}
-                />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Summary Stats */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-              <p className="text-neutral-600">Lade Monatsdaten...</p>
-            </div>
-          </div>
-        ) : summary ? (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardBody className="p-6">
-                  <div className="flex items-center justify-between">
+    const [period, setPeriod] = useState(dayjs().format("YYYY-MM"));
+    const [employeeId, setEmployeeId] = useState("");
+    const [employees, setEmployees] = useState([]);
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    useEffect(() => {
+        const controller = new AbortController();
+        axios
+            .get("/api/employees", { signal: controller.signal })
+            .then((res) => setEmployees(res.data))
+            .catch((err) => {
+                if (!axios.isCancel(err))
+                    setError(
+                        "Die Mitarbeiterliste konnte nicht geladen werden.",
+                    );
+            });
+        return () => controller.abort();
+    }, []);
+    useEffect(() => {
+        const controller = new AbortController();
+        setLoading(true);
+        setData(null);
+        setError("");
+        const [year, month] = period.split("-").map(Number);
+        axios
+            .get("/api/summary/monthly", {
+                params: { year, month, employee_id: employeeId || undefined },
+                signal: controller.signal,
+            })
+            .then((res) => setData(res.data))
+            .catch((err) => {
+                if (!axios.isCancel(err))
+                    setError(
+                        "Die Monatsübersicht konnte nicht geladen werden.",
+                    );
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
+    }, [period, employeeId]);
+    return (
+        <TimeTrackingLayout>
+            <div className="space-y-5">
+                <div className="page-heading">
                     <div>
-                      <p className="text-tiny text-neutral-500 mb-1">Gesamtstunden</p>
-                      <p className="text-3xl font-bold text-primary-600">
-                        {summary.total_hours || 0}h
-                      </p>
+                        <p className="eyebrow">Zeiterfassung</p>
+                        <h1>Monatsübersicht</h1>
+                        <p>
+                            {dayjs(`${period}-01`).format("MMMM YYYY")} ·
+                            Abgeschlossene Zeiteinträge
+                        </p>
                     </div>
-                    <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center">
-                      <Clock className="w-7 h-7 text-primary-600" />
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardBody className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-tiny text-neutral-500 mb-1">Pausenzeit</p>
-                      <p className="text-3xl font-bold text-accent-600">
-                        {summary.total_break_minutes || 0} Min
-                      </p>
-                    </div>
-                    <div className="w-14 h-14 rounded-xl bg-accent-100 flex items-center justify-center">
-                      <Coffee className="w-7 h-7 text-accent-600" />
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardBody className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-tiny text-neutral-500 mb-1">Arbeitstage</p>
-                      <p className="text-3xl font-bold text-success-600">
-                        {summary.working_days || 0}
-                      </p>
-                    </div>
-                    <div className="w-14 h-14 rounded-xl bg-success-100 flex items-center justify-center">
-                      <CalendarDays className="w-7 h-7 text-success-600" />
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardBody className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-tiny text-neutral-500 mb-1">Ø Stunden/Tag</p>
-                      <p className="text-3xl font-bold text-secondary-600">
-                        {summary.working_days > 0 
-                          ? (Number(summary.total_hours || 0) / summary.working_days).toFixed(1)
-                          : 0}h
-                      </p>
-                    </div>
-                    <div className="w-14 h-14 rounded-xl bg-secondary-100 flex items-center justify-center">
-                      <TrendingUp className="w-7 h-7 text-secondary-600" />
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-
-            {/* Detailed Summary */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-lg">
-                      {summary.employee?.charAt(0) || 'M'}
-                    </div>
-                    <div>
-                      <CardTitle>{summary.employee}</CardTitle>
-                      <CardDescription>{summary.month_label}</CardDescription>
-                    </div>
-                  </div>
-                  <Badge variant="primary">Monatsbericht</Badge>
+                    <Link
+                        className="text-link"
+                        href={route("timetracking.exports")}
+                    >
+                        Zum Lohnexport
+                        <ArrowUpRight size={14} />
+                    </Link>
                 </div>
-              </CardHeader>
-              <CardBody>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Work Summary */}
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-neutral-900 flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-primary-500" />
-                      Arbeitszeitübersicht
-                    </h4>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                        <span className="text-sm text-neutral-600">Gesamte Arbeitszeit</span>
-                        <span className="font-semibold text-neutral-900">{summary.total_hours}h</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                        <span className="text-sm text-neutral-600">Pausenzeit</span>
-                        <span className="font-semibold text-neutral-900">{summary.total_break_minutes} Min</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                        <span className="text-sm text-neutral-600">Arbeitstage</span>
-                        <span className="font-semibold text-neutral-900">{summary.working_days} Tage</span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg border border-primary-200">
-                        <span className="text-sm font-medium text-primary-900">Durchschnitt/Tag</span>
-                        <span className="font-bold text-primary-600">
-                          {summary.working_days > 0 
-                            ? (Number(summary.total_hours || 0) / summary.working_days).toFixed(1)
-                            : 0}h
-                        </span>
-                      </div>
+                <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Vorheriger Monat"
+                            onClick={() =>
+                                setPeriod(
+                                    dayjs(`${period}-01`)
+                                        .subtract(1, "month")
+                                        .format("YYYY-MM"),
+                                )
+                            }
+                            icon={<ChevronLeft size={16} />}
+                        />
+                        <input
+                            type="month"
+                            min="2000-01"
+                            max="2100-12"
+                            aria-label="Monat auswählen"
+                            value={period}
+                            className="input w-auto"
+                            onChange={(e) => {
+                                if (e.target.value) setPeriod(e.target.value);
+                            }}
+                        />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Nächster Monat"
+                            onClick={() =>
+                                setPeriod(
+                                    dayjs(`${period}-01`)
+                                        .add(1, "month")
+                                        .format("YYYY-MM"),
+                                )
+                            }
+                            icon={<ChevronRight size={16} />}
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPeriod(dayjs().format("YYYY-MM"))}
+                        >
+                            Dieser Monat
+                        </Button>
                     </div>
-                  </div>
-
-                  {/* Additional Info */}
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-neutral-900 flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-success-500" />
-                      Leistungsmetriken
-                    </h4>
-                    
-                    <div className="space-y-3">
-                      <div className="p-4 bg-success-50 rounded-xl border border-success-200">
-                        <p className="text-sm text-success-700 mb-1">Produktivität</p>
-                        <p className="text-2xl font-bold text-success-600">
-                          {summary.total_hours > 0 ? Math.round((summary.total_hours / (summary.working_days * 8)) * 100) : 0}%
-                        </p>
-                      </div>
-                      
-                      <div className="p-4 bg-accent-50 rounded-xl border border-accent-200">
-                        <p className="text-sm text-accent-700 mb-1">Pausenquote</p>
-                        <p className="text-2xl font-bold text-accent-600">
-                          {summary.total_hours > 0 
-                            ? Math.round((summary.total_break_minutes / (summary.total_hours * 60)) * 100)
-                            : 0}%
-                        </p>
-                      </div>
-                      
-                      <div className="p-4 bg-secondary-50 rounded-xl border border-secondary-200">
-                        <p className="text-sm text-secondary-700 mb-1">Anwesenheit</p>
-                        <p className="text-2xl font-bold text-secondary-600">
-                          {summary.working_days} / {dayjs(`${year}-${month}-01`).daysInMonth()} Tage
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                    <select
+                        aria-label="Mitarbeiter filtern"
+                        className="input w-full sm:w-60"
+                        value={employeeId}
+                        onChange={(e) => setEmployeeId(e.target.value)}
+                    >
+                        <option value="">Gesamtes Team</option>
+                        {employees.map((e) => (
+                            <option key={e.id} value={e.id}>
+                                {e.first_name} {e.last_name}
+                                {!e.active ? " (inaktiv)" : ""}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-              </CardBody>
-            </Card>
-          </>
-        ) : (
-          <Card>
-            <CardBody className="p-12 text-center">
-              <Calendar className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
-              <p className="text-neutral-600">Keine Daten für diesen Monat verfügbar</p>
-            </CardBody>
-          </Card>
-        )}
-      </div>
-    </TimeTrackingLayout>
-  );
+                {error && (
+                    <div className="notice notice-error" role="alert">
+                        {error}
+                    </div>
+                )}
+                {loading ? (
+                    <div className="card empty-inline" role="status">
+                        Monatsdaten werden geladen …
+                    </div>
+                ) : (
+                    data && (
+                        <>
+                            <div className="metric-grid">
+                                {[
+                                    [
+                                        "Arbeitsstunden",
+                                        `${formatHours(data.totals.hours)} Std.`,
+                                    ],
+                                    [
+                                        "Mitarbeiter mit Einträgen",
+                                        data.totals.employees,
+                                    ],
+                                    [
+                                        "Abgeschlossene Einträge",
+                                        data.totals.entries,
+                                    ],
+                                    [
+                                        "Berechneter Bruttolohn",
+                                        formatMoney(
+                                            Math.round(
+                                                data.totals.gross_wage * 100,
+                                            ),
+                                        ),
+                                    ],
+                                ].map(([label, value]) => (
+                                    <div className="metric-card" key={label}>
+                                        <div>{label}</div>
+                                        <strong>{value}</strong>
+                                    </div>
+                                ))}
+                            </div>
+                            <section className="card">
+                                <div className="section-heading">
+                                    <h2>Zusammenfassung nach Mitarbeiter</h2>
+                                    <span className="text-xs text-neutral-500">
+                                        {data.rows.length} Mitarbeiter
+                                    </span>
+                                </div>
+                                {data.rows.length ? (
+                                    <div className="overflow-x-auto">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Mitarbeiter</th>
+                                                    <th className="text-right">
+                                                        Arbeitstage
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Einträge
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Pause
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Stunden
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Bruttolohn
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {data.rows.map((row) => (
+                                                    <tr key={row.employee_id}>
+                                                        <td>
+                                                            <button
+                                                                className="font-medium text-primary-800 hover:underline"
+                                                                onClick={() =>
+                                                                    setEmployeeId(
+                                                                        String(
+                                                                            row.employee_id,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                            >
+                                                                {row.name}
+                                                            </button>
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {row.working_days}
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {row.entries_count}
+                                                        </td>
+                                                        <td className="text-right whitespace-nowrap">
+                                                            {row.break_minutes}{" "}
+                                                            Min.
+                                                        </td>
+                                                        <td className="text-right font-medium tabular-nums">
+                                                            {formatHours(
+                                                                row.hours,
+                                                            )}
+                                                        </td>
+                                                        <td className="text-right tabular-nums">
+                                                            {formatMoney(
+                                                                Math.round(
+                                                                    row.gross_wage *
+                                                                        100,
+                                                                ),
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="empty-inline">
+                                        Für diese Auswahl liegen keine
+                                        abgeschlossenen Zeiteinträge vor.
+                                    </div>
+                                )}
+                            </section>
+                            {!!employeeId && data.entries.length > 0 && (
+                                <section className="card">
+                                    <div className="section-heading">
+                                        <h2>Einzelne Zeiteinträge</h2>
+                                        <Link
+                                            className="text-link"
+                                            href={route(
+                                                "timetracking.manipulation",
+                                            )}
+                                        >
+                                            Bearbeiten
+                                            <ArrowUpRight size={14} />
+                                        </Link>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tag</th>
+                                                    <th>Beginn</th>
+                                                    <th>Ende</th>
+                                                    <th className="text-right">
+                                                        Pause
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Stunden
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {data.entries.map((entry) => (
+                                                    <tr key={entry.id}>
+                                                        <td>
+                                                            {formatDate(
+                                                                entry.clock_in,
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {formatTime(
+                                                                entry.clock_in,
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {formatTime(
+                                                                entry.clock_out,
+                                                            )}
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {
+                                                                entry.break_minutes
+                                                            }{" "}
+                                                            Min.
+                                                        </td>
+                                                        <td className="text-right font-medium tabular-nums">
+                                                            {formatHours(
+                                                                entry.hours,
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+                            )}
+                        </>
+                    )
+                )}
+            </div>
+        </TimeTrackingLayout>
+    );
 }

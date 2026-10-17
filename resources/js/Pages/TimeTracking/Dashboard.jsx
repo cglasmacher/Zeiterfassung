@@ -1,361 +1,483 @@
-import React, { useEffect, useState } from 'react';
-import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
-import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '@/Components/ui/Card';
-import Badge from '@/Components/ui/Badge';
-import axios from 'axios';
-import { router } from '@inertiajs/react';
-import { 
-  Users, 
-  Clock, 
-  TrendingUp, 
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  DollarSign,
-  Activity,
-  UserCheck,
-  UserX
-} from 'lucide-react';
+import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "@inertiajs/react";
+import axios from "axios";
+import {
+    ArrowUpRight,
+    ArrowRight,
+    RefreshCw,
+    Clock3,
+    Users,
+    CalendarRange,
+    ReceiptText,
+    Wallet,
+    Check,
+    CircleAlert,
+} from "lucide-react";
+import TimeTrackingLayout from "@/Layouts/TimeTrackingLayout";
+import Button from "@/Components/ui/Button";
+import {
+    formatHours,
+    formatMoney,
+    formatTime,
+    formatDate,
+} from "@/lib/navigation";
 
+function Section({ title, subtitle, action, children, className = "" }) {
+    return (
+        <section className={`card ${className}`}>
+            <div className="section-heading">
+                <div>
+                    <h2>{title}</h2>
+                    {subtitle && <p>{subtitle}</p>}
+                </div>
+                {action}
+            </div>
+            {children}
+        </section>
+    );
+}
+function Empty({ children }) {
+    return <div className="empty-inline">{children}</div>;
+}
 export default function Dashboard() {
-  const [summary, setSummary] = useState(null);
-  const [stats, setStats] = useState({
-    activeEmployees: 0,
-    totalHoursToday: 0,
-    scheduledShifts: 0,
-    weeklyOvertime: 0,
-    presentToday: 0,
-    absentToday: 0,
-  });
-  const [absences, setAbsences] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [statsRes, absencesRes, alertsRes, activityRes] = await Promise.all([
-        axios.get('/api/dashboard/stats'),
-        axios.get('/api/dashboard/absences'),
-        axios.get('/api/dashboard/alerts'),
-        axios.get('/api/dashboard/recent-activity'),
-      ]);
-
-      setStats(statsRes.data);
-      setAbsences(absencesRes.data);
-      setAlerts(alertsRes.data);
-      setRecentActivity(activityRes.data);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend = null }) => (
-    <Card className="overflow-hidden">
-      <CardBody className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-neutral-600 mb-1">{title}</p>
-            <h3 className="text-3xl font-bold text-neutral-900 mb-1">{value}</h3>
-            {subtitle && <p className="text-sm text-neutral-500">{subtitle}</p>}
-            {trend && (
-              <div className={`flex items-center gap-1 mt-2 text-sm ${trend > 0 ? 'text-success-600' : 'text-error-600'}`}>
-                <TrendingUp className={`w-4 h-4 ${trend < 0 ? 'rotate-180' : ''}`} />
-                <span className="font-medium">{Math.abs(trend)}%</span>
-                <span className="text-neutral-500">vs. letzte Woche</span>
-              </div>
-            )}
-          </div>
-          <div className={`p-3 rounded-xl bg-${color}-100`}>
-            <Icon className={`w-6 h-6 text-${color}-600`} />
-          </div>
-        </div>
-      </CardBody>
-    </Card>
-  );
-
-  return (
-    <TimeTrackingLayout>
-      <div className="space-y-6 animate-fade-in">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Anwesend Heute"
-            value={stats.presentToday}
-            subtitle={`von ${stats.activeEmployees} Mitarbeitern`}
-            icon={UserCheck}
-            color="success"
-            trend={8.2}
-          />
-          <StatCard
-            title="Arbeitsstunden Heute"
-            value={`${stats.totalHoursToday}h`}
-            subtitle="Gesamt Team"
-            icon={Clock}
-            color="primary"
-            trend={5.1}
-          />
-          <StatCard
-            title="Geplante Schichten"
-            value={stats.scheduledShifts}
-            subtitle="Diese Woche"
-            icon={Calendar}
-            color="accent"
-          />
-          <StatCard
-            title="Überstunden (Woche)"
-            value={`${stats.weeklyOvertime}h`}
-            subtitle="Durchschnitt pro MA"
-            icon={TrendingUp}
-            color="warning"
-            trend={-3.4}
-          />
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Current Status */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Live Activity */}
-            <Card glass>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Live Aktivität</CardTitle>
-                    <CardDescription>Aktuelle Anwesenheit</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-neutral-600">Live</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardBody>
-                {summary ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-xl">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-lg">
-                          {summary.employee?.charAt(0) || 'M'}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-neutral-900">{summary.employee}</p>
-                          <p className="text-sm text-neutral-500">{summary.date}</p>
-                        </div>
-                      </div>
-                      {summary.open_entry ? (
-                        <Badge variant="success" icon={<CheckCircle className="w-3 h-3" />}>
-                          Eingestempelt
-                        </Badge>
-                      ) : (
-                        <Badge variant="neutral" icon={<XCircle className="w-3 h-3" />}>
-                          Ausgestempelt
-                        </Badge>
-                      )}
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const load = useCallback(async (signal) => {
+        try {
+            const response = await axios.get("/api/dashboard", { signal });
+            setData(response.data);
+            setError("");
+        } catch (err) {
+            if (!axios.isCancel(err))
+                setError("Die Übersicht konnte nicht aktualisiert werden.");
+        } finally {
+            if (!signal?.aborted) setLoading(false);
+        }
+    }, []);
+    useEffect(() => {
+        const controller = new AbortController();
+        load(controller.signal);
+        const timer = setInterval(() => load(controller.signal), 60000);
+        return () => {
+            controller.abort();
+            clearInterval(timer);
+        };
+    }, [load]);
+    const stats = data?.stats;
+    return (
+        <TimeTrackingLayout>
+            <div className="space-y-6">
+                <div className="page-heading">
+                    <div>
+                        <p className="eyebrow">Betriebsübersicht</p>
+                        <h1>Heute im Betrieb</h1>
+                        <p>Team, Dienstplan und Kasse an einem Ort.</p>
                     </div>
-
-                    {summary.open_entry && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-success-50 rounded-xl border border-success-200">
-                          <p className="text-sm text-success-700 font-medium mb-1">Eingestempelt seit</p>
-                          <p className="text-2xl font-bold text-success-900">{summary.open_entry.clock_in}</p>
-                        </div>
-                        <div className="p-4 bg-primary-50 rounded-xl border border-primary-200">
-                          <p className="text-sm text-primary-700 font-medium mb-1">Aktuelle Arbeitszeit</p>
-                          <p className="text-2xl font-bold text-primary-900">
-                            {Number(summary.open_entry.hours_since_in || 0).toFixed(2)} Std
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {summary.daily_summary && (
-                      <div className="p-4 bg-accent-50 rounded-xl border border-accent-200">
-                        <p className="text-sm text-accent-700 font-medium mb-1">Heutige Gesamtstunden</p>
-                        <p className="text-2xl font-bold text-accent-900">
-                          {Number(summary.daily_summary.total_hours || 0).toFixed(2)}h
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Schnellaktionen</CardTitle>
-                <CardDescription>Häufig verwendete Funktionen</CardDescription>
-              </CardHeader>
-              <CardBody>
-                <div className="grid grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => router.visit('/time-tracking/settings')}
-                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
-                  >
-                    <Users className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Mitarbeiter erstellen</p>
-                    <p className="text-sm text-neutral-500 mt-1">Neuen MA anlegen</p>
-                  </button>
-                  
-                  <button 
-                    onClick={() => router.visit('/time-tracking/shift-planner')}
-                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
-                  >
-                    <Calendar className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Schicht planen</p>
-                    <p className="text-sm text-neutral-500 mt-1">Neue Schicht erstellen</p>
-                  </button>
-                  
-                  <button 
-                    onClick={() => router.visit('/time-tracking/daily-overview')}
-                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
-                  >
-                    <Activity className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Tagesübersicht</p>
-                    <p className="text-sm text-neutral-500 mt-1">Heutige Einträge</p>
-                  </button>
-                  
-                  <button 
-                    onClick={() => router.visit('/time-tracking/lexware-export')}
-                    className="p-4 border-2 border-dashed border-neutral-300 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-left group"
-                  >
-                    <DollarSign className="w-8 h-8 text-neutral-400 group-hover:text-primary-500 mb-2" />
-                    <p className="font-semibold text-neutral-900">Lohnexport</p>
-                    <p className="text-sm text-neutral-500 mt-1">Lexware Export</p>
-                  </button>
+                    <div className="page-actions">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={
+                                <RefreshCw
+                                    size={15}
+                                    className={loading ? "animate-spin" : ""}
+                                />
+                            }
+                            onClick={() => {
+                                setLoading(true);
+                                load();
+                            }}
+                            disabled={loading}
+                        >
+                            Aktualisieren
+                        </Button>
+                        <Link
+                            className="btn-primary inline-flex items-center gap-2"
+                            href={route("cash.handovers")}
+                        >
+                            Schichtübergabe
+                            <ArrowUpRight size={16} />
+                        </Link>
+                    </div>
                 </div>
-              </CardBody>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Today's Absences */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserX className="w-5 h-5 text-error-500" />
-                  Abwesenheiten
-                </CardTitle>
-                <CardDescription>Heute nicht anwesend</CardDescription>
-              </CardHeader>
-              <CardBody>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-                  </div>
-                ) : absences.length > 0 ? (
-                  <div className="space-y-3">
-                    {absences.map((absence, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-400 flex items-center justify-center text-white text-sm font-semibold">
-                          {absence.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-neutral-900">{absence.name}</p>
-                          <p className="text-xs text-neutral-500">{absence.reason}</p>
-                        </div>
-                      </div>
-                      <Badge variant={absence.color} className="text-xs">
-                        {absence.reason}
-                      </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-neutral-500 text-center py-4">Keine Abwesenheiten heute</p>
+                {error && (
+                    <div className="notice notice-error" role="alert">
+                        {error}
+                        {data &&
+                            " Die zuletzt geladenen Daten bleiben sichtbar."}
+                    </div>
                 )}
-              </CardBody>
-            </Card>
-
-            {/* Alerts */}
-            <Card className="border-l-4 border-warning-500">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-warning-500" />
-                  Hinweise
-                </CardTitle>
-              </CardHeader>
-              <CardBody>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-                  </div>
-                ) : alerts.length > 0 ? (
-                  <div className="space-y-3">
-                    {alerts.map((alert, i) => (
-                      <div 
-                        key={i} 
-                        className={`p-3 rounded-lg border ${
-                          alert.type === 'error' 
-                            ? 'bg-error-50 border-error-200' 
-                            : 'bg-warning-50 border-warning-200'
-                        }`}
-                      >
-                        <p className={`text-sm font-medium ${
-                          alert.type === 'error' ? 'text-error-900' : 'text-warning-900'
-                        }`}>
-                          {alert.title}
-                        </p>
-                        <p className={`text-xs mt-1 ${
-                          alert.type === 'error' ? 'text-error-700' : 'text-warning-700'
-                        }`}>
-                          {alert.message}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                {!data && loading ? (
+                    <div
+                        className="card p-12 text-center text-sm text-neutral-600"
+                        role="status"
+                    >
+                        Betriebsdaten werden geladen …
+                    </div>
                 ) : (
-                  <p className="text-sm text-neutral-500 text-center py-4">Keine Hinweise</p>
+                    data && (
+                        <>
+                            <div className="metric-grid">
+                                {[
+                                    [
+                                        "Eingestempelt",
+                                        stats.clocked_in,
+                                        `${stats.active_employees} ${stats.active_employees === 1 ? "aktiver Mitarbeiter" : "aktive Mitarbeiter"}`,
+                                        Users,
+                                    ],
+                                    [
+                                        "Stunden heute",
+                                        formatHours(
+                                            stats.completed_hours_today,
+                                        ),
+                                        "Abgeschlossene Einträge mit Beginn heute",
+                                        Clock3,
+                                    ],
+                                    [
+                                        "Schichten heute",
+                                        stats.shifts_today,
+                                        stats.unassigned_shifts_today
+                                            ? `${stats.unassigned_shifts_today} noch unbesetzt`
+                                            : "Dienstplan für heute",
+                                        CalendarRange,
+                                    ],
+                                    [
+                                        "Offene Abschlüsse",
+                                        stats.open_cash_days,
+                                        "Noch nicht freigegebene Geschäftstage",
+                                        ReceiptText,
+                                    ],
+                                ].map(([label, value, caption, Icon]) => (
+                                    <div className="metric-card" key={label}>
+                                        <div className="flex justify-between items-center">
+                                            <span>{label}</span>
+                                            <Icon size={17} strokeWidth={1.6} />
+                                        </div>
+                                        <strong>{value}</strong>
+                                        <p>{caption}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="dashboard-columns">
+                                <div className="space-y-5">
+                                    <Section
+                                        title="Aktuell eingestempelt"
+                                        subtitle="Offene Zeiteinträge, auch vom Vortag"
+                                        action={
+                                            <Link
+                                                className="text-link"
+                                                href={route(
+                                                    "timetracking.manual",
+                                                )}
+                                            >
+                                                Zeiten erfassen
+                                                <ArrowUpRight size={14} />
+                                            </Link>
+                                        }
+                                    >
+                                        {data.attendance.length ? (
+                                            <div className="divide-y divide-neutral-100">
+                                                {data.attendance.map(
+                                                    (person) => (
+                                                        <div
+                                                            className="person-row"
+                                                            key={person.id}
+                                                        >
+                                                            <span className="person-avatar">
+                                                                {person.name
+                                                                    .split(" ")
+                                                                    .map(
+                                                                        (p) =>
+                                                                            p[0],
+                                                                    )
+                                                                    .slice(0, 2)
+                                                                    .join("")}
+                                                            </span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-medium truncate">
+                                                                    {
+                                                                        person.name
+                                                                    }
+                                                                </p>
+                                                                <p className="text-xs text-neutral-600 mt-1">
+                                                                    Seit{" "}
+                                                                    {formatTime(
+                                                                        person.clock_in,
+                                                                    )}{" "}
+                                                                    Uhr
+                                                                    {formatDate(
+                                                                        person.clock_in,
+                                                                    ) !==
+                                                                    formatDate(
+                                                                        data.updated_at,
+                                                                    )
+                                                                        ? ` · ${formatDate(person.clock_in)}`
+                                                                        : ""}
+                                                                </p>
+                                                            </div>
+                                                            <span className="status-pill">
+                                                                <span />
+                                                                Eingestempelt
+                                                            </span>
+                                                            <span className="tabular-nums text-sm text-neutral-700 w-20 text-right">
+                                                                {Math.floor(
+                                                                    person.elapsed_minutes /
+                                                                        60,
+                                                                )}
+                                                                :
+                                                                {String(
+                                                                    person.elapsed_minutes %
+                                                                        60,
+                                                                ).padStart(
+                                                                    2,
+                                                                    "0",
+                                                                )}{" "}
+                                                                Std.
+                                                            </span>
+                                                        </div>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <Empty>
+                                                Zurzeit ist niemand
+                                                eingestempelt.
+                                            </Empty>
+                                        )}
+                                    </Section>
+                                    <Section
+                                        title="Dienstplan heute"
+                                        action={
+                                            <Link
+                                                className="text-link"
+                                                href={route(
+                                                    "timetracking.planner",
+                                                )}
+                                            >
+                                                Wochenplan
+                                                <ArrowUpRight size={14} />
+                                            </Link>
+                                        }
+                                    >
+                                        {data.shifts.length ? (
+                                            <div className="overflow-x-auto">
+                                                <table className="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Mitarbeiter</th>
+                                                            <th>Bereich</th>
+                                                            <th>Schicht</th>
+                                                            <th className="text-right">
+                                                                Zeit
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {data.shifts.map(
+                                                            (shift) => (
+                                                                <tr
+                                                                    key={
+                                                                        shift.id
+                                                                    }
+                                                                >
+                                                                    <td>
+                                                                        <span
+                                                                            className={
+                                                                                shift.name
+                                                                                    ? "font-medium"
+                                                                                    : "text-amber-700"
+                                                                            }
+                                                                        >
+                                                                            {shift.name ||
+                                                                                "Noch unbesetzt"}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td>
+                                                                        {shift.department ||
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td>
+                                                                        {shift.type ||
+                                                                            "—"}
+                                                                    </td>
+                                                                    <td className="text-right whitespace-nowrap tabular-nums">
+                                                                        {
+                                                                            shift.start
+                                                                        }
+                                                                        –
+                                                                        {
+                                                                            shift.end
+                                                                        }
+                                                                    </td>
+                                                                </tr>
+                                                            ),
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <Empty>
+                                                Für heute sind keine Schichten
+                                                geplant.
+                                                <Link
+                                                    href={route(
+                                                        "timetracking.planner",
+                                                    )}
+                                                    className="text-link mt-3"
+                                                >
+                                                    Dienstplan öffnen
+                                                    <ArrowRight size={14} />
+                                                </Link>
+                                            </Empty>
+                                        )}
+                                    </Section>
+                                </div>
+                                <div className="space-y-5">
+                                    <section className="cash-status-card">
+                                        <div className="flex items-center justify-between">
+                                            <span className="eyebrow">
+                                                Gemeinsame Kasse
+                                            </span>
+                                            <Wallet
+                                                size={19}
+                                                strokeWidth={1.5}
+                                            />
+                                        </div>
+                                        <p className="cash-status-label">
+                                            Zuletzt bestätigter Bestand
+                                        </p>
+                                        <strong>
+                                            {data.cash.balance_cents === null
+                                                ? "Noch nicht erfasst"
+                                                : formatMoney(
+                                                      data.cash.balance_cents,
+                                                  )}
+                                        </strong>
+                                        <p className="text-sm">
+                                            {data.cash.open_business_date
+                                                ? `Offener Geschäftstag: ${formatDate(data.cash.open_business_date)}`
+                                                : data.cash.last_business_date
+                                                  ? `Letzter Abschluss: ${formatDate(data.cash.last_business_date)}`
+                                                  : "Ersten Geschäftstag eröffnen und Bargeld zählen."}
+                                        </p>
+                                        <Link href={route("cash.days")}>
+                                            Zum Tagesabschluss
+                                            <ArrowUpRight size={16} />
+                                        </Link>
+                                    </section>
+                                    <Section title="Zu erledigen">
+                                        {data.alerts.length ? (
+                                            <div className="px-5 divide-y divide-neutral-100">
+                                                {data.alerts.map((alert, i) => (
+                                                    <Link
+                                                        href={alert.href}
+                                                        className="task-row"
+                                                        key={i}
+                                                    >
+                                                        <CircleAlert
+                                                            size={16}
+                                                            className="text-amber-600 shrink-0 mt-0.5"
+                                                        />
+                                                        <div>
+                                                            <p className="font-medium text-sm">
+                                                                {alert.title}
+                                                            </p>
+                                                            <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                                                                {alert.message}
+                                                            </p>
+                                                        </div>
+                                                        <ChevronArrow />
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <Empty>
+                                                <Check
+                                                    size={18}
+                                                    className="text-primary-600 mb-2"
+                                                />
+                                                Zurzeit keine offenen Hinweise.
+                                            </Empty>
+                                        )}
+                                    </Section>
+                                    <Section title="Zuletzt bearbeitet">
+                                        {data.activities.length ? (
+                                            <div className="px-5 divide-y divide-neutral-100">
+                                                {data.activities.map(
+                                                    (activity) => (
+                                                        <Link
+                                                            href={activity.href}
+                                                            className="activity-row"
+                                                            key={activity.id}
+                                                        >
+                                                            <span className="activity-dot" />
+                                                            <div>
+                                                                <p className="text-sm font-medium">
+                                                                    {
+                                                                        activity.name
+                                                                    }
+                                                                </p>
+                                                                <p className="text-xs text-neutral-600 mt-1">
+                                                                    {
+                                                                        activity.action
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <time className="text-xs text-neutral-500 ml-auto whitespace-nowrap">
+                                                                {formatDate(
+                                                                    activity.at,
+                                                                ) ===
+                                                                formatDate(
+                                                                    data.updated_at,
+                                                                )
+                                                                    ? formatTime(
+                                                                          activity.at,
+                                                                      )
+                                                                    : formatDate(
+                                                                          activity.at,
+                                                                      )}
+                                                            </time>
+                                                        </Link>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <Empty>
+                                                Noch keine Aktivitäten
+                                                vorhanden.
+                                            </Empty>
+                                        )}
+                                    </Section>
+                                </div>
+                            </div>
+                            <p className="text-xs text-neutral-500">
+                                Stand {formatTime(data.updated_at)} Uhr ·
+                                Aktualisierung jede Minute
+                            </p>
+                            {stats.active_employees === 0 && (
+                                <div className="notice">
+                                    Noch kein aktives Team hinterlegt.
+                                    <Link
+                                        className="text-link ml-2"
+                                        href={route("timetracking.settings", {
+                                            tab: "employees",
+                                        })}
+                                    >
+                                        Mitarbeiter anlegen
+                                        <ArrowRight size={14} />
+                                    </Link>
+                                </div>
+                            )}
+                        </>
+                    )
                 )}
-              </CardBody>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Letzte Aktivitäten</CardTitle>
-              </CardHeader>
-              <CardBody>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-                  </div>
-                ) : recentActivity.length > 0 ? (
-                  <div className="space-y-3">
-                    {recentActivity.map((activity, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-neutral-900">{activity.action}</p>
-                        <p className="text-xs text-neutral-500">{activity.user} • {activity.time}</p>
-                      </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-neutral-500 text-center py-4">Keine Aktivitäten</p>
-                )}
-              </CardBody>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </TimeTrackingLayout>
-  );
+            </div>
+        </TimeTrackingLayout>
+    );
+}
+function ChevronArrow() {
+    return (
+        <ArrowUpRight size={14} className="ml-auto text-neutral-400 shrink-0" />
+    );
 }

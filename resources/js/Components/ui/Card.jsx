@@ -1,11 +1,11 @@
 import React from 'react';
 
-export function Card({ children, className = '', glass = false, hover = true }) {
+export function Card({ children, className = '', glass = false, hover = false }) {
   const baseClasses = glass 
     ? 'glass-card' 
     : 'card';
   
-  const hoverClasses = hover ? 'hover:shadow-xl' : '';
+  const hoverClasses = hover ? 'hover:border-neutral-300' : '';
   
   return (
     <div className={`${baseClasses} ${hoverClasses} ${className}`}>

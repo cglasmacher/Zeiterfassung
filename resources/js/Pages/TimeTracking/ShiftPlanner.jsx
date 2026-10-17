@@ -11,7 +11,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/de';
 import isBetween from 'dayjs/plugin/isBetween';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
-import ShiftGridMUI from "./components/ShiftGridMUI";
+
 import ShiftCell from "./components/ShiftCell";
 import ShiftModal from "./components/ShiftModal";
 import { 
@@ -62,7 +62,7 @@ export default function ShiftPlanner() {
           end: weekStart.add(6, "day").format("YYYY-MM-DD"),
         },
       });
-      console.log('API Response:', res.data);
+
       setData(res.data);
       setClosedDays(res.data.closed_days || []);
       
@@ -410,18 +410,6 @@ export default function ShiftPlanner() {
       s.shift_type_id === shiftTypeId && s.shift_date === dateStr
     );
   };
-
-  // Debug: Log data to console
-  useEffect(() => {
-    if (data) {
-      console.log('ShiftPlanner Data:', {
-        employees: data.employees?.length || 0,
-        shifts: data.shifts?.length || 0,
-        shift_types: data.shift_types?.length || 0,
-        departments: data.departments?.length || 0,
-      });
-    }
-  }, [data]);
 
   return (
     <TimeTrackingLayout>
@@ -855,7 +843,7 @@ export default function ShiftPlanner() {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => window.location.href = '/timetracking/settings'}
+                    onClick={() => window.location.href = route('timetracking.settings')}
                   >
                     Zu den Einstellungen
                   </Button>
@@ -983,7 +971,7 @@ export default function ShiftPlanner() {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => window.location.href = '/timetracking/settings'}
+                    onClick={() => window.location.href = route('timetracking.settings')}
                   >
                     Zu den Einstellungen
                   </Button>
