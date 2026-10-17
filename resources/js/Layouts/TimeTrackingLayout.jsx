@@ -22,6 +22,8 @@ export default function TimeTrackingLayout({ children }) {
 
   const links = [
     { href: '/timetracking', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/timetracking/handovers', label: 'Schichtübergabe', icon: Users },
+    { href: '/timetracking/cash-days', label: 'Tagesabschluss', icon: CalendarDays },
     { href: '/timetracking/daily', label: 'Tagesübersicht', icon: Calendar },
     { href: '/timetracking/monthly', label: 'Monatsübersicht', icon: CalendarDays },
     { href: '/timetracking/planner', label: 'Dienstplan', icon: Clock },
@@ -68,7 +70,7 @@ export default function TimeTrackingLayout({ children }) {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
           {links.map(link => {
             const Icon = link.icon;
-            const isActive = url.startsWith(link.href);
+            const isActive = (url === link.href || (link.href !== '/timetracking' && url.startsWith(link.href + '/')));
             
             return (
               <Link
@@ -131,7 +133,7 @@ export default function TimeTrackingLayout({ children }) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-neutral-900">
-                {links.find(l => url.startsWith(l.href))?.label || 'Dashboard'}
+                {links.find(l => url === l.href || (l.href !== '/timetracking' && url.startsWith(l.href + '/')))?.label || 'Dashboard'}
               </h2>
               <p className="text-sm text-neutral-500 mt-0.5">
                 {new Date().toLocaleDateString('de-DE', { 

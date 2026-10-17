@@ -1,152 +1,22 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dienstplan {{ $weekStart->format('d.m.Y') }} - {{ $weekEnd->format('d.m.Y') }}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            font-size: 12px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #333;
-        }
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        .header p {
-            font-size: 14px;
-            color: #666;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f5f5f5;
-            font-weight: bold;
-            text-align: center;
-        }
-        .employee-name {
-            font-weight: bold;
-            min-width: 150px;
-        }
-        .day-cell {
-            min-width: 100px;
-            vertical-align: top;
-        }
-        .shift {
-            background-color: #e3f2fd;
-            padding: 4px;
-            margin: 2px 0;
-            border-radius: 3px;
-            font-size: 10px;
-        }
-        .shift-time {
-            font-weight: bold;
-            color: #1976d2;
-        }
-        .shift-type {
-            color: #666;
-            font-size: 9px;
-        }
-        .weekend {
-            background-color: #fff9e6;
-        }
-        .today {
-            background-color: #e8f5e9;
-        }
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #ddd;
-            text-align: center;
-            color: #666;
-            font-size: 10px;
-        }
-        @media print {
-            body {
-                padding: 10px;
-            }
-            .no-print {
-                display: none;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Dienstplan</h1>
-        <p>{{ $weekStart->format('d.m.Y') }} - {{ $weekEnd->format('d.m.Y') }}</p>
-        <p>KW {{ $weekStart->week() }}</p>
-    </div>
-
-    @foreach($shiftsByDepartment as $deptData)
-        @if(!empty(array_filter($deptData['grid'], fn($day) => !empty(array_filter($day)))))
-            <div style="page-break-after: always;">
-                <h2 style="margin-bottom: 15px; color: #333; border-bottom: 2px solid #333; padding-bottom: 10px;">
-                    {{ $deptData['department']->name }}
-                </h2>
-                
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="min-width: 120px;">Wochentag</th>
-                            @foreach($shiftTypes as $shiftType)
-                                <th class="day-cell">{{ $shiftType->name }}</th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($days as $day)
-                            <tr>
-                                <td class="employee-name {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
-                                    <strong>{{ $day->locale('de')->isoFormat('dddd') }}</strong><br>
-                                    <small>{{ $day->format('d.m.Y') }}</small>
-                                </td>
-                                @foreach($shiftTypes as $shiftType)
-                                    @php
-                                        $employees = $deptData['grid'][$day->format('Y-m-d')][$shiftType->id] ?? [];
-                                    @endphp
-                                    <td class="day-cell {{ $day->isWeekend() ? 'weekend' : '' }} {{ $day->isToday() ? 'today' : '' }}">
-                                        @if(!empty($employees))
-                                            @foreach($employees as $employee)
-                                                <div class="shift">{{ $employee }}</div>
-                                            @endforeach
-                                        @else
-                                            <span style="color: #ccc;">-</span>
-                                        @endif
-                                    </td>
-                                @endforeach
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
-    @endforeach
-
-    <div class="footer">
-        <p>Erstellt am {{ now()->format('d.m.Y H:i') }} Uhr</p>
-        <p>Hemingway Zeiterfassung</p>
-    </div>
-
-</body>
-</html>
+<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><style>
+@page { margin: 12mm; } body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #172741; }
+h1 { font-size: 21px; margin-bottom: 3px; } h2 { font-size: 14px; } .section { page-break-before: always; } .section.first { page-break-before: auto; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #cbd2dd; padding: 6px; vertical-align: top; overflow-wrap: break-word; } th { background: #172741; color: white; } .day { width: 100px; } tr { page-break-inside: avoid; } thead { display: table-header-group; } .shift { padding: 3px 0; } .time { color: #555; font-size: 9px; } .footer { color: #666; font-size: 8px; margin-top: 12px; }
+</style></head><body>
+@if($sections->isEmpty())<h1>Hemingway · Dienstplan</h1><p>Keine Schichten für diesen Zeitraum geplant.</p>@endif
+@foreach($sections as $section)
+{{-- Limit the number of columns per page; a large set of shift types remains legible. --}}
+@foreach($section['types']->chunk(6) as $types)
+<div class="section {{ $loop->parent->first && $loop->first ? 'first' : '' }}">
+<h1>Hemingway · Dienstplan</h1><p>{{ $weekStart->format('d.m.Y') }} bis {{ $weekEnd->format('d.m.Y') }} · KW {{ $weekStart->isoWeek() }}</p>
+<h2>{{ $section['name'] }} @if($section['types']->count() > 6) · Teil {{ $loop->iteration }}@endif</h2>
+<table><thead><tr><th class="day">Tag</th>@foreach($types as $type)<th>{{ $type->name }}<br><small>{{ substr($type->default_start, 0, 5) }} - {{ substr($type->default_end, 0, 5) }}</small></th>@endforeach</tr></thead><tbody>
+@foreach($days as $day)<tr><td><strong>{{ $day->locale('de')->isoFormat('dddd') }}</strong><br>{{ $day->format('d.m.') }}</td>
+@foreach($types as $type)<td>
+@forelse($section['shifts']->filter(fn($shift) => $shift->shift_type_id == $type->id && \Carbon\Carbon::parse($shift->shift_date)->isSameDay($day)) as $shift)
+<div class="shift"><strong>{{ $shift->employee ? $shift->employee->full_name : 'Offen' }}</strong><br><span class="time">{{ substr($shift->start_time, 0, 5) }} - {{ substr($shift->end_time, 0, 5) }}</span></div>
+@empty<span>-</span>@endforelse
+</td>@endforeach</tr>@endforeach
+</tbody></table><p class="footer">Erstellt {{ now()->format('d.m.Y H:i') }} · Tatsächlich geplante Zeiten je Mitarbeiter</p>
+</div>@endforeach @endforeach
+</body></html>

@@ -35,6 +35,7 @@ class ShiftType extends Model
     {
         $start = strtotime($this->default_start);
         $end = strtotime($this->default_end);
+        if ($end < $start) { $end += 86400; }
         $diff = ($end - $start) / 3600 - ($this->default_break_minutes / 60);
         return max($diff, 0);
     }

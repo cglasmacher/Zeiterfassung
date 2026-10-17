@@ -87,11 +87,6 @@ Route::prefix('daily-overview')->group(function () {
     Route::get('/force-fix/{id}', [DailyOverviewController::class, 'forceFix']);
 });
 
-Route::prefix('settings')->group(function () {
-    Route::get('/', [SettingsController::class, 'index']);
-    Route::post('/', [SettingsController::class, 'update']);
-});
-
 Route::prefix('dashboard')->group(function () {
     Route::get('/stats', [DashboardController::class, 'stats']);
     Route::get('/absences', [DashboardController::class, 'absences']);

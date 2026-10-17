@@ -9,7 +9,7 @@ class ShiftTypeController extends Controller
 {
     public function index()
     {
-        $shiftTypes = ShiftType::with('departments')->orderBy('name')->get();
+        $shiftTypes = ShiftType::with('departments')->orderByRaw('print_num IS NULL, print_num ASC, id ASC')->get();
         return response()->json($shiftTypes);
     }
 
@@ -21,6 +21,7 @@ class ShiftTypeController extends Controller
             'default_end' => 'required|date_format:H:i',
             'default_break_minutes' => 'required|numeric|min:0',
             'active' => 'boolean',
+            'print_num' => 'nullable|integer|min:0|max:9999',
             'department_ids' => 'nullable|array',
             'department_ids.*' => 'exists:departments,id',
         ]);
@@ -47,6 +48,7 @@ class ShiftTypeController extends Controller
             'default_end' => 'required|date_format:H:i',
             'default_break_minutes' => 'required|numeric|min:0',
             'active' => 'boolean',
+            'print_num' => 'nullable|integer|min:0|max:9999',
             'department_ids' => 'nullable|array',
             'department_ids.*' => 'exists:departments,id',
         ]);
