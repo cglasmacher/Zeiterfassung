@@ -9,6 +9,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class OverviewTest extends TestCase
@@ -89,7 +90,12 @@ class OverviewTest extends TestCase
         $this->get('/timetracking/daily')->assertRedirect('/team/zeiten');
         $this->get('/timetracking/cash-days')->assertRedirect('/kasse/tagesabschluss');
         $this->get('/time-tracking/shift-planner')->assertRedirect('/dienstplan');
-        $this->get('/dashboard')->assertOk();
+        $this->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('TimeTracking/Dashboard')
+            ->where('initialData.stats.clocked_in', 0)
+            ->has('initialData.attendance', 0)
+            ->has('initialData.cash'));
+        $this->get('/login')->assertRedirect('/dashboard');
         $this->get('/einstellungen?tab=employees')->assertOk();
         $this->get('/einstellungen?tab=missing')->assertNotFound();
     }

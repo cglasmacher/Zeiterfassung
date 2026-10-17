@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -28,6 +29,8 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+        $this->get('/dashboard')->assertInertia(fn (Assert $page) => $page
+            ->component('TimeTracking/Dashboard')->has('initialData.stats'));
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
