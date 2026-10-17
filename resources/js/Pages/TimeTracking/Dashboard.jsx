@@ -39,13 +39,13 @@ function Section({ title, subtitle, action, children, className = "" }) {
 function Empty({ children }) {
     return <div className="empty-inline">{children}</div>;
 }
-export default function Dashboard() {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
+export default function Dashboard({ initialData }) {
+    const [data, setData] = useState(initialData);
+    const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState("");
     const load = useCallback(async (signal) => {
         try {
-            const response = await axios.get("/api/dashboard", { signal });
+            const response = await axios.get(route("dashboard.data", {}, false), { signal, timeout: 15000 });
             setData(response.data);
             setError("");
         } catch (err) {
@@ -57,13 +57,13 @@ export default function Dashboard() {
     }, []);
     useEffect(() => {
         const controller = new AbortController();
-        load(controller.signal);
+        if (!initialData) load(controller.signal);
         const timer = setInterval(() => load(controller.signal), 60000);
         return () => {
             controller.abort();
             clearInterval(timer);
         };
-    }, [load]);
+    }, [load, initialData]);
     const stats = data?.stats;
     return (
         <TimeTrackingLayout>

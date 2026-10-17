@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -8,7 +9,7 @@ use Inertia\Inertia;
 Route::get('/', fn (Request $request) => redirect()->route($request->user() ? 'dashboard' : 'login'))->name('home');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', fn () => Inertia::render('TimeTracking/Dashboard'))->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');
 
     Route::prefix('team')->group(function () {
         Route::get('/zeiten', fn () => Inertia::render('TimeTracking/DailyOverview'))->name('timetracking.daily');

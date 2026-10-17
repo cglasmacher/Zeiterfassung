@@ -7,10 +7,24 @@ use App\Models\Shift;
 use App\Models\TimeEntry;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function show(): Response
+    {
+        return Inertia::render('TimeTracking/Dashboard', [
+            'initialData' => $this->snapshot(),
+        ]);
+    }
+
     public function index()
+    {
+        return response()->json($this->snapshot());
+    }
+
+    private function snapshot(): array
     {
         $now = now();
         $today = $now->toDateString();
@@ -49,7 +63,7 @@ class DashboardController extends Controller
         });
         $activities = $activities->concat($cashActivities)->sortByDesc('at')->take(6)->values();
 
-        return response()->json([
+        return [
             'updated_at' => $now->toIso8601String(), 'date' => $today,
             'stats' => [
                 'clocked_in' => $open->pluck('employee_id')->unique()->count(),
@@ -72,6 +86,6 @@ class DashboardController extends Controller
             'cash' => ['balance_cents' => $cashState?->balance_cents, 'last_business_date' => $cashState?->last_business_date,
                 'open_business_date' => $pending?->business_date, 'updated_at' => $cashState?->updated_at],
             'alerts' => $alerts, 'activities' => $activities,
-        ]);
+        ];
     }
 }

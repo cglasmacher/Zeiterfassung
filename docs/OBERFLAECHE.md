@@ -23,7 +23,7 @@ Browser-APIs sind in `routes/admin-api.php` zusammengefasst und werden unter `/a
 
 ## Echte Betriebsdaten
 
-Das Dashboard lädt eine gemeinsame Momentaufnahme über `GET /api/dashboard` und aktualisiert sie einmal pro Minute. Es zeigt:
+Das Dashboard erhält die erste Momentaufnahme direkt als Inertia-Seitendaten. `GET /api/dashboard` aktualisiert sie einmal pro Minute; ein gescheiterter Abruf lässt die bisherigen Daten sichtbar. Es zeigt:
 
 - tatsächlich offene Zeiteinträge mit Beginn in der Vergangenheit, einschließlich laufender Dienste vom Vortag;
 - gespeicherte Stunden abgeschlossener Zeiteinträge mit Beginn am heutigen Tag, ohne geschätzte Stunden oder fiktive Trends;
@@ -57,3 +57,30 @@ php artisan optimize:clear
 ```
 
 Backend-Prüfung mit `php vendor/bin/phpunit`. Die zusätzlichen Tests prüfen leere echte Daten, laufende Nachtschichten, zukünftige Dienste, Mitarbeiter-/Monatsfilter, historischen Monatsletzten, geschützte Verwaltungsrouten und Weiterleitungen.
+
+
+## Wenn nach dem Pull noch die Starteransicht erscheint
+
+Ein `npm run build` ändert weder PHP-Routen noch einen bestehenden Routen-Cache.
+Nach Abruf und **Bereitstellung** von `main` in Plesk im tatsächlich ausgelieferten
+Projektordner ausführen:
+
+```sh
+php artisan optimize:clear
+bash scripts/deploy.sh
+```
+
+Die Routine baut das Frontend, führt ausstehende Migrationen aus, erneuert Routen-
+und Ansichten-Cache und prüft das Ergebnis. Vor dem Deployment Datenbank sichern
+und PHP-Abhängigkeiten wie gewohnt mit `composer install --no-dev --prefer-dist
+--optimize-autoloader` installieren. Für eine bestimmte Plesk-PHP-Version z. B.
+`PHP_BIN=/opt/plesk/php/8.3/bin/php bash scripts/deploy.sh` verwenden.
+Die Routine lädt keinen Git-Stand herunter; Plesk muss ihn vorher bereitstellen.
+
+Separat prüfen: `php artisan app:check-deployment`. Die Ausgabe nennt Projektpfad,
+Dokumentenstamm und den geladenen Dashboard-Controller. Dokumentenstamm in Plesk
+muss auf **dieses** `public` zeigen. Bei korrekter lokaler Prüfung und weiterhin alter
+Website PHP-FPM in Plesk neu starten (OPcache) und die Seite neu laden. Eine
+vorhandene `public/hot` auf dem Produktionsserver entfernen, sofern dort kein
+Vite-Entwicklungsserver gewollt ist. `/login` leitet angemeldete Benutzer gewollt
+auf `/dashboard`; abgemeldet zeigt es die Anmeldeseite.

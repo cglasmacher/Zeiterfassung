@@ -82,7 +82,7 @@ Route::prefix('daily-overview')->group(function () {
 
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index']);
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.data');
 Route::get('/summary/monthly', [SummaryController::class, 'monthOverview']);
 
 Route::prefix('settings')->group(function () {
