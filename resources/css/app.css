@@ -616,3 +616,220 @@
         @apply bg-accent-600;
     }
 }
+
+/* Direct access to the two distinct cash workflows. */
+.mobile-taskbar {
+    display: none;
+}
+.cash-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.cash-shortcuts a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    background: #edf1e5;
+    border: 1px solid #dce4ce;
+    border-radius: 12px;
+    color: #37492d;
+}
+.cash-shortcuts a:hover {
+    background: #e4ebd9;
+}
+.cash-shortcuts a > svg {
+    flex-shrink: 0;
+}
+.cash-shortcuts a > svg:last-child {
+    margin-left: auto;
+}
+.cash-shortcuts strong, .cash-shortcuts span {
+    display: block;
+}
+.cash-shortcuts strong {
+    font-size: 15px;
+}
+.cash-shortcuts span {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #5b6953;
+}
+.cash-section-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px;
+    background: #e9ede3;
+    border-radius: 10px;
+}
+.cash-section-tabs a {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    color: #526147;
+    font-weight: 500;
+    border-radius: 7px;
+}
+.cash-section-tabs a[aria-current="page"] {
+    background: white;
+    color: #344729;
+    box-shadow: 0 1px 3px #24312015;
+}
+.cash-accounting input, .cash-accounting select {
+    min-width: 0;
+    max-width: 100%;
+}
+.cash-accounting label {
+    min-width: 0;
+}
+@media (max-width: 1023px) {
+    .app-content {
+        padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    }
+    .mobile-taskbar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: #fff;
+        border-top: 1px solid #dce3d5;
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+        box-shadow: 0 -3px 20px #24312008;
+    }
+    .mobile-taskbar a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        min-height: 58px;
+        border-radius: 9px;
+        padding: 6px 2px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #626e5d;
+    }
+    .mobile-taskbar a span {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        line-height: 1.25;
+    }
+    .mobile-taskbar a.active {
+        background: #edf2e4;
+        color: #3f552e;
+    }
+    .mobile-menu-button {
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #3f4e38;
+    }
+    .nav-close {
+        min-height: 44px;
+        min-width: 44px;
+        justify-content: center;
+        align-items: center;
+    }
+    .app-sidebar, .nav-compact .app-sidebar {
+        width: min(310px, calc(100vw - 28px));
+    }
+    .sidebar-navigation .nav-link {
+        min-height: 44px;
+        font-size: 14px;
+    }
+    .app-content input[type="number"], .app-content input[type="text"], .app-content input[type="date"], .app-content input[type="time"], .app-content input[type="datetime-local"], .app-content select, .app-content textarea {
+        font-size: 16px;
+        min-height: 44px;
+    }
+    .app-content .btn {
+        min-height: 44px;
+        white-space: normal;
+    }
+}
+@media (max-width: 639px) {
+    .app-content {
+        padding-top: 18px;
+    }
+    .app-topbar {
+        gap: 6px;
+        padding: 0 10px;
+    }
+    .app-topbar > div:first-child {
+        gap: 6px;
+    }
+    .breadcrumb {
+        min-width: 0;
+        white-space: normal;
+        font-size: 12px;
+    }
+    .breadcrumb strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .page-heading {
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .page-heading > div:first-child {
+        width: 100%;
+    }
+    .page-actions {
+        width: 100%;
+    }
+    .cash-shortcuts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+    .cash-shortcuts a {
+        padding: 15px;
+        gap: 12px;
+    }
+    .cash-shortcuts strong {
+        font-size: 14px;
+    }
+    .cash-shortcuts span {
+        font-size: 11px;
+    }
+    .cash-accounting > .card {
+        padding: 16px;
+    }
+    .cash-accounting .btn {
+        width: 100%;
+    }
+    .cash-section-tabs a {
+        font-size: 12px;
+        padding: 11px 6px;
+    }
+    .section-heading {
+        flex-wrap: wrap;
+    }
+    .metric-card > div {
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .metric-card > div svg {
+        flex-shrink: 0;
+    }
+    .metric-card {
+        padding: 13px;
+    }
+    .person-row {
+        gap: 8px;
+        padding: 14px;
+    }
+    .person-row > span:last-child {
+        width: auto;
+        min-width: 55px;
+        font-size: 12px;
+    }
+}

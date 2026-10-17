@@ -19,6 +19,13 @@ export const navigation = [
         ],
     },
     {
+        label: "Kasse & Abrechnung",
+        items: [
+            { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
+            { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+        ],
+    },
+    {
         label: "Team & Planung",
         items: [
             {
@@ -46,13 +53,6 @@ export const navigation = [
                 label: "Zeitkorrekturen",
                 icon: FilePenLine,
             },
-        ],
-    },
-    {
-        label: "Kasse",
-        items: [
-            { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
-            { route: "cash.days", label: "Tagesabschluss", icon: ReceiptText },
         ],
     },
     {
@@ -103,3 +103,11 @@ export const formatDate = (value) =>
         month: "2-digit",
         year: "numeric",
     });
+
+// Frequent tasks remain directly accessible on phones and tablets.
+export const mobileNavigation = [
+    { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
+    { route: "timetracking.planner", label: "Dienstplan", icon: CalendarRange },
+    { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
+    { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+];
