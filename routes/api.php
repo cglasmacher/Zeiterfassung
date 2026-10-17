@@ -8,3 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/clock-in', [TimeEntryController::class, 'clockIn']);
 Route::post('/clock-out', [TimeEntryController::class, 'clockOut']);
 Route::get('/summary/current', [SummaryController::class, 'current']);
+
+// Dedicated read-only-document ingestion; unrelated to employee clock endpoints.
+Route::post('/integrations/vectron/z-reports', [\App\Http\Controllers\ZReportController::class, 'store'])
+    ->middleware([\App\Http\Middleware\AuthenticateZReportImport::class, 'throttle:30,1']);

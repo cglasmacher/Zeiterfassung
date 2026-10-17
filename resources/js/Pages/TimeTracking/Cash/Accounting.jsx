@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import { Link, router } from "@inertiajs/react";
 import TimeTrackingLayout from "@/Layouts/TimeTrackingLayout";
 import Button from "@/Components/ui/Button";
+import ZReportInbox from "./ZReportInbox";
 
 const euro = (cents) =>
     ((cents || 0) / 100).toLocaleString("de-DE", {
@@ -336,6 +337,7 @@ export default function Accounting({ mode }) {
                         {message}
                     </div>
                 )}
+                <ZReportInbox businessDate={day?.business_date || date} />
                 <Panel title="Geschäftstag">
                     <div className="cash-day-picker grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-end gap-3">
                         <label className="text-sm">

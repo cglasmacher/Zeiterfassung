@@ -102,3 +102,9 @@ Route::prefix('cash')->controller(\App\Http\Controllers\CashAccountingController
     Route::post('/vectron/sync', 'vectronSync');
     Route::get('/vectron/summary', 'vectronSummary');
 });
+
+Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{id}/pdf', 'pdf')->whereNumber('id')->name('cash.z-reports.pdf');
+    Route::patch('/{id}/assignment', 'assign')->whereNumber('id');
+});
