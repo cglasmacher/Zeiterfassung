@@ -84,3 +84,23 @@ Website PHP-FPM in Plesk neu starten (OPcache) und die Seite neu laden. Eine
 vorhandene `public/hot` auf dem Produktionsserver entfernen, sofern dort kein
 Vite-Entwicklungsserver gewollt ist. `/login` leitet angemeldete Benutzer gewollt
 auf `/dashboard`; abgemeldet zeigt es die Anmeldeseite.
+
+
+## Mobile Navigation
+
+Auf Smartphone und Tablet (bis 1023 px) bleibt eine Leiste mit **Übersicht**,
+**Dienstplan**, **Schichtübergabe** und **Abrechnung** am unteren Bildschirmrand
+sichtbar. Der aktive Bereich ist hervorgehoben. Weitere Seiten stehen über die
+beschriftete **Menü**-Schaltfläche oben links bereit. Die Inhalte haben Abstand
+zur unteren Leiste einschließlich des Geräte-Sicherheitsbereichs.
+
+Die Gruppe **Kasse & Abrechnung** steht im Hauptmenü vor Team & Planung. Das
+Dashboard bietet zwei eigene Einstiegskarten. In der Kasse sind Schichtübergabe
+und Abrechnung zusätzlich direkt als Reiter erreichbar. **Abrechnung** bezeichnet
+hier den Tagesabschluss; der Lohnexport bleibt ein eigener Bereich.
+Ungespeicherte Kasseneingaben lösen beim Seitenwechsel eine Rückfrage aus.
+
+Mobile Kassenformulare verwenden einspaltige Felder, größere Eingaben (16 px,
+damit iOS beim Fokussieren nicht automatisch vergrößert), mindestens 44 px hohe
+Bedienelemente und volle Schaltflächenbreite. Die fachliche Berechnung bleibt
+unverändert.

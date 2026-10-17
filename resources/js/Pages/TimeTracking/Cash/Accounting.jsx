@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import dayjs from "dayjs";
+import { Link, router } from "@inertiajs/react";
 import TimeTrackingLayout from "@/Layouts/TimeTrackingLayout";
 import Button from "@/Components/ui/Button";
 
@@ -105,6 +106,21 @@ export default function Accounting({ mode }) {
     const [bi, setBi] = useState(null);
     const [dirty, setDirty] = useState(false);
     const isHandover = mode === "handover";
+    useEffect(() => {
+        if (!dirty) return;
+        const unsubscribe = router.on("before", () =>
+            window.confirm("Ungespeicherte Eingaben verwerfen und die Seite wechseln?"),
+        );
+        const warnBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", warnBeforeUnload);
+        return () => {
+            unsubscribe();
+            window.removeEventListener("beforeunload", warnBeforeUnload);
+        };
+    }, [dirty]);
     const loadIndex = async () => {
         const { data } = await axios.get("/api/cash/days");
         setIndex(data);
@@ -285,15 +301,25 @@ export default function Accounting({ mode }) {
         });
     return (
         <TimeTrackingLayout>
-            <div className="space-y-5">
+            <div className="cash-accounting space-y-5">
                 <div>
                     <h1 className="heading-2">
-                        {isHandover ? "Schichtübergabe" : "Tagesabschluss"}
+                        {isHandover ? "Schichtübergabe" : "Abrechnung"}
                     </h1>
                     <p className="text-neutral-600 mt-2">
-                        Gemeinsamer Bargeldbestand und bestätigte Auszahlungen
+                        {isHandover
+                            ? "X-Berichte, Auszahlungen und Umschlag erfassen."
+                            : "Tagesabschluss prüfen, speichern und freigeben."}
                     </p>
                 </div>
+                <nav className="cash-section-tabs" aria-label="Kassenbereich">
+                    <Link href={route("cash.handovers")} aria-current={isHandover ? "page" : undefined}>
+                        Schichtübergabe
+                    </Link>
+                    <Link href={route("cash.days")} aria-current={!isHandover ? "page" : undefined}>
+                        Abrechnung · Tagesabschluss
+                    </Link>
+                </nav>
                 {error && (
                     <div
                         role="alert"
@@ -311,11 +337,11 @@ export default function Accounting({ mode }) {
                     </div>
                 )}
                 <Panel title="Geschäftstag">
-                    <div className="flex flex-wrap items-end gap-3">
+                    <div className="cash-day-picker grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 items-end gap-3">
                         <label className="text-sm">
                             Vorhandener Tag
                             <select
-                                className="block rounded-lg border-neutral-300"
+                                className="block w-full rounded-lg border-neutral-300"
                                 value={selected}
                                 disabled={busy}
                                 onChange={(e) =>

@@ -92,15 +92,21 @@ export default function Dashboard({ initialData }) {
                         >
                             Aktualisieren
                         </Button>
-                        <Link
-                            className="btn-primary inline-flex items-center gap-2"
-                            href={route("cash.handovers")}
-                        >
-                            Schichtübergabe
-                            <ArrowUpRight size={16} />
-                        </Link>
+
                     </div>
                 </div>
+                <nav className="cash-shortcuts" aria-label="Kasse und Abrechnung">
+                    <Link href={route("cash.handovers")}>
+                        <Wallet size={22} />
+                        <div><strong>Schichtübergabe</strong><span>X-Bericht, Auszahlungen & Umschlag</span></div>
+                        <ArrowUpRight size={18} />
+                    </Link>
+                    <Link href={route("cash.days")}>
+                        <ReceiptText size={22} />
+                        <div><strong>Abrechnung</strong><span>Tagesabschluss prüfen & freigeben</span></div>
+                        <ArrowUpRight size={18} />
+                    </Link>
+                </nav>
                 {error && (
                     <div className="notice notice-error" role="alert">
                         {error}

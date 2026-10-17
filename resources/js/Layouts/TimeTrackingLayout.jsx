@@ -10,7 +10,7 @@ import {
     UserRound,
     ChevronDown,
 } from "lucide-react";
-import { navigation, currentNavigation } from "@/lib/navigation";
+import { navigation, mobileNavigation, currentNavigation } from "@/lib/navigation";
 
 export default function TimeTrackingLayout({ children }) {
     const { url, props } = usePage();
@@ -70,6 +70,7 @@ export default function TimeTrackingLayout({ children }) {
                 />
             )}
             <aside
+                id="main-navigation"
                 className={`app-sidebar ${mobileOpen ? "mobile-open" : ""}`}
                 aria-label="Hauptnavigation"
             >
@@ -160,12 +161,14 @@ export default function TimeTrackingLayout({ children }) {
                 <header className="app-topbar">
                     <div className="flex items-center gap-3 min-w-0">
                         <button
-                            className="mobile-only icon-button"
+                            className="mobile-only mobile-menu-button"
                             aria-label="Navigation öffnen"
                             aria-expanded={mobileOpen}
+                            aria-controls="main-navigation"
                             onClick={() => setMobileOpen(true)}
                         >
                             <Menu size={20} />
+                            <span>Menü</span>
                         </button>
                         <div className="breadcrumb">
                             <span>{current.group}</span>
@@ -215,6 +218,17 @@ export default function TimeTrackingLayout({ children }) {
                     <div className="content-container">{children}</div>
                 </main>
             </div>
+            <nav className="mobile-taskbar" aria-label="Schnellnavigation">
+                {mobileNavigation.map(({ route: routeName, label, icon: Icon }) => (
+                    <Link key={routeName} href={route(routeName)}
+                        className={current.route === routeName ? "active" : ""}
+                        aria-current={current.route === routeName ? "page" : undefined}
+                        onClick={() => setMobileOpen(false)}>
+                        <Icon size={21} strokeWidth={1.8} />
+                        <span>{label}</span>
+                    </Link>
+                ))}
+            </nav>
         </div>
     );
 }
