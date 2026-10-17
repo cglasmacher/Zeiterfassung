@@ -6,7 +6,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { ToastProvider } from '@/Components/ui/Toast';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Hemingway';
+const appName = 'Hemingway';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -25,6 +25,6 @@ createInertiaApp({
         );
     },
     progress: {
-        color: '#60713e',
+        color: '#8cae76',
     },
 });

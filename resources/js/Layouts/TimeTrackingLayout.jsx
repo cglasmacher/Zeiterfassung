@@ -80,10 +80,9 @@ export default function TimeTrackingLayout({ children }) {
                         className="brand-link"
                         aria-label="Hemingway Übersicht"
                     >
-                        <span className="brand-monogram">h.</span>
+                        <img className="brand-logo" src="/brand/hemingway-logo.png?v=20261018" alt="Hemingway · Café · Bar · Restaurant" width="132" height="132" />
                         <span className="brand-copy">
-                            <strong>Hemingway</strong>
-                            <span>Betriebsübersicht</span>
+                            <span>Team · Planung · Kasse</span>
                         </span>
                     </Link>
                     <button
