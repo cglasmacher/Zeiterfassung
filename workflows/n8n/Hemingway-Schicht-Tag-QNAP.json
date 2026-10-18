@@ -1,0 +1,267 @@
+{
+  "name": "Hemingway - Schicht und Tag PDFs zur QNAP",
+  "nodes": [
+    {
+      "id": "9d0bbcd3-96f4-444d-b54c-9b06985e488f",
+      "name": "Alle zwei Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2de334e5-104b-4f21-94a4-b2675a47b51d",
+      "name": "Konfiguration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Plattform-HTTPS-Adresse eintragen. Der SFTP-Pfad ist in QNAP File Station Buchhaltung/Kassendoku.\nconst platformUrl = 'https://DEINE-ZEITERFASSUNG-DOMAIN';\nconst qnapBasePath = '/share/Buchhaltung/Kassendoku';\nreturn [{json: {platform_url: platformUrl.replace(/\\/$/, ''), qnap_base_path: qnapBasePath.replace(/\\/+$/, '')}}];"
+      }
+    },
+    {
+      "id": "03dae63d-8d57-4fde-90a6-cbf157c8b44c",
+      "name": "Offene PDFs abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.platform_url + '/api/integrations/cash-documents' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "2c5c1e98-2893-4fca-8405-7e2b943a405e",
+      "name": "Dokumente aufteilen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const config = $('Konfiguration').first().json;\nconst docs = $json.documents;\nif (!Array.isArray(docs)) throw new Error('Keine gültige Dokumentenliste von der Plattform erhalten.');\nreturn docs.map(doc => {\n  if (!/^(handover|day)-[1-9]\\d*$/.test(doc.document_key || '')) throw new Error('Ungültiger Dokumentenschlüssel.');\n  if (!/^\\d{4}\\/\\d{2}\\/\\d{4}\\.\\d{2}\\.\\d{2}-(Schicht(?:-\\d{2,})?|Tag)\\.pdf$/.test(doc.relative_path || '')) throw new Error('Ungültiger Archivpfad.');\n  const [kind, id] = doc.document_key.split('-');\n  if (doc.download_path !== `/api/integrations/cash-documents/${kind}/${id}/pdf` || doc.ack_path !== `/api/integrations/cash-documents/${kind}/${id}/ack`) throw new Error('Ungültiger Dokumenten-Endpunkt.');\n  if (!config.qnap_base_path.startsWith('/') || config.qnap_base_path.split('/').includes('..')) throw new Error('Vollständigen QNAP-Basispfad konfigurieren.');\n  return {json: {...doc, ...config, qnap_path: `${config.qnap_base_path}/${doc.relative_path}`}, pairedItem: {item: 0}};\n});"
+      }
+    },
+    {
+      "id": "f8d6e86d-212a-4f31-839c-878d4b9773b6",
+      "name": "PDF herunterladen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.platform_url + $json.download_path }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "bc850d0d-4882-4588-a99c-d03d66283e35",
+      "name": "PDF und Ablagepfad",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const doc = $('Dokumente aufteilen').item.json;\nif (!$binary?.data) throw new Error('PDF-Download fehlt im Binärfeld data.');\nreturn {json: {...doc}, binary: {data: $binary.data}};"
+      }
+    },
+    {
+      "id": "ab5841c2-c589-46dd-a244-7848084e1ae4",
+      "name": "Auf QNAP ablegen",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "upload",
+        "path": "={{ $json.qnap_path }}",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notesInFlow": true,
+      "notes": "SFTP-Zugang auswählen: vpn.hemingway-hilden.de · Port 4322"
+    },
+    {
+      "id": "a351a512-5837-4ba7-967c-bc3c351633b0",
+      "name": "Ablage bestaetigen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.platform_url + $json.ack_path }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { remote_path: $json.qnap_path } }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "1a6ee84a-0ffc-4895-be0a-882d83446860",
+      "name": "Einrichtung",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -420
+      ],
+      "parameters": {
+        "width": 1200,
+        "height": 340,
+        "content": "## Bestätigte Schichtübergaben und Tagesabschlüsse → QNAP\n1. Plattform aktualisieren und Migration ausführen. In .env `CASH_DOCUMENT_EXPORT_TOKEN` mit mindestens 32 Zeichen setzen; config:clear.\n2. In „Konfiguration“ eure Plattformadresse und den tatsächlichen SFTP-Basispfad eintragen. Standard: `/share/Buchhaltung/Kassendoku`.\n3. In ALLEN drei HTTP-Knoten dasselbe HTTP Header Auth auswählen: Name `Authorization`, Wert `Bearer DEIN_EXPORT_TOKEN`.\n4. Im SFTP-Knoten Zugang für `vpn.hemingway-hilden.de`, Port `4322`, auswählen. Mit List zuerst `/share/Buchhaltung` prüfen.\n5. Test ausführen und PDFs auf QNAP prüfen. Danach Workflow aktivieren/veröffentlichen. Dieser Zeitplan läuft ZUSÄTZLICH zum IONOS-Z-Bericht-Mailworkflow.\n\nDateien: `JJJJ/MM/JJJJ.MM.TT-Schicht.pdf` und `JJJJ/MM/JJJJ.MM.TT-Tag.pdf`. Weitere Schichten: `-Schicht-02.pdf`, `-Schicht-03.pdf` usw. Bereits bestätigte historische Vorgänge werden beim ersten Lauf ebenfalls nachgeholt (bis zu 10 Schichten und 10 Tage je Lauf).\nErst nach erfolgreichem SFTP-Upload wird der Eingang bestätigt. Fehler bleiben offen und werden bei späteren Läufen erneut versucht. Stabile Namen vermeiden zusätzliche Kopien bei Wiederholungen. Ein abgebrochener Upload kann vorübergehend eine unvollständige Datei hinterlassen.\nDer Export liest gespeicherte Vorgänge und verändert keine Abrechnungsbeträge, Gutscheine oder Buchungsübergaben."
+      }
+    }
+  ],
+  "connections": {
+    "Alle zwei Minuten": {
+      "main": [
+        [
+          {
+            "node": "Konfiguration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Konfiguration": {
+      "main": [
+        [
+          {
+            "node": "Offene PDFs abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Offene PDFs abrufen": {
+      "main": [
+        [
+          {
+            "node": "Dokumente aufteilen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dokumente aufteilen": {
+      "main": [
+        [
+          {
+            "node": "PDF herunterladen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF herunterladen": {
+      "main": [
+        [
+          {
+            "node": "PDF und Ablagepfad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF und Ablagepfad": {
+      "main": [
+        [
+          {
+            "node": "Auf QNAP ablegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auf QNAP ablegen": {
+      "main": [
+        [
+          {
+            "node": "Ablage bestaetigen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}

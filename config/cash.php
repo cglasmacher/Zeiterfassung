@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'archive' => ['export_token' => env('CASH_DOCUMENT_EXPORT_TOKEN')],
     'z_reports' => [
         'import_token' => env('CASH_Z_REPORT_IMPORT_TOKEN'),
         'business_day_starts_at' => env('CASH_BUSINESS_DAY_START_HOUR', 6),
