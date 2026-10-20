@@ -19,11 +19,11 @@ class CashCalculator
         return ((int) $whole * 100 + (int) str_pad($fraction, 2, '0')) * ($negative ? -1 : 1);
     }
 
-    public static function calculate(int $opening, int $cashDue, array $movements, array $workers, int $counted, int $envelope, int $target): array
+    public static function calculate(int $opening, int $cashDue, array $movements, array $workers, int $counted, int $envelope, int $target, int $voucherRedemptions = 0): array
     {
         $expenses = array_sum(array_column($movements, 'amount_cents'));
         $paid = array_sum(array_map(fn ($worker) => $worker['paid_cash'] ? $worker['amount_cents'] : 0, $workers));
-        $expected = $opening + $cashDue - $expenses - $paid;
+        $expected = $opening + $cashDue - $voucherRedemptions - $expenses - $paid;
         if ($counted < 0 || $envelope < 0 || $envelope > $counted) {
             throw ValidationException::withMessages(['envelope' => 'Umschlagbetrag darf den gezählten Bestand nicht übersteigen.']);
         }
@@ -31,6 +31,7 @@ class CashCalculator
 
         return [
             'opening_cents' => $opening, 'cash_due_cents' => $cashDue,
+            'voucher_redemptions_cents' => $voucherRedemptions,
             'movements_cents' => $expenses, 'paid_cents' => $paid,
             'expected_cents' => $expected, 'counted_cents' => $counted,
             'difference_cents' => $counted - $expected, 'envelope_cents' => $envelope,

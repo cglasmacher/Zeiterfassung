@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Setting;
 use App\Services\Cash\CashCalculator as Money;
 use App\Services\Cash\VectronClient;
+use App\Services\Cash\VoucherLedger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -44,6 +45,8 @@ class CashAccountingController extends Controller
             'day' => $this->decode($day),
             'handovers' => DB::table('cash_handovers')->where('cash_day_id', $id)->orderBy('id')->get()->map(fn ($row) => $this->decode($row)),
             'delivery' => DB::table('cash_deliveries')->where('cash_day_id', $id)->first(['event_id', 'status', 'attempts', 'last_error', 'delivered_at']),
+            'voucher_redemptions' => $day->status === 'draft' ? app(VoucherLedger::class)->pendingRedemptions($id) : [],
+            'pending_voucher_sales' => DB::table('cash_voucher_batches')->where('cash_day_id', $id)->where('amount_cents', '>', 0)->whereNull('registered_at')->count(),
         ]);
     }
 
@@ -154,14 +157,19 @@ class CashAccountingController extends Controller
                 return $report;
             }, $data['reports']);
             $opening = DB::table('cash_register_states')->where('id', 1)->value('balance_cents');
+            $ledger = app(VoucherLedger::class);
+            $redemptions = $ledger->pendingRedemptions($id);
             $calculation = Money::calculate($opening, array_sum(array_column($reports, 'cash_due_cents')),
-                $entries['movements'], $entries['workers'], Money::cents($data['counted']), Money::cents($data['envelope']), $day->float_target_cents);
+                $entries['movements'], $entries['workers'], Money::cents($data['counted']), Money::cents($data['envelope']), $day->float_target_cents,
+                array_sum(array_column($redemptions, 'amount_cents')));
             $this->requireDifferenceNote($calculation, $data['note'] ?? '');
-            DB::table('cash_handovers')->insertGetId([
+            $handoverId = DB::table('cash_handovers')->insertGetId([
                 'cash_day_id' => $id, 'request_id' => $data['request_id'],
-                'snapshot' => json_encode([...$entries, 'label' => $data['label'], 'reports' => $reports, 'calculation' => $calculation, 'note' => $data['note'] ?? '']),
+                'snapshot' => json_encode([...$entries, 'label' => $data['label'], 'reports' => $reports, 'voucher_redemptions' => $redemptions, 'calculation' => $calculation, 'note' => $data['note'] ?? '']),
                 'created_by' => $request->user()->id, 'created_at' => now(), 'updated_at' => now(),
             ]);
+            DB::table('cash_voucher_redemptions')->whereIn('id', array_column($redemptions, 'id'))->update(['handover_id' => $handoverId, 'updated_at' => now()]);
+            $ledger->recordHandoverSales($id, $handoverId, $reports);
             DB::table('cash_register_states')->where('id', 1)->update(['balance_cents' => $calculation['remaining_cents'], 'updated_at' => now()]);
             DB::table('cash_days')->where('id', $id)->update(['revision' => $day->revision + 1, 'updated_at' => now()]);
         });
@@ -211,6 +219,7 @@ class CashAccountingController extends Controller
                 'closing' => json_encode(['counted_cents' => Money::cents($data['counted']), 'envelope_cents' => Money::cents($data['envelope']), 'note' => $data['note'] ?? '']),
                 'revision' => $day->revision + 1, 'updated_at' => now(),
             ]);
+            app(VoucherLedger::class)->syncDailySales($id);
         });
 
         return $this->show($id);
@@ -226,12 +235,17 @@ class CashAccountingController extends Controller
             if (! $z || ! $closing) {
                 throw ValidationException::withMessages(['day' => 'Zuerst Tagesabschluss vollständig speichern.']);
             }
+            $ledger = app(VoucherLedger::class);
+            $ledger->requireRegisteredSales($id);
+            $redemptions = $ledger->pendingRedemptions($id);
             $supplement = json_decode($day->supplement, true);
+            $supplement['voucher_redemptions'] = $redemptions;
             $handovers = DB::table('cash_handovers')->where('cash_day_id', $id)->orderBy('id')->get()->map(fn ($row) => $this->decode($row))->all();
             $handoverDue = array_sum(array_map(fn ($row) => $row['snapshot']['calculation']['cash_due_cents'], $handovers));
             $state = DB::table('cash_register_states')->find(1);
             $calculation = Money::calculate($state->balance_cents, $z['cash_due_cents'] - $handoverDue,
-                $supplement['movements'], $supplement['workers'], $closing['counted_cents'], $closing['envelope_cents'], $day->float_target_cents);
+                $supplement['movements'], $supplement['workers'], $closing['counted_cents'], $closing['envelope_cents'], $day->float_target_cents,
+                array_sum(array_column($redemptions, 'amount_cents')));
             $this->requireDifferenceNote($calculation, $closing['note']);
             if (DB::table('cash_days')->where('status', 'finalized')->get()->contains(function ($other) use ($z) {
                 $report = json_decode($other->z_report, true);
@@ -246,6 +260,7 @@ class CashAccountingController extends Controller
                 'business_date' => $day->business_date, 'day_id' => $id, 'version' => 1, 'currency' => 'EUR',
                 'opening_cents' => $day->opening_cents, 'float_target_cents' => $day->float_target_cents,
                 'z_report' => $z, 'handovers' => $handovers, 'supplement' => $supplement,
+                'voucher_sales' => $ledger->salesForDay($id),
                 'closing' => [...$calculation, 'note' => $closing['note'], 'envelope_reference' => 'TA-'.$id],
                 'finalized_by' => $request->user()->id, 'finalized_at' => now()->toIso8601String(),
             ];

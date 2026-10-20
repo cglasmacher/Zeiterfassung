@@ -108,3 +108,10 @@ Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportControl
     Route::get('/{id}/pdf', 'pdf')->whereNumber('id')->name('cash.z-reports.pdf');
     Route::patch('/{id}/assignment', 'assign')->whereNumber('id');
 });
+
+Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{id}', 'show')->whereNumber('id');
+    Route::post('/batches/{id}/register', 'register')->whereNumber('id');
+    Route::post('/redeem', 'redeem');
+});

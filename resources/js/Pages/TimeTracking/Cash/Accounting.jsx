@@ -80,6 +80,7 @@ function Totals({ calc }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
                 ["Erwartet vor Umschlag", calc.expected_cents],
+                ["Gutscheine eingelöst (abgezogen)", calc.voucher_redemptions_cents],
                 ["Gezählt vor Umschlag", calc.counted_cents],
                 ["Kassendifferenz", calc.difference_cents],
                 ["Umschlag", calc.envelope_cents],
@@ -179,9 +180,9 @@ export default function Accounting({ mode }) {
                     ...m,
                     amount: amount(Math.abs(m.amount_cents)),
                 })),
-                counted: amount(data.day.closing.counted_cents),
-                envelope: amount(data.day.closing.envelope_cents),
-                note: data.day.closing.note,
+                counted: data.day.closing ? amount(data.day.closing.counted_cents) : "",
+                envelope: amount(data.day.closing?.envelope_cents),
+                note: data.day.closing?.note || "",
             });
         } else {
             setForm(emptyForm());
@@ -264,10 +265,13 @@ export default function Accounting({ mode }) {
     const counted = cents(form.counted),
         envelope = cents(form.envelope),
         target = day?.float_target_cents || 0;
+    const redemptions = detail?.voucher_redemptions || [];
+    const redeemed = redemptions.reduce((sum, row) => sum + row.amount_cents, 0);
     const calc = {
-        expected_cents: lastBalance + due - expenses - wages,
+        expected_cents: lastBalance + due - redeemed - expenses - wages,
+        voucher_redemptions_cents: redeemed,
         counted_cents: counted,
-        difference_cents: counted - (lastBalance + due - expenses - wages),
+        difference_cents: counted - (lastBalance + due - redeemed - expenses - wages),
         envelope_cents: envelope,
         remaining_cents: counted - envelope,
         float_target_cents: target,
@@ -285,7 +289,7 @@ export default function Accounting({ mode }) {
                 );
                 applyDetail(response.data);
                 setMessage(
-                    "Schichtübergabe gespeichert. Umschlagnummer siehe Verlauf.",
+                    "Schichtübergabe gespeichert. Gutscheinverkäufe gegebenenfalls unter Gutscheinverkauf mit Nummer und Zahlart ergänzen.",
                 );
             } else {
                 applyDetail(
@@ -538,6 +542,18 @@ export default function Accounting({ mode }) {
                             </Panel>
                         ) : (
                             <>
+                                <Panel title="Gutscheinverkäufe und Einlösungen">
+                                    <p className="text-sm text-neutral-600">
+                                        Neue Verkäufe werden nach dem Speichern automatisch zur Nummerierung vorgemerkt.
+                                        Einlösungen mit Gutscheinnummer im Gutscheinbereich erfassen; sie werden hier automatisch
+                                        vom erwarteten Bargeld abgezogen. Nicht zusätzlich als Entnahme eintragen.
+                                    </p>
+                                    {detail.pending_voucher_sales > 0 && <p className="text-amber-800">
+                                        {detail.pending_voucher_sales} Verkaufseinträge benötigen noch Gutscheinnummern und Zahlarten.
+                                    </p>}
+                                    <Link href={route("cash.vouchers")} className="text-primary-700 underline">Gutscheinverkauf und Einlösung öffnen</Link>
+                                    {redemptions.map((r) => <p key={r.id}>Gutschein {r.number}: {euro(r.amount_cents)} · wird bei dieser Abrechnung abgezogen</p>)}
+                                </Panel>
                                 {isHandover ? (
                                     <Panel title="Bediener-X-Berichte">
                                         <Field

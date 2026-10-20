@@ -19,8 +19,8 @@ Umschlag SU-{{ $handover->id }} · {{ $snapshot['label'] }}</p>
 <p class="muted" style="clear:both">Bestätigt {{ \Carbon\Carbon::parse($handover->created_at, config('app.timezone'))->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} Uhr · Benutzer {{ $handover->created_by }}</p>
 <h2>Gemeinsamer Bargeldbestand</h2>
 <table><thead><tr><th>Position</th><th class="money">Betrag</th></tr></thead><tbody>
-@foreach(['opening_cents'=>'Bestand vor dieser Übergabe', 'cash_due_cents'=>'Bar Soll dieser Übergabe', 'movements_cents'=>'Ausgaben / Entnahmen abzüglich Einlagen', 'paid_cents'=>'Tatsächlich bar ausgezahlte Mitarbeiterbeträge', 'expected_cents'=>'Erwartet vor Umschlagentnahme', 'counted_cents'=>'Gezählt vor Umschlagentnahme', 'difference_cents'=>'Kassendifferenz', 'envelope_cents'=>'In Umschlag entnommen', 'remaining_cents'=>'Verbleibender tatsächlicher Bestand', 'float_target_cents'=>'Wechselgeld-Soll', 'top_up_cents'=>'Auffüllbedarf'] as $key=>$label)
-<tr><td>{{ $label }}</td><td class="money">{{ $money($calc[$key]) }}</td></tr>
+@foreach(['opening_cents'=>'Bestand vor dieser Übergabe', 'cash_due_cents'=>'Bar Soll dieser Übergabe', 'voucher_redemptions_cents'=>'Gutscheineinlösungen (vom Bar Soll abgezogen)', 'movements_cents'=>'Ausgaben / Entnahmen abzüglich Einlagen', 'paid_cents'=>'Tatsächlich bar ausgezahlte Mitarbeiterbeträge', 'expected_cents'=>'Erwartet vor Umschlagentnahme', 'counted_cents'=>'Gezählt vor Umschlagentnahme', 'difference_cents'=>'Kassendifferenz', 'envelope_cents'=>'In Umschlag entnommen', 'remaining_cents'=>'Verbleibender tatsächlicher Bestand', 'float_target_cents'=>'Wechselgeld-Soll', 'top_up_cents'=>'Auffüllbedarf'] as $key=>$label)
+<tr><td>{{ $label }}</td><td class="money">{{ $money($calc[$key] ?? 0) }}</td></tr>
 @endforeach
 </tbody></table>
 <p>{{ $snapshot['note'] }}</p>
@@ -30,6 +30,12 @@ Umschlag SU-{{ $handover->id }} · {{ $snapshot['label'] }}</p>
 </tbody></table>
 <p class="muted">Gutscheinverkauf (Mehrzweck) ist in den Zahlart-Sollbeträgen bereits enthalten und wird nicht nochmals zum Bargeld addiert.</p>
 <p class="muted">Bar Soll enthält das bereits bar ausgezahlte Kartentrinkgeld. Es wird nicht nochmals abgezogen.</p>
+@if(!empty($snapshot['voucher_redemptions']))
+<h2>Gutscheineinlösungen dieser Übergabe</h2>
+<table><thead><tr><th>Gutscheinnummer</th><th class="money">Eingelöst</th><th>Erfasst</th></tr></thead><tbody>
+@foreach($snapshot['voucher_redemptions'] as $redemption)<tr><td>{{ $redemption['number'] }}</td><td class="money">{{ $money($redemption['amount_cents']) }}</td><td>{{ \Carbon\Carbon::parse($redemption['created_at'])->setTimezone('Europe/Berlin')->format('d.m.Y H:i') }} · Benutzer {{ $redemption['created_by'] }}</td></tr>@endforeach
+</tbody></table>
+@endif
 @if(!empty($snapshot['workers']))
 <h2>Mitarbeiterstunden und Auszahlungen</h2>
 <table><thead><tr><th>Mitarbeiter</th><th>Stunden</th><th class="money">Stundensatz</th><th class="money">Betrag</th><th>Bar ausgezahlt</th></tr></thead><tbody>
