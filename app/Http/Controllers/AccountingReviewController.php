@@ -10,8 +10,10 @@ use App\Models\AccountingSupplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AccountingReviewController extends Controller
 {
@@ -67,8 +69,30 @@ class AccountingReviewController extends Controller
         ]);
     }
 
+    public function pdf(int $id): BinaryFileResponse
+    {
+        $document = AccountingDocument::findOrFail($id);
+        abort_unless($document->file_path && Storage::disk('local')->exists($document->file_path), 404);
+
+        $path = Storage::disk('local')->path($document->file_path);
+        $name = $document->original_filename ?: 'beleg-'.$document->id.'.pdf';
+
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $name).'"',
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
+        if ($request->filled('payload') && is_string($request->input('payload'))) {
+            $decoded = json_decode($request->input('payload'), true);
+            if (! is_array($decoded)) {
+                throw ValidationException::withMessages(['payload' => 'payload enthält kein gültiges JSON.']);
+            }
+            $request->merge($decoded);
+        }
+
         $data = $request->validate([
             'source' => ['nullable', 'string', 'max:32'],
             'source_reference' => ['nullable', 'string', 'max:255'],
@@ -100,9 +124,10 @@ class AccountingReviewController extends Controller
             'lines.*.account_number' => ['nullable', 'string', 'max:20'],
             'lines.*.confidence' => ['nullable', 'integer', 'between:0,100'],
             'lines.*.classification_source' => ['nullable', 'string', 'max:24'],
+            'file' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
         ]);
 
-        $document = DB::transaction(function () use ($data) {
+        $document = DB::transaction(function () use ($data, $request) {
             $supplier = $this->resolveSupplier($data['supplier_id'] ?? null, $data['supplier_name'] ?? null);
             $status = ! empty($data['validation_errors']) ? 'review' : 'analyzed';
 
@@ -131,11 +156,25 @@ class AccountingReviewController extends Controller
                 'confidence' => $data['confidence'] ?? null,
                 'status' => $status,
                 'original_filename' => $data['original_filename'] ?? null,
-                'file_path' => $data['file_path'] ?? null,
+                'file_path' => $data['file_path'] ?? $document->file_path,
                 'raw_payload' => $data['raw_payload'] ?? null,
                 'validation_errors' => $data['validation_errors'] ?? null,
             ]);
             $document->save();
+
+            if ($request->hasFile('file')) {
+                if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                    Storage::disk('local')->delete($document->file_path);
+                }
+                $file = $request->file('file');
+                $filename = $document->id.'-'.bin2hex(random_bytes(8)).'.pdf';
+                $path = $file->storeAs('accounting-documents', $filename, 'local');
+                $document->update([
+                    'file_path' => $path,
+                    'original_filename' => $data['original_filename'] ?? $file->getClientOriginalName(),
+                ]);
+            }
+
             $document->lines()->delete();
 
             foreach ($data['lines'] as $line) {
