@@ -13,5 +13,7 @@ class DatabaseSeeder extends Seeder
         foreach ([['name' => 'Ab 6 Stunden', 'min_hours' => 6, 'break_minutes' => 30], ['name' => 'Ab 9 Stunden', 'min_hours' => 9, 'break_minutes' => 45]] as $rule) {
             BreakRule::firstOrCreate(['name' => $rule['name']], [...$rule, 'active' => true]);
         }
+
+        $this->call(AccountingSupplierSeeder::class);
     }
 }

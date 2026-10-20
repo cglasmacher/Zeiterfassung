@@ -115,3 +115,11 @@ Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherCont
     Route::post('/batches/{id}/register', 'register')->whereNumber('id');
     Route::post('/redeem', 'redeem');
 });
+
+Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewController::class)->group(function () {
+    Route::get('/documents', 'index');
+    Route::post('/documents', 'store');
+    Route::get('/documents/{id}', 'show')->whereNumber('id');
+    Route::patch('/documents/{documentId}/lines/{lineId}', 'updateLine')->whereNumber(['documentId', 'lineId']);
+    Route::post('/documents/{id}/approve', 'approve')->whereNumber('id');
+});

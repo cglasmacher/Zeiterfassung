@@ -10,6 +10,7 @@ import {
     Download,
     Settings2,
     Ticket,
+    BookOpenCheck,
 } from "lucide-react";
 
 export const navigation = [
@@ -25,6 +26,12 @@ export const navigation = [
             { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
             { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
             { route: "cash.vouchers", label: "Gutscheinverkauf", icon: Ticket },
+        ],
+    },
+    {
+        label: "Buchhaltung",
+        items: [
+            { route: "accounting.documents", label: "Eingangsbelege", icon: BookOpenCheck },
         ],
     },
     {
