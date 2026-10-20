@@ -24,6 +24,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/tagesabschluss', fn () => Inertia::render('TimeTracking/Cash/Accounting', ['mode' => 'day']))->name('cash.days');
         Route::get('/gutscheinverkauf', fn () => Inertia::render('TimeTracking/Cash/Vouchers'))->name('cash.vouchers');
     });
+
+    Route::get('/buchhaltung/belege', fn () => Inertia::render('Accounting/Documents'))->name('accounting.documents');
+
     Route::get('/exporte/lohn', fn () => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
     Route::get('/einstellungen', function (Request $request) {
         $tab = $request->query('tab', 'general');
