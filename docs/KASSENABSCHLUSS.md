@@ -37,15 +37,29 @@ Auffüllbedarf = max(0, Wechselgeld-Soll - Restbestand)
 
 Kartentrinkgeld wird im Betrieb aus dem gemeinsamen Bargeld ausgezahlt und ist bereits im Bar-Soll der Kasse berücksichtigt. Es darf nicht erneut als Ausgabe erfasst werden. Die Umsatzfelder enthalten keine Trinkgelder. Bar-/Karte-Umsatz und Bar-/Karte-Soll werden getrennt gespeichert.
 
-Ein X-Bericht ist kumulativ. Bei weiteren Übergaben müssen die Differenzen zum vorherigen Stand verwendet werden. Die Berichtsreferenz dokumentiert den Zeitraum; das Programm kann aus manuell eingegebenen Summen keine automatische Überschneidungsprüfung ableiten. Bedienerumsätze und fremdkassierte Tische sind nicht identisch; für Bargeld ist Bar-Soll maßgeblich. Weitere Finanzwege wie Gutscheine sind im jetzigen Eingabemodell nicht enthalten; solche Tage müssen vor Verwendung erweitert werden.
+Ein X-Bericht ist kumulativ. Bei weiteren Übergaben müssen die Differenzen zum vorherigen Stand verwendet werden. Die Berichtsreferenz dokumentiert den Zeitraum; das Programm kann aus manuell eingegebenen Summen keine automatische Überschneidungsprüfung ableiten. Bedienerumsätze und fremdkassierte Tische sind nicht identisch; für Bargeld ist Bar-Soll maßgeblich. Gutscheinverkäufe „Mehrzweck“ werden separat erfasst (siehe unten). Weitere Finanzwege und eine eigenständige Gutscheineinlösung sind nicht Bestandteil dieser Erweiterung.
 
 Übergaben sind nach Bestätigung unveränderlich und durch eine UUID gegen doppelte Speicherung geschützt. Die Umschlagnummer lautet `SU-{handover_id}`; sie bleibt auch bei 0 EUR als Referenz der Übergabe bestehen. Korrekturen vor dem Tagesabschluss müssen als zusätzliche, begründete tatsächliche Bewegungen erfasst werden; eine falsch eingegebene Berichtssumme wird nicht durch eine fiktive Geldbewegung korrigiert. Solche Datenfehler vor Freigabe administrativ prüfen.
 
 Im Tagesabschluss sind Mitarbeiter-/Ausgabenfelder **nur Ergänzungen**, bereits in Übergaben erfasste Vorgänge werden nicht erneut eingetragen. Für die verbleibende Kassenrechnung wird vom Tages-Bar-Soll die Summe der bereits abgerechneten Übergabe-Bar-Sollbeträge abgezogen. Der Anfangsbestand dieser Restrechnung ist der letzte Übergabe-Restbestand. Dadurch werden Übergaben, Auszahlungen und Umschläge nicht doppelt verrechnet. Zusätzliche Umschlagentnahme beim Tagesabschluss: `TA-{day_id}`.
 
-Kassendifferenzen benötigen einen Vermerk. Der Z-Bericht prüft Netto + Steuer = Brutto und die Gleichheit von Steuer-, Zahlartumsatz- und Zahlart-Sollsummen. Z-Nummer/Kasse sowie sich überschneidende Z-Berichtszeiträume werden gegen bereits abgeschlossene Tage geprüft. Der Berichtszeitraum wird in Berlin eingegeben, in UTC gespeichert und ist am Ende exklusiv.
+Kassendifferenzen benötigen einen Vermerk. Der Z-Bericht prüft Netto + Steuer = Brutto, Steuerumsätze = Barumsatz + Kartenumsatz sowie Barumsatz + Kartenumsatz + Gutscheinverkauf = Bar Soll + Karte Soll. Z-Nummer/Kasse sowie sich überschneidende Z-Berichtszeiträume werden gegen bereits abgeschlossene Tage geprüft. Der Berichtszeitraum wird in Berlin eingegeben, in UTC gespeichert und ist am Ende exklusiv.
 
 Der gespeicherte Entwurf wird separat endgültig abgeschlossen. Ein Abschluss ist ein unveränderlicher Snapshot und kann als PDF exportiert werden. Keine nachträglichen stillen Änderungen; eine fachliche Storno-/Korrekturversion für bereits abgeschlossene Tage ist noch nicht implementiert. Daher zunächst mit Testdaten abnehmen. Gespeicherte Daten regelmäßig sichern.
+
+## Gutscheinverkauf (Mehrzweck)
+
+In jedem Bedienerbericht der Schichtübergabe und im Z-Bericht des Tagesabschlusses gibt es das Feld **Gutscheinverkauf (Mehrzweck)**. Ohne Verkauf 0,00 eintragen; fehlende oder leere Werte werden aus Kompatibilitätsgründen als 0 behandelt. Negative Beträge sind nicht zulässig; eine gesonderte Stornologik ist nicht enthalten. Für Schichten gelten nur die Verkäufe seit der vorherigen Übergabe, für den Tagesabschluss die komplette Tagessumme laut Z-Bericht. Die Tages-Gutscheinsumme wird nicht um Übergaben gekürzt und nicht zusätzlich zu ihnen addiert.
+
+Konkreter Vectron-Testfall Z-294, Bediener 1: Barumsatz 449,95 EUR, Kartenumsatz 818,40 EUR, Gutscheinverkauf 40,00 EUR, Bar Soll 432,85 EUR, Karte Soll 875,50 EUR. Die Prüfung lautet:
+
+```
+449,95 + 818,40 + 40,00 = 432,85 + 875,50 = 1.308,35 EUR
+```
+
+Das unveränderte Bar Soll ist die Grundlage der Bargeldrechnung. Der Verkauf ist darin bereits berücksichtigt; **keine zusätzliche Bareinlage und keine nochmalige Addition des Gutscheinbetrags zum erwarteten Bargeld**. Dasselbe gilt bei mit Karte bezahlten Gutscheinverkäufen: Die tatsächliche Verteilung steht bereits in Bar Soll/Karte Soll. Der Gutscheinverkauf wird nicht als 7-/19-%-Umsatz und nicht als künstlicher 0-%-Umsatz erfasst.
+
+`voucher_sales_cents` wird separat in jedem Übergabe-Bericht und im `z_report` gespeichert, in beiden PDFs ausgewiesen und im bestehenden n8n-Abschluss-Payload mitgegeben. Alte Datensätze ohne Feld werden mit 0 angezeigt; bestehende abgeschlossene Snapshots bleiben unverändert. Keine Datenbankmigration und keine Änderung am FTP-Workflow nötig. Gutscheineinlösung und allgemeine Vereinfachung der Steuerfelder sind nicht Teil dieser Änderung.
 
 ## Vectron BI
 
@@ -95,7 +109,7 @@ Der endgültige Abschluss und sein Versandauftrag werden in derselben Datenbankt
 HTTPS-POST, `Authorization: Bearer …`, Header `Idempotency-Key: {event_id}`. Beträge ausschließlich in ganzen EUR-Cent. Nutzdaten:
 
 - `schema_version`, `event_type`, `event_id`, `day_id`, `version`, `business_date`, `currency`.
-- `z_report`: Brutto/Netto/Steuer 7/19, Zahlartumsätze, Zahlart-Soll, Originalbelegreferenz, Zeitraum und Quelle.
+- `z_report`: Brutto/Netto/Steuer 7/19, Zahlartumsätze, Zahlart-Soll, `voucher_sales_cents` separat, Originalbelegreferenz, Zeitraum und Quelle.
 - `handovers`: unveränderte Übergaben mit Bedienerwerten, Mitarbeiterstunden, Auszahlungen, Bewegungen und Umschlägen.
 - `supplement`: ausschließlich zusätzliche Vorgänge des Tagesabschlusses.
 - `closing`: Restrechnung nach Übergaben, letzte Differenz, zusätzlicher Umschlag, Restbestand und Auffüllbedarf.

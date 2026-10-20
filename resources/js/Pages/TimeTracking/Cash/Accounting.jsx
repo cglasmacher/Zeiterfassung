@@ -20,6 +20,7 @@ const initialReport = () => ({
     cash_due: "",
     card_sales: "",
     card_due: "",
+    voucher_sales: "0.00",
 });
 const emptyForm = () => ({
     label: "",
@@ -46,6 +47,7 @@ const emptyZ = (date) => ({
     cash_due: "",
     card_sales: "",
     card_due: "",
+    voucher_sales: "0.00",
     reconciliation_note: "",
 });
 function Field({ label, value, onChange, type = "text", ...props }) {
@@ -145,6 +147,7 @@ export default function Accounting({ mode }) {
                 "cash_due",
                 "card_sales",
                 "card_due",
+                "voucher_sales",
             ].forEach((key) => (nextZ[key] = amount(saved[key + "_cents"])));
             // Stored ISO timestamps include UTC; datetime-local displays Berlin time explicitly.
             const localTime = (iso) =>
@@ -443,6 +446,8 @@ export default function Accounting({ mode }) {
                                                 {r.operator} · {r.reference} ·
                                                 Bar Soll{" "}
                                                 {euro(r.cash_due_cents)}
+                                                {" · Gutscheinverkauf "}
+                                                {euro(r.voucher_sales_cents)}
                                             </p>
                                         ))}
                                         {h.snapshot.workers.map((w, i) => (
@@ -547,6 +552,10 @@ export default function Accounting({ mode }) {
                                             Bar Soll enthält das bereits
                                             ausgezahlte Kartentrinkgeld; dieses
                                             nicht erneut als Ausgabe erfassen.
+                                            {" "}Gutscheinverkauf unter „Mehrzweck“
+                                            separat übernehmen. Er ist im Soll
+                                            bereits enthalten und keine zusätzliche
+                                            Bareinlage.
                                         </p>
                                         {form.reports.map((r, i) => (
                                             <div
@@ -583,6 +592,7 @@ export default function Accounting({ mode }) {
                                                         "Kartenumsatz",
                                                     ],
                                                     ["card_due", "Karte Soll"],
+                                                    ["voucher_sales", "Gutscheinverkauf (Mehrzweck)"],
                                                 ].map(([key, label]) => (
                                                     <MoneyField
                                                         key={key}
@@ -626,6 +636,10 @@ export default function Accounting({ mode }) {
                                             vom Original übernehmen. Keine
                                             Schichtberichte zu den Tagesumsätzen
                                             addieren.
+                                            {" "}Gutscheinverkauf als Tagessumme aus
+                                            dem Z-Bericht übernehmen. Er ist im Soll
+                                            bereits enthalten und wird separat von
+                                            den 7-/19-%-Umsätzen erfasst.
                                         </p>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[
@@ -678,6 +692,7 @@ export default function Accounting({ mode }) {
                                                 ["cash_due", "Bar Soll"],
                                                 ["card_sales", "Kartenumsatz"],
                                                 ["card_due", "Karte Soll"],
+                                                ["voucher_sales", "Gutscheinverkauf (Mehrzweck)"],
                                             ].map(([key, label]) => (
                                                 <MoneyField
                                                     key={key}

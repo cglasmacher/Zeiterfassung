@@ -94,6 +94,106 @@ class CashAccountingTest extends TestCase
         $this->assertSame(0, $calc['difference_cents']);
     }
 
+    public function test_z294_voucher_sale_reconciles_handover_day_pdf_and_export_without_double_counting(): void
+    {
+        $day = $this->open('2026-10-19');
+        $id = $day['day']['id'];
+        $body = $this->handover($day, [
+            'reports' => [['operator' => '1 Frühschicht', 'reference' => 'Z-294 Bediener 1',
+                'cash_sales' => '449.95', 'cash_due' => '432.85', 'card_sales' => '818.40', 'card_due' => '875.50', 'voucher_sales' => '40.00']],
+            'counted' => '682.85', 'envelope' => '432.85',
+        ]);
+        $detail = $this->postJson("/api/cash/days/$id/handovers", $body)->assertOk()
+            ->assertJsonPath('handovers.0.snapshot.reports.0.voucher_sales_cents', 4000)
+            ->assertJsonPath('handovers.0.snapshot.reports.0.cash_sales_cents', 44995)
+            ->assertJsonPath('handovers.0.snapshot.calculation.expected_cents', 68285)
+            ->assertJsonPath('handovers.0.snapshot.calculation.difference_cents', 0)
+            ->assertJsonPath('handovers.0.snapshot.calculation.remaining_cents', 25000)->json();
+        $this->postJson("/api/cash/days/$id/handovers", $body)->assertOk();
+        $this->assertDatabaseCount('cash_handovers', 1);
+        $handover = DB::table('cash_handovers')->first();
+        $handoverHtml = view('cash.handover', ['day' => (object) $detail['day'], 'handover' => $handover, 'snapshot' => $detail['handovers'][0]['snapshot']])->render();
+        $this->assertStringContainsString('Gutscheinverkauf: 40,00 EUR', strip_tags($handoverHtml));
+
+        $closing = $this->closing($detail, ['counted' => '478.90', 'envelope' => '228.90']);
+        $closing['z'] = array_replace($closing['z'], [
+            'number' => '294', 'reference' => 'Z-294.pdf', 'period_start' => '2026-10-18T21:38', 'period_end' => '2026-10-19T21:55',
+            'net7' => '1672.55', 'tax7' => '117.10', 'gross7' => '1789.65',
+            'net19' => '766.90', 'tax19' => '145.70', 'gross19' => '912.60',
+            'cash_sales' => '756.75', 'cash_due' => '661.75', 'card_sales' => '1945.50', 'card_due' => '2080.50', 'voucher_sales' => '40.00',
+        ]);
+        $saved = $this->putJson("/api/cash/days/$id", $closing)->assertOk()->assertJsonPath('day.z_report.voucher_sales_cents', 4000)->json();
+        $this->getJson("/api/cash/days/$id")->assertOk()->assertJsonPath('day.z_report.voucher_sales_cents', 4000);
+        $final = $this->postJson("/api/cash/days/$id/finalize", ['revision' => $saved['day']['revision']])->assertOk()
+            ->assertJsonPath('day.snapshot.z_report.voucher_sales_cents', 4000)
+            ->assertJsonPath('day.snapshot.z_report.gross7_cents', 178965)
+            ->assertJsonPath('day.snapshot.z_report.gross19_cents', 91260)
+            ->assertJsonPath('day.snapshot.closing.cash_due_cents', 22890)
+            ->assertJsonPath('day.snapshot.closing.expected_cents', 47890)
+            ->assertJsonPath('day.snapshot.closing.difference_cents', 0)
+            ->assertJsonPath('day.snapshot.closing.remaining_cents', 25000)->json();
+        $payload = json_decode(DB::table('cash_deliveries')->value('payload'), true);
+        $this->assertSame(4000, $payload['z_report']['voucher_sales_cents']);
+        $this->assertSame(4000, $payload['handovers'][0]['snapshot']['reports'][0]['voucher_sales_cents']);
+        $dayHtml = view('cash.day', ['snapshot' => $final['day']['snapshot']])->render();
+        $this->assertStringContainsString('Gutscheinverkauf (Mehrzweck)', $dayHtml);
+        $this->assertStringContainsString('Gutscheinverkauf: 40,00 EUR', $dayHtml);
+        $this->assertStringStartsWith('%PDF-', $this->get("/api/cash/days/$id/pdf")->assertOk()->getContent());
+
+        // Historical snapshots without the additive field must still render.
+        $old = $final['day']['snapshot'];
+        unset($old['z_report']['voucher_sales_cents'], $old['handovers'][0]['snapshot']['reports'][0]['voucher_sales_cents']);
+        $this->assertStringContainsString('Gutscheinverkauf: 0,00 EUR', view('cash.day', ['snapshot' => $old])->render());
+    }
+
+    public function test_card_paid_voucher_sale_does_not_increase_expected_cash(): void
+    {
+        $day = $this->open();
+        $this->postJson('/api/cash/days/'.$day['day']['id'].'/handovers', $this->handover($day, [
+            'reports' => [['operator' => '1', 'reference' => 'Gutschein mit Karte bezahlt',
+                'cash_sales' => '100.00', 'cash_due' => '100.00', 'card_sales' => '50.00', 'card_due' => '90.00', 'voucher_sales' => '40.00']],
+            'counted' => '350.00', 'envelope' => '100.00',
+        ]))->assertOk()->assertJsonPath('handovers.0.snapshot.calculation.expected_cents', 35000)
+            ->assertJsonPath('handovers.0.snapshot.calculation.difference_cents', 0);
+    }
+
+    public function test_voucher_amounts_cannot_hide_mismatches_or_change_taxed_sales(): void
+    {
+        $day = $this->open();
+        $id = $day['day']['id'];
+        foreach ([null, '-40.00', '39.00', '40.001'] as $voucher) {
+            $body = $this->handover($day);
+            $body['reports'][0] = array_replace($body['reports'][0], [
+                'cash_sales' => '449.95', 'cash_due' => '432.85', 'card_sales' => '818.40', 'card_due' => '875.50', 'voucher_sales' => $voucher,
+            ]);
+            $this->postJson("/api/cash/days/$id/handovers", $body)->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('cash_handovers', 0);
+        foreach (['-1.00', '40.00', '0.001'] as $voucher) {
+            $body = $this->closing($day);
+            $body['z']['voucher_sales'] = $voucher;
+            $this->putJson("/api/cash/days/$id", $body)->assertUnprocessable();
+        }
+        $body = $this->closing($day);
+        $body['z']['voucher_sales'] = '40.00';
+        $body['z']['gross7'] = '2794.20';
+        $body['z']['net7'] = '2614.00';
+        $body['z']['cash_due'] = '1433.85';
+        $this->putJson("/api/cash/days/$id", $body)->assertUnprocessable()->assertJsonValidationErrors('z');
+        $this->assertNull(DB::table('cash_days')->value('z_report'));
+    }
+
+    public function test_omitted_or_blank_voucher_sales_default_to_zero(): void
+    {
+        $day = $this->open();
+        $id = $day['day']['id'];
+        $body = $this->handover($day);
+        $body['reports'][0]['voucher_sales'] = '';
+        $detail = $this->postJson("/api/cash/days/$id/handovers", $body)->assertOk()
+            ->assertJsonPath('handovers.0.snapshot.reports.0.voucher_sales_cents', 0)->json();
+        $this->putJson("/api/cash/days/$id", $this->closing($detail))->assertOk()->assertJsonPath('day.z_report.voucher_sales_cents', 0);
+    }
+
     public function test_unpaid_workers_do_not_reduce_cash_and_deposits_increase_it(): void
     {
         $calc = CashCalculator::calculate(18000, 0, [['amount_cents' => -7000]], [['paid_cash' => false, 'amount_cents' => 10000]], 25000, 0, 25000);

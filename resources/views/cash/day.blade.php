@@ -19,6 +19,8 @@ $handoverEnvelopes = array_sum(array_map(fn($h) => $h['snapshot']['calculation']
 <table><thead><tr><th>Zahlart</th><th class="money">Umsatz</th><th class="money">Soll laut Kasse</th></tr></thead><tbody>
 <tr><td>Bar</td><td class="money">{{ $money($z['cash_sales_cents']) }}</td><td class="money">{{ $money($z['cash_due_cents']) }}</td></tr>
 <tr><td>Karte</td><td class="money">{{ $money($z['card_sales_cents']) }}</td><td class="money">{{ $money($z['card_due_cents']) }}</td></tr></tbody></table>
+<table><tbody><tr><td>Gutscheinverkauf (Mehrzweck), separat von den Steuerumsätzen</td><td class="money">{{ $money($z['voucher_sales_cents'] ?? 0) }}</td></tr></tbody></table>
+<p class="muted">Gutscheinverkauf ist in den Zahlart-Sollbeträgen bereits enthalten und wird nicht nochmals zum Bargeld addiert. Es gilt die Tagessumme aus dem Z-Bericht, einschließlich bereits übergebener Schichten.</p>
 <p class="muted">Kartentrinkgeld ist im Bar-Soll bereits berücksichtigt und wird nicht erneut abgezogen. {{ $z['reconciliation_note'] ?? '' }}</p>
 <h2>Bargeld und Umschläge</h2>
 <table><tbody>
@@ -38,9 +40,11 @@ $handoverEnvelopes = array_sum(array_map(fn($h) => $h['snapshot']['calculation']
 @php $sections = array_map(fn($h) => [...$h['snapshot'], 'label' => 'SU-'.$h['id'].' · '.$h['snapshot']['label']], $snapshot['handovers']); $sections[] = ['label' => 'Ergänzungen Tagesabschluss', ...$snapshot['supplement']]; @endphp
 @foreach($sections as $section)
 @if(!empty($section['reports']) || !empty($section['workers']) || !empty($section['movements']))
+<div class="detail-block">
 <h2>{{ $section['label'] }}</h2>
 @if(isset($section['calculation']))<p>Differenz: {{ $money($section['calculation']['difference_cents']) }} · Restbestand: {{ $money($section['calculation']['remaining_cents']) }} · {{ $section['note'] }}</p>@endif
-@if(!empty($section['reports']))<table><thead><tr><th>Bediener / Referenz</th><th class="money">Barumsatz</th><th class="money">Bar Soll</th><th class="money">Kartenumsatz</th><th class="money">Karte Soll</th></tr></thead><tbody>@foreach($section['reports'] as $report)<tr><td>{{ $report['operator'] }}<br>{{ $report['reference'] }}</td>@foreach(['cash_sales_cents','cash_due_cents','card_sales_cents','card_due_cents'] as $key)<td class="money">{{ $money($report[$key]) }}</td>@endforeach</tr>@endforeach</tbody></table>@endif
+@if(!empty($section['reports']))<table><thead><tr><th>Bediener / Referenz</th><th class="money">Barumsatz</th><th class="money">Bar Soll</th><th class="money">Kartenumsatz</th><th class="money">Karte Soll</th></tr></thead><tbody>@foreach($section['reports'] as $report)<tr><td>{{ $report['operator'] }}<br>{{ $report['reference'] }}<br><span class="muted">Gutscheinverkauf: {{ $money($report['voucher_sales_cents'] ?? 0) }}</span></td>@foreach(['cash_sales_cents','cash_due_cents','card_sales_cents','card_due_cents'] as $key)<td class="money">{{ $money($report[$key]) }}</td>@endforeach</tr>@endforeach</tbody></table>@endif
+</div>
 @if(!empty($section['workers']))<div class="detail-block"><h3>Mitarbeiterstunden und Auszahlungen</h3><table><thead><tr><th>Mitarbeiter</th><th>Stunden</th><th class="money">Satz</th><th class="money">Betrag</th><th>Bar ausgezahlt</th></tr></thead><tbody>@foreach($section['workers'] as $worker)<tr><td>{{ $worker['name'] }}<br>{{ $worker['note'] }}</td><td>{{ number_format($worker['minutes']/60, 2, ',', '.') }}</td><td class="money">{{ $money($worker['hourly_rate_cents']) }}</td><td class="money">{{ $money($worker['amount_cents']) }}</td><td>{{ $worker['paid_cash'] ? 'Ja' : 'Nein' }}</td></tr>@endforeach</tbody></table></div>@endif
 @if(!empty($section['movements']))<div class="detail-block"><h3>Geldbewegungen (Einlagen negativ dargestellt)</h3><table><thead><tr><th>Art</th><th>Beschreibung / Beleg</th><th class="money">Betrag</th></tr></thead><tbody>@foreach($section['movements'] as $movement)<tr><td>{{ ['purchase'=>'Einkauf','expense'=>'Ausgabe','deposit'=>'Einlage','withdrawal'=>'Entnahme'][$movement['kind']] }}</td><td>{{ $movement['description'] }}<br>{{ $movement['receipt'] }}</td><td class="money">{{ $money($movement['amount_cents']) }}</td></tr>@endforeach</tbody></table></div>@endif
 @endif
