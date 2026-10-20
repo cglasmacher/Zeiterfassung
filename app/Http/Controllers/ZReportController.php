@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Cash\ZReportMetadata;
+use App\Services\Cash\ZReportTextExtractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -51,7 +52,7 @@ class ZReportController extends Controller
         });
     }
 
-    public function store(Request $request, ZReportMetadata $parser)
+    public function store(Request $request, ZReportMetadata $parser, ZReportTextExtractor $extractor)
     {
         $data = $request->validate([
             'file' => 'required|file|mimes:pdf|max:10240',
@@ -64,10 +65,14 @@ class ZReportController extends Controller
             throw ValidationException::withMessages(['file' => 'Keine gültige PDF-Datei.']);
         }
         $hash = hash('sha256', $bytes);
+        $text = $data['extracted_text'] ?? '';
+        if (trim($text) === '') {
+            $text = $extractor->extract($file->getRealPath());
+        }
 
         // Serialize identical PDFs; retries may repair automatic metadata, but never manual assignments.
-        return \Illuminate\Support\Facades\Cache::lock('cash-z-report-'.$hash, 60)->block(5, function () use ($hash, $bytes, $file, $data, $parser) {
-            $metadata = $parser->parse($data['extracted_text'] ?? '');
+        return \Illuminate\Support\Facades\Cache::lock('cash-z-report-'.$hash, 60)->block(5, function () use ($hash, $bytes, $file, $data, $parser, $text) {
+            $metadata = $parser->parse($text);
             $existing = DB::table('cash_z_reports')->where('sha256', $hash)->first();
             if ($existing) {
                 DB::transaction(function () use ($existing, $metadata) {
