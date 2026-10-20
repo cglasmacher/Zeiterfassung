@@ -317,20 +317,46 @@ class ShiftController extends Controller
         $weekStart = Carbon::parse($data['week_start'])->startOfDay();
         $weekEnd = $weekStart->copy()->addDays(6)->endOfDay();
         $shifts = Shift::with(['employee', 'shiftType', 'department'])
-            ->whereBetween('shift_date', [$weekStart, $weekEnd])
+            ->whereBetween('shift_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->orderBy('shift_date')->orderBy('start_time')->orderBy('id')->get();
         $closedDays = array_map('intval', \App\Models\Setting::get('closed_days', []));
         // A closed weekday must not hide an explicitly scheduled shift.
         $days = collect(range(0, 6))->map(fn ($i) => $weekStart->copy()->addDays($i))
             ->filter(fn ($day) => !in_array($day->dayOfWeek, $closedDays, true)
                 || $shifts->contains(fn ($shift) => Carbon::parse($shift->shift_date)->isSameDay($day)))->values();
-        $sections = $shifts->groupBy(fn ($shift) => $shift->department_id ?? 'none')->map(function ($rows) {
-            $types = $rows->pluck('shiftType')->filter()->unique('id')->sortBy(fn ($type) => [
+        // Include configured, still empty types and retain planned inactive types.
+        $types = ShiftType::with('departments')->where('active', true)->get()
+            ->concat($shifts->pluck('shiftType')->filter())->unique('id')
+            ->sortBy(fn ($type) => [
                 $type->print_num === null ? 1 : 0, $type->print_num ?? 0, $type->id,
             ])->values();
-            return ['name' => $rows->first()->department?->name ?? 'Ohne Bereich', 'types' => $types, 'shifts' => $rows];
-        })->sortBy('name');
-        return Pdf::loadView('exports.shift-plan', compact('weekStart', 'weekEnd', 'days', 'sections'))
+
+        $groups = $types->map(function ($type) use ($shifts) {
+            $rows = $shifts->where('shift_type_id', $type->id);
+            $departments = $type->departments->concat($rows->pluck('department')->filter())
+                ->unique('id')->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+            if ($departments->isEmpty() || $rows->contains(fn ($shift) => $shift->department_id === null)) {
+                $departments->push(null);
+            }
+            $columns = collect();
+            foreach ($departments as $department) {
+                $departmentRows = $rows->filter(fn ($shift) => $shift->department_id === $department?->id);
+                $byDay = $departmentRows->groupBy(fn ($shift) => Carbon::parse($shift->shift_date)->toDateString());
+                // Separate seats, as in the paper plan: one person per cell.
+                $seats = max(1, $byDay->map->count()->max() ?? 0);
+                for ($seat = 0; $seat < $seats; $seat++) {
+                    $columns->push([
+                        'type' => $type,
+                        'department' => $department?->name ?? 'Ohne Bereich',
+                        'assignments' => $byDay->map(fn ($assignments) => $assignments->values()->get($seat)),
+                    ]);
+                }
+            }
+            return $columns;
+        });
+        // Four shift groups per sheet; very large plans continue without losing assignments.
+        $pages = $groups->chunk(4)->flatMap(fn ($group) => $group->flatten(1)->chunk(16))->values();
+        return Pdf::loadView('exports.shift-plan', compact('weekStart', 'weekEnd', 'days', 'pages'))
             ->setPaper('a4', 'landscape')->download('Dienstplan_'.$weekStart->format('Y-m-d').'.pdf');
     }
 }
