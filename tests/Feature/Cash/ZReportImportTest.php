@@ -7,6 +7,7 @@ use App\Services\Cash\ZReportMetadata;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class ZReportImportTest extends TestCase
         parent::setUp();
         config(['cash.z_reports.import_token' => $this->token, 'cash.z_reports.previous_day_until' => '11:00']);
         Storage::fake('local');
+        Process::fake();
     }
 
     private function text(string $date = '16.10.26', string $time = '23:21'): string
@@ -154,6 +156,43 @@ class ZReportImportTest extends TestCase
         $this->assertStringContainsString('_Z-291_Beleg-', $response->json('archive_filename'));
         $this->assertDatabaseCount('cash_z_reports', 2);
         $this->assertCount(2, Storage::disk('local')->allFiles());
+    }
+
+    public function test_server_extracts_empty_n8n_text_and_repairs_the_existing_report(): void
+    {
+        $id = $this->upload(['extracted_text' => ''])->assertCreated()->json('id');
+        Process::fake(fn () => Process::result(output: $this->text('20.10.26', '09:15')));
+        $this->upload(['extracted_text' => ''])->assertOk()->assertJsonPath('duplicate', true)
+            ->assertJsonPath('id', $id)->assertJsonPath('report_id', '291')
+            ->assertJsonPath('business_date', '2026-10-19')
+            ->assertJsonPath('archive_filename', 'Z-Bericht_2026-10-19_Z-291.pdf');
+        Process::assertRan(function ($process) {
+            return $process->timeout === 20 && is_array($process->command)
+                && array_slice($process->command, 0, 8) === ['/usr/bin/pdftotext', '-f', '1', '-l', '20', '-layout', '-enc', 'UTF-8']
+                && $process->command[9] === '-';
+        });
+        $this->assertDatabaseCount('cash_z_reports', 1);
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+    }
+
+    public function test_supplied_text_skips_server_extraction_and_server_failure_keeps_original(): void
+    {
+        $this->upload()->assertCreated()->assertJsonPath('report_id', '291');
+        Process::assertNothingRan();
+        Process::fake(fn () => Process::result(errorOutput: 'binary unavailable', exitCode: 127));
+        $this->upload(['extracted_text' => '', 'file' => UploadedFile::fake()->createWithContent('other.pdf', '%PDF-1.4 other original')])
+            ->assertCreated()->assertJsonPath('needs_assignment', true);
+        $this->assertCount(2, Storage::disk('local')->allFiles());
+    }
+
+    public function test_server_extraction_does_not_overwrite_manual_day(): void
+    {
+        $id = $this->upload(['extracted_text' => ''])->assertCreated()->json('id');
+        $this->actingAs(User::factory()->create())->patchJson("/api/cash/z-reports/$id/assignment", ['business_date' => '2026-10-10'])->assertOk();
+        Process::fake(fn () => Process::result(output: $this->text()));
+        $this->upload(['extracted_text' => ''])->assertOk()->assertJsonPath('report_id', '291')
+            ->assertJsonPath('business_date', '2026-10-10');
+        $this->assertDatabaseHas('cash_z_reports', ['id' => $id, 'assignment_source' => 'manual']);
     }
 
     public function test_invalid_attachments_and_assignment_require_valid_input_and_login(): void

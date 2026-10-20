@@ -5,6 +5,7 @@ return [
     'z_reports' => [
         'import_token' => env('CASH_Z_REPORT_IMPORT_TOKEN'),
         'previous_day_until' => env('CASH_Z_REPORT_PREVIOUS_DAY_UNTIL', '11:00'),
+        'pdftotext_binary' => env('CASH_Z_REPORT_PDFTOTEXT_BINARY', '/usr/bin/pdftotext'),
     ],
     'vectron' => [
         // Explicit production URL required; do not accidentally send credentials to demo.

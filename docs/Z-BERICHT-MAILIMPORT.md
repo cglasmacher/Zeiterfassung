@@ -21,6 +21,23 @@
 
 ## Tageszuordnung
 
+### Wenn n8n Seiten erkennt, aber `text: ""` liefert
+
+Die Plattform liest das hochgeladene Original selbst mit Poppler `pdftotext`, wenn `extracted_text` fehlt, leer ist oder nur Leerzeichen enthält. Der bestehende n8n-Workflow bleibt unverändert; das PDF wird bereits mitgesendet.
+
+Auf dem **Plesk-Anwendungsserver** (Ubuntu/Debian) einmalig als Administrator installieren:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y poppler-utils
+/usr/bin/pdftotext -v
+```
+
+Danach den neuen Plattformstand deployen und dieselbe n8n-Ausführung ab dem Plattform-HTTP-Aufruf erneut ausführen. Standardpfad ist `/usr/bin/pdftotext`; bei abweichendem Pfad `CASH_Z_REPORT_PDFTOTEXT_BINARY` in `.env` setzen und `php artisan config:clear` ausführen. PHP-FPM muss `proc_open` erlauben und das Programm ausführen dürfen. Es wird kein externer OCR-Dienst verwendet. Die Extraktion ist auf 20 Sekunden, die ersten 20 Seiten und 1 Mio. Ergebniszeichen begrenzt. Fehlende Software oder Ausführungsfehler werden im Laravel-Log gemeldet; das Original bleibt trotzdem gespeichert und zur manuellen Zuordnung verfügbar. Gescannte Bild-PDFs benötigen weiterhin eine manuelle Tageszuordnung.
+
+Am vorhandenen Vectron-Beispiel liefert Poppler die Berichtsnummer `291` und den Erstellungszeitpunkt `16.10.26 23:21`; die erwartete Antwort enthält `report_id: "291"`, `business_date: "2026-10-16"` und `archive_filename: "Z-Bericht_2026-10-16_Z-291.pdf"`.
+
+
 Der Server liest Datum/Uhrzeit **unten in der Finanzbericht-Zusammenfassung**. Weder Empfangsdatum der Mail noch der Dateiname noch „Letzte Nullst.“ oben werden als Geschäftstag verwendet. Spätere Bedienerberichte werden für diese Entscheidung ignoriert. Die Erkennung toleriert Zeilenumbrüche, Seitenumbrüche, geschützte Leerzeichen und in eine Zeile zusammengezogene PDF-Felder. Unbekannte Layouts oder gescannte PDFs ohne Text bleiben zur manuellen Zuordnung offen.
 
 **Bis einschließlich 11:00:00 Uhr Europe/Berlin gehört der Bericht zum Vortag.** Beispiele: 20.10.2026 09:15 → 19.10.2026; 20.10.2026 11:00 → 19.10.2026; ab 11:00:01 → 20.10.2026. Die neue Einstellung `CASH_Z_REPORT_PREVIOUS_DAY_UNTIL=11:00` gilt ausdrücklich für diese Z-Berichtszuordnung. Die alte Einstellung `CASH_BUSINESS_DAY_START_HOUR=6` wird hier nicht mehr ausgewertet und kann aus `.env` entfernt werden. Bestehende Kassen-/Abschlusszeiträume werden nicht geändert.
