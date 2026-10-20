@@ -126,6 +126,7 @@ class CashAccountingController extends Controller
             'reports.*.reference' => 'required|string|max:255',
             'reports.*.cash_sales' => 'required|numeric', 'reports.*.cash_due' => 'required|numeric',
             'reports.*.card_sales' => 'required|numeric', 'reports.*.card_due' => 'required|numeric',
+            'reports.*.voucher_sales' => 'nullable|numeric|min:0|max:999999999.99',
             'counted' => 'required|numeric|min:0', 'envelope' => 'required|numeric|min:0', 'note' => 'nullable|string|max:2000',
         ]);
         $entries = $this->entries($request);
@@ -140,12 +141,14 @@ class CashAccountingController extends Controller
             }
             $day = $this->lockedDay($id, $data['revision']);
             $reports = array_map(function ($report) {
-                foreach (['cash_sales', 'cash_due', 'card_sales', 'card_due'] as $key) {
+                // Vectron includes voucher-sale payments in Soll, but not in taxed sales.
+                $report['voucher_sales'] = $report['voucher_sales'] ?? '0';
+                foreach (['cash_sales', 'cash_due', 'card_sales', 'card_due', 'voucher_sales'] as $key) {
                     $report[$key.'_cents'] = Money::cents($report[$key]);
                     unset($report[$key]);
                 }
-                if ($report['cash_sales_cents'] + $report['card_sales_cents'] !== $report['cash_due_cents'] + $report['card_due_cents']) {
-                    throw ValidationException::withMessages(['reports' => 'Bar/Karte-Umsatz und Bar/Karte-Soll müssen in Summe übereinstimmen. Weitere Finanzwege sind separat zu klären.']);
+                if ($report['cash_sales_cents'] + $report['card_sales_cents'] + $report['voucher_sales_cents'] !== $report['cash_due_cents'] + $report['card_due_cents']) {
+                    throw ValidationException::withMessages(['reports' => 'Barumsatz + Kartenumsatz + Gutscheinverkauf müssen Bar Soll + Karte Soll entsprechen. Gutscheinverkauf laut Bedienerbericht separat erfassen.']);
                 }
 
                 return $report;
@@ -182,19 +185,21 @@ class CashAccountingController extends Controller
             'z.net19' => 'required|numeric', 'z.tax19' => 'required|numeric', 'z.gross19' => 'required|numeric',
             'z.cash_sales' => 'required|numeric', 'z.cash_due' => 'required|numeric',
             'z.card_sales' => 'required|numeric', 'z.card_due' => 'required|numeric',
+            'z.voucher_sales' => 'nullable|numeric|min:0|max:999999999.99',
             'z.reference' => 'required|string|max:255', 'z.reconciliation_note' => 'nullable|string|max:2000',
             'counted' => 'required|numeric|min:0', 'envelope' => 'required|numeric|min:0', 'note' => 'nullable|string|max:2000',
         ]);
         $entries = $this->entries($request);
         $z = $data['z'];
-        foreach (['net7', 'tax7', 'gross7', 'net19', 'tax19', 'gross19', 'cash_sales', 'cash_due', 'card_sales', 'card_due'] as $key) {
+        $z['voucher_sales'] = $z['voucher_sales'] ?? '0';
+        foreach (['net7', 'tax7', 'gross7', 'net19', 'tax19', 'gross19', 'cash_sales', 'cash_due', 'card_sales', 'card_due', 'voucher_sales'] as $key) {
             $z[$key.'_cents'] = Money::cents($z[$key]);
             unset($z[$key]);
         }
         if ($z['gross7_cents'] !== $z['net7_cents'] + $z['tax7_cents'] || $z['gross19_cents'] !== $z['net19_cents'] + $z['tax19_cents']
             || $z['gross7_cents'] + $z['gross19_cents'] !== $z['cash_sales_cents'] + $z['card_sales_cents']
-            || $z['cash_sales_cents'] + $z['card_sales_cents'] !== $z['cash_due_cents'] + $z['card_due_cents']) {
-            throw ValidationException::withMessages(['z' => 'Z-Bericht stimmt nicht ab: Netto + Steuer = Brutto; Steuerumsätze = Zahlartumsätze = Zahlart-Sollsummen.']);
+            || $z['cash_sales_cents'] + $z['card_sales_cents'] + $z['voucher_sales_cents'] !== $z['cash_due_cents'] + $z['card_due_cents']) {
+            throw ValidationException::withMessages(['z' => 'Z-Bericht stimmt nicht ab: Netto + Steuer = Brutto; Steuerumsätze = Barumsatz + Kartenumsatz; Barumsatz + Kartenumsatz + Gutscheinverkauf = Bar Soll + Karte Soll.']);
         }
         $z['source'] = 'manual_z_report';
         $z['period_start'] = \Carbon\Carbon::parse($z['period_start'], 'Europe/Berlin')->utc()->toIso8601String();

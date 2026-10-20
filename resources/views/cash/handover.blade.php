@@ -26,8 +26,9 @@ Umschlag SU-{{ $handover->id }} · {{ $snapshot['label'] }}</p>
 <p>{{ $snapshot['note'] }}</p>
 <h2>Bediener-X-Berichte dieser Übergabe</h2>
 <table><thead><tr><th>Bediener / Referenz</th><th class="money">Barumsatz</th><th class="money">Bar Soll</th><th class="money">Kartenumsatz</th><th class="money">Karte Soll</th></tr></thead><tbody>
-@foreach($snapshot['reports'] as $report)<tr><td>{{ $report['operator'] }}<br>{{ $report['reference'] }}</td>@foreach(['cash_sales_cents','cash_due_cents','card_sales_cents','card_due_cents'] as $key)<td class="money">{{ $money($report[$key]) }}</td>@endforeach</tr>@endforeach
+@foreach($snapshot['reports'] as $report)<tr><td>{{ $report['operator'] }}<br>{{ $report['reference'] }}<br><span class="muted">Gutscheinverkauf: <span style="white-space:nowrap">{{ $money($report['voucher_sales_cents'] ?? 0) }}</span></span></td>@foreach(['cash_sales_cents','cash_due_cents','card_sales_cents','card_due_cents'] as $key)<td class="money">{{ $money($report[$key]) }}</td>@endforeach</tr>@endforeach
 </tbody></table>
+<p class="muted">Gutscheinverkauf (Mehrzweck) ist in den Zahlart-Sollbeträgen bereits enthalten und wird nicht nochmals zum Bargeld addiert.</p>
 <p class="muted">Bar Soll enthält das bereits bar ausgezahlte Kartentrinkgeld. Es wird nicht nochmals abgezogen.</p>
 @if(!empty($snapshot['workers']))
 <h2>Mitarbeiterstunden und Auszahlungen</h2>
