@@ -32,7 +32,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://dienstplan.hemingway-hilden.de';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle PDFs dieses dedizierten Postfachs.\nconst allowedSender = '';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase()}, binary: item.binary, pairedItem: {item: i}}));"
+        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://dienstplan.hemingway-hilden.de';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle Absender; jeder PDF-Anhang wird trotzdem inhaltlich auf Z-Bericht geprüft.\nconst allowedSender = '';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase()}, binary: item.binary, pairedItem: {item: i}}));"
       }
     },
     {
@@ -79,7 +79,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Bei nicht lesbaren/gescannten PDFs wird trotzdem das Original übertragen.\n// Ohne auswertbaren Text bleibt die Tageszuordnung in der Plattform offen.\nconst original = $('PDF-Anhaenge').item;\nreturn {json: {platform_url: original.json.platform_url, message_id: original.json.message_id, extracted_text: typeof $json.text === 'string' ? $json.text.slice(0, 1000000) : ''}, binary: original.binary};"
+        "jsCode": "// Jeden Anhang anhand seines eigenen PDF-Textes prüfen, niemals anhand der Mail.\n// Ohne eindeutigen Nachweis darf kein Upload stattfinden (auch nicht bei Lesefehlern).\nconst original = $('PDF-Anhaenge').item;\nconst text = typeof $json.text === 'string' ? $json.text : '';\nconst normalized = text.normalize('NFKC').replace(/[\\u200B-\\u200D\\uFEFF]/g, '').replace(/[\\s\\p{Z}]+/gu, ' ');\n// Bedienerberichte sind kein Ersatz für die Finanzzusammenfassung.\nconst summary = normalized.split(/Bediener\\s*(?:\\([^)]*\\))?\\s*<\\s*[ZX]\\s*1\\s*>/i)[0];\nconst isZReport = /Finanzbericht\\s*<\\s*Z\\s*1\\s*>/i.test(summary);\nconst numbers = [...new Set([...summary.matchAll(/Finanzbericht\\s*1\\s*(\\d{1,20})(?=\\s|$)/gi)].map(match => match[1]))];\nlet reason = '';\nif ($json.error || !text.trim()) reason = 'PDF-Text fehlt oder konnte nicht gelesen werden';\nelse if (text.length > 1000000) reason = 'PDF-Text überschreitet die erlaubte Länge';\nelse if (!isZReport) reason = 'Keine Finanzbericht-<Z1>-Kennung';\nelse if (numbers.length !== 1 || !/[1-9]/.test(numbers[0])) reason = 'Keine eindeutige Z-Berichtsnummer in der Finanzzusammenfassung';\nconst verified = reason === '';\nreturn {\n  json: {\n    platform_url: original.json.platform_url,\n    message_id: original.json.message_id,\n    extracted_text: text.slice(0, 1000000),\n    z_report_verified: verified,\n    z_report_number: verified ? numbers[0] : null,\n    z_report_filter_reason: verified ? 'Z-Bericht erkannt' : reason,\n  },\n  binary: original.binary,\n};"
       }
     },
     {
@@ -88,7 +88,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1440,
         0
       ],
       "parameters": {
@@ -134,9 +134,54 @@
       ],
       "parameters": {
         "width": 900,
-        "height": 300,
-        "content": "## IONOS → Vectron-Z-Bericht → Zeiterfassung\n1. IMAP-Zugang wählen: imap.ionos.de · Port 993 · SSL/TLS · vollständige E-Mail-Adresse als Benutzername.\n2. In „Konfiguration“ die HTTPS-Adresse der Zeiterfassung eintragen. Eigenes Postfach nur für Berichte verwenden.\n3. HTTP Header Auth anlegen: Name `Authorization`, Wert `Bearer DEIN_IMPORT_TOKEN`. Dasselbe Geheimnis in der Plattform als `CASH_Z_REPORT_IMPORT_TOKEN` setzen (mindestens 32 Zeichen).\n4. Erst Plattform aktualisieren + Migration, dann eine echte Z-Bericht-Mail testen und Workflow aktivieren.\n\nPDFs werden privat gespeichert, Dubletten erkannt. Nicht lesbare PDFs erscheinen zur manuellen Tageszuordnung. E-Mail-Eingangsdatum wird NICHT als Geschäftstag verwendet. Umsätze werden nicht automatisch gebucht.\nBei Übertragungsfehlern: fehlgeschlagene Ausführung nach Korrektur erneut ausführen; IMAP markiert die Mail bereits beim Empfang als gelesen."
+        "height": 480,
+        "content": "## IONOS → Vectron-Z-Bericht → Zeiterfassung\n1. IMAP-Zugang wählen: imap.ionos.de · Port 993 · SSL/TLS · vollständige E-Mail-Adresse als Benutzername.\n2. In „Konfiguration“ die HTTPS-Adresse der Zeiterfassung eintragen. Eigenes Postfach nur für Berichte verwenden.\n3. HTTP Header Auth anlegen: Name `Authorization`, Wert `Bearer DEIN_IMPORT_TOKEN`. Dasselbe Geheimnis in der Plattform als `CASH_Z_REPORT_IMPORT_TOKEN` setzen (mindestens 32 Zeichen).\n4. Erst Plattform aktualisieren + Migration, dann eine echte Z-Bericht-Mail testen und Workflow aktivieren.\n\nPDFs werden privat gespeichert, Dubletten erkannt. Nicht lesbare PDFs werden im Prüfzweig gestoppt. E-Mail-Eingangsdatum wird NICHT als Geschäftstag verwendet. Umsätze werden nicht automatisch gebucht.\nBei Übertragungsfehlern: fehlgeschlagene Ausführung nach Korrektur erneut ausführen; IMAP markiert die Mail bereits beim Empfang als gelesen.\n\nSTRIKTER Z-BERICHT-FILTER: Jeder PDF-Anhang benötigt Finanzbericht <Z1> UND genau eine Z-Berichtsnummer in der Finanzzusammenfassung. Rechnungen, X-Berichte, reine Bedienerberichte und unlesbare PDFs enden unter „Nicht uebertragen - pruefen“; dort steht der Ablehnungsgrund. Kein Upload zur Plattform oder QNAP. Der Text muss in n8n lesbar sein; leere/gescannte PDFs werden nicht mehr zur Server-Texterkennung durchgereicht. Erfolgreiche Ausführungen werden zur Prüfung des abgewiesenen Zweigs gespeichert. Alte Workflows nach erfolgreichem Test deaktivieren; nur einen Postfach-Workflow aktiv lassen."
       }
+    },
+    {
+      "id": "c14f6f5f-3b4b-4eed-9e1e-66dbbfd03e62",
+      "name": "Nur bestaetigte Z-Berichte",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3230edf9-e808-4274-b816-b500addef55e",
+              "leftValue": "={{ $json.z_report_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a03bf40c-8816-45b3-aa46-5ef0ce837b9d",
+      "name": "Nicht uebertragen - pruefen",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {}
     }
   ],
   "connections": {
@@ -188,7 +233,25 @@
       "main": [
         [
           {
+            "node": "Nur bestaetigte Z-Berichte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nur bestaetigte Z-Berichte": {
+      "main": [
+        [
+          {
             "node": "An Zeiterfassung uebergeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nicht uebertragen - pruefen",
             "type": "main",
             "index": 0
           }
@@ -201,7 +264,7 @@
     "executionOrder": "v1",
     "timezone": "Europe/Berlin",
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "none",
+    "saveDataSuccessExecution": "all",
     "saveManualExecutions": true
   },
   "pinData": {},

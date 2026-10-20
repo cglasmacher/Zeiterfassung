@@ -32,7 +32,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://dienstplan.hemingway-hilden.de';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle PDFs dieses dedizierten Postfachs.\nconst allowedSender = '';\n// Vollständiger SFTP-Pfad. /share ist bei QNAP üblich; beim List-Test prüfen.\nconst qnapBasePath = '/share/Buchhaltung/Kassendoku';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase(), qnap_base_path: qnapBasePath}, binary: item.binary, pairedItem: {item: i}}));"
+        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://dienstplan.hemingway-hilden.de';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle Absender; jeder PDF-Anhang wird trotzdem inhaltlich auf Z-Bericht geprüft.\nconst allowedSender = '';\n// Vollständiger SFTP-Pfad. /share ist bei QNAP üblich; beim List-Test prüfen.\nconst qnapBasePath = '/share/Buchhaltung/Kassendoku';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase(), qnap_base_path: qnapBasePath}, binary: item.binary, pairedItem: {item: i}}));"
       }
     },
     {
@@ -79,7 +79,7 @@
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Bei nicht lesbaren/gescannten PDFs wird trotzdem das Original übertragen.\n// Ohne auswertbaren Text bleibt die Tageszuordnung in der Plattform offen.\nconst original = $('PDF-Anhaenge').item;\nreturn {json: {platform_url: original.json.platform_url, qnap_base_path: original.json.qnap_base_path, message_id: original.json.message_id, extracted_text: typeof $json.text === 'string' ? $json.text.slice(0, 1000000) : ''}, binary: original.binary};"
+        "jsCode": "// Jeden Anhang anhand seines eigenen PDF-Textes prüfen, niemals anhand der Mail.\n// Ohne eindeutigen Nachweis darf kein Upload stattfinden (auch nicht bei Lesefehlern).\nconst original = $('PDF-Anhaenge').item;\nconst text = typeof $json.text === 'string' ? $json.text : '';\nconst normalized = text.normalize('NFKC').replace(/[\\u200B-\\u200D\\uFEFF]/g, '').replace(/[\\s\\p{Z}]+/gu, ' ');\n// Bedienerberichte sind kein Ersatz für die Finanzzusammenfassung.\nconst summary = normalized.split(/Bediener\\s*(?:\\([^)]*\\))?\\s*<\\s*[ZX]\\s*1\\s*>/i)[0];\nconst isZReport = /Finanzbericht\\s*<\\s*Z\\s*1\\s*>/i.test(summary);\nconst numbers = [...new Set([...summary.matchAll(/Finanzbericht\\s*1\\s*(\\d{1,20})(?=\\s|$)/gi)].map(match => match[1]))];\nlet reason = '';\nif ($json.error || !text.trim()) reason = 'PDF-Text fehlt oder konnte nicht gelesen werden';\nelse if (text.length > 1000000) reason = 'PDF-Text überschreitet die erlaubte Länge';\nelse if (!isZReport) reason = 'Keine Finanzbericht-<Z1>-Kennung';\nelse if (numbers.length !== 1 || !/[1-9]/.test(numbers[0])) reason = 'Keine eindeutige Z-Berichtsnummer in der Finanzzusammenfassung';\nconst verified = reason === '';\nreturn {\n  json: {\n    platform_url: original.json.platform_url,\n    qnap_base_path: original.json.qnap_base_path,\n    message_id: original.json.message_id,\n    extracted_text: text.slice(0, 1000000),\n    z_report_verified: verified,\n    z_report_number: verified ? numbers[0] : null,\n    z_report_filter_reason: verified ? 'Z-Bericht erkannt' : reason,\n  },\n  binary: original.binary,\n};"
       }
     },
     {
@@ -88,7 +88,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1440,
         0
       ],
       "parameters": {
@@ -134,8 +134,8 @@
       ],
       "parameters": {
         "width": 1200,
-        "height": 430,
-        "content": "## IONOS → Zeiterfassung → QNAP\n1. Bestehenden IMAP-Zugang und HTTP Header Auth für die Plattform auswählen. In „Konfiguration“ die echte Plattform-HTTPS-Adresse eintragen.\n2. Im letzten Knoten SFTP-Credentials wählen: Host `vpn.hemingway-hilden.de`, Port `4322`, berechtigter QNAP-Benutzer und Passwort/SSH-Key. Kein https:// beim Host.\n3. Vor dem ersten Upload mit einem FTP/SFTP-List-Knoten `/share/Buchhaltung` prüfen. QNAP-SFTP verwendet meist `/share/Buchhaltung/Kassendoku`, ggf. in „Konfiguration“ korrigieren.\n4. Ziel: `Buchhaltung/Kassendoku/JJJJ/MM/Z-Bericht_GESCHAEFTSTAG_ID-NUMMER.pdf`. Jahr/Monat stammen aus dem Geschäftstag, NICHT aus dem E-Mail-Eingang. Der SFTP-Knoten legt fehlende Unterordner mit passenden Schreibrechten automatisch an.\n5. Nicht eindeutig datierbare Berichte landen in `Kassendoku/Unzugeordnet`. Nach manueller Zuordnung in der Plattform bei Bedarf dort ebenfalls verschieben. Es gibt noch keinen automatischen Abgleich nach späteren Datumsänderungen.\n6. Test mit echter Z-Bericht-Mail; Plattform UND QNAP prüfen. Erst dann aktivieren. Alten IONOS-Workflow deaktivieren, damit nur ein Workflow dasselbe Postfach verarbeitet.\n\nBei Ausfällen fehlgeschlagene Ausführung erneut ausführen. Plattform-Dubletten behalten dieselbe ID; QNAP nutzt denselben Dateinamen. Ein erfolgreicher Plattform-Upload bedeutet noch nicht, dass QNAP erfolgreich war. Bei fehlgeschlagenem SFTP-Upload kann eine unvollständige Datei liegen; erneuter erfolgreicher Upload ersetzt sie. Automatische Vectron-Mailzustellung weiterhin separat prüfen.\nDie JSON enthält keine Passwörter oder Tokens und ist beim Import inaktiv.\n\nAktualisiert: Z-Berichtsnummer ist report_id und Dateikennung Z-NUMMER. Fußzeilendatum der Finanzzusammenfassung; bis einschließlich 11:00 Berlin = Vortag. Bereits unzugeordnete PDFs erneut übermitteln; manuelle Zuordnungen werden erhalten."
+        "height": 610,
+        "content": "## IONOS → Zeiterfassung → QNAP\n1. Bestehenden IMAP-Zugang und HTTP Header Auth für die Plattform auswählen. In „Konfiguration“ die echte Plattform-HTTPS-Adresse eintragen.\n2. Im letzten Knoten SFTP-Credentials wählen: Host `vpn.hemingway-hilden.de`, Port `4322`, berechtigter QNAP-Benutzer und Passwort/SSH-Key. Kein https:// beim Host.\n3. Vor dem ersten Upload mit einem FTP/SFTP-List-Knoten `/share/Buchhaltung` prüfen. QNAP-SFTP verwendet meist `/share/Buchhaltung/Kassendoku`, ggf. in „Konfiguration“ korrigieren.\n4. Ziel: `Buchhaltung/Kassendoku/JJJJ/MM/Z-Bericht_GESCHAEFTSTAG_ID-NUMMER.pdf`. Jahr/Monat stammen aus dem Geschäftstag, NICHT aus dem E-Mail-Eingang. Der SFTP-Knoten legt fehlende Unterordner mit passenden Schreibrechten automatisch an.\n5. Nicht eindeutig datierbare Berichte landen in `Kassendoku/Unzugeordnet`. Nach manueller Zuordnung in der Plattform bei Bedarf dort ebenfalls verschieben. Es gibt noch keinen automatischen Abgleich nach späteren Datumsänderungen.\n6. Test mit echter Z-Bericht-Mail; Plattform UND QNAP prüfen. Erst dann aktivieren. Alten IONOS-Workflow deaktivieren, damit nur ein Workflow dasselbe Postfach verarbeitet.\n\nBei Ausfällen fehlgeschlagene Ausführung erneut ausführen. Plattform-Dubletten behalten dieselbe ID; QNAP nutzt denselben Dateinamen. Ein erfolgreicher Plattform-Upload bedeutet noch nicht, dass QNAP erfolgreich war. Bei fehlgeschlagenem SFTP-Upload kann eine unvollständige Datei liegen; erneuter erfolgreicher Upload ersetzt sie. Automatische Vectron-Mailzustellung weiterhin separat prüfen.\nDie JSON enthält keine Passwörter oder Tokens und ist beim Import inaktiv.\n\nAktualisiert: Z-Berichtsnummer ist report_id und Dateikennung Z-NUMMER. Fußzeilendatum der Finanzzusammenfassung; bis einschließlich 11:00 Berlin = Vortag. Bereits unzugeordnete PDFs erneut übermitteln; manuelle Zuordnungen werden erhalten.\n\nSTRIKTER Z-BERICHT-FILTER: Jeder PDF-Anhang benötigt Finanzbericht <Z1> UND genau eine Z-Berichtsnummer in der Finanzzusammenfassung. Rechnungen, X-Berichte, reine Bedienerberichte und unlesbare PDFs enden unter „Nicht uebertragen - pruefen“; dort steht der Ablehnungsgrund. Kein Upload zur Plattform oder QNAP. Der Text muss in n8n lesbar sein; leere/gescannte PDFs werden nicht mehr zur Server-Texterkennung durchgereicht. Erfolgreiche Ausführungen werden zur Prüfung des abgewiesenen Zweigs gespeichert. Alte Workflows nach erfolgreichem Test deaktivieren; nur einen Postfach-Workflow aktiv lassen."
       }
     },
     {
@@ -144,7 +144,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
+        1680,
         0
       ],
       "parameters": {
@@ -158,7 +158,7 @@
       "type": "n8n-nodes-base.ftp",
       "typeVersion": 1,
       "position": [
-        1680,
+        1920,
         0
       ],
       "parameters": {
@@ -176,6 +176,51 @@
       "waitBetweenTries": 5000,
       "notesInFlow": true,
       "notes": "SFTP-Zugang wählen: vpn.hemingway-hilden.de · Port 4322 · QNAP-Benutzer mit Schreibrecht. Keine Zugangsdaten in der JSON."
+    },
+    {
+      "id": "929eccef-8dad-4308-88f3-d240924da5be",
+      "name": "Nur bestaetigte Z-Berichte",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "50f695fc-7f26-485f-86ca-45ee3d5c9f08",
+              "leftValue": "={{ $json.z_report_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c45b878a-06f4-4b7c-a58f-3ef925e8e26d",
+      "name": "Nicht uebertragen - pruefen",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {}
     }
   ],
   "connections": {
@@ -227,7 +272,7 @@
       "main": [
         [
           {
-            "node": "An Zeiterfassung uebergeben",
+            "node": "Nur bestaetigte Z-Berichte",
             "type": "main",
             "index": 0
           }
@@ -255,6 +300,24 @@
           }
         ]
       ]
+    },
+    "Nur bestaetigte Z-Berichte": {
+      "main": [
+        [
+          {
+            "node": "An Zeiterfassung uebergeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nicht uebertragen - pruefen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -262,7 +325,7 @@
     "executionOrder": "v1",
     "timezone": "Europe/Berlin",
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "none",
+    "saveDataSuccessExecution": "all",
     "saveManualExecutions": true
   },
   "pinData": {},
