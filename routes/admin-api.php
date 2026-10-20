@@ -120,6 +120,7 @@ Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewCo
     Route::get('/documents', 'index');
     Route::post('/documents', 'store');
     Route::get('/documents/{id}', 'show')->whereNumber('id');
+    Route::get('/documents/{id}/pdf', 'pdf')->whereNumber('id');
     Route::patch('/documents/{documentId}/lines/{lineId}', 'updateLine')->whereNumber(['documentId', 'lineId']);
     Route::post('/documents/{id}/approve', 'approve')->whereNumber('id');
 });

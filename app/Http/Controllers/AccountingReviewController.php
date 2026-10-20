@@ -10,8 +10,10 @@ use App\Models\AccountingSupplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AccountingReviewController extends Controller
 {
@@ -21,7 +23,9 @@ class AccountingReviewController extends Controller
             ->with('supplier:id,name,creditor_account')
             ->withCount([
                 'lines',
-                'lines as unresolved_lines_count' => fn ($q) => $q->whereNull('account_id')->orWhereIn('status', ['review', 'manual']),
+                'lines as unresolved_lines_count' => fn ($q) => $q->where(function ($lines) {
+                    $lines->whereNull('account_id')->orWhereIn('status', ['review', 'manual']);
+                }),
             ])
             ->latest('invoice_date')
             ->latest('id');
@@ -65,8 +69,30 @@ class AccountingReviewController extends Controller
         ]);
     }
 
+    public function pdf(int $id): BinaryFileResponse
+    {
+        $document = AccountingDocument::findOrFail($id);
+        abort_unless($document->file_path && Storage::disk('local')->exists($document->file_path), 404);
+
+        $path = Storage::disk('local')->path($document->file_path);
+        $name = $document->original_filename ?: 'beleg-'.$document->id.'.pdf';
+
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $name).'"',
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
+        if ($request->filled('payload') && is_string($request->input('payload'))) {
+            $decoded = json_decode($request->input('payload'), true);
+            if (! is_array($decoded)) {
+                throw ValidationException::withMessages(['payload' => 'payload enthält kein gültiges JSON.']);
+            }
+            $request->merge($decoded);
+        }
+
         $data = $request->validate([
             'source' => ['nullable', 'string', 'max:32'],
             'source_reference' => ['nullable', 'string', 'max:255'],
@@ -98,9 +124,10 @@ class AccountingReviewController extends Controller
             'lines.*.account_number' => ['nullable', 'string', 'max:20'],
             'lines.*.confidence' => ['nullable', 'integer', 'between:0,100'],
             'lines.*.classification_source' => ['nullable', 'string', 'max:24'],
+            'file' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
         ]);
 
-        $document = DB::transaction(function () use ($data) {
+        $document = DB::transaction(function () use ($data, $request) {
             $supplier = $this->resolveSupplier($data['supplier_id'] ?? null, $data['supplier_name'] ?? null);
             $status = ! empty($data['validation_errors']) ? 'review' : 'analyzed';
 
@@ -129,26 +156,43 @@ class AccountingReviewController extends Controller
                 'confidence' => $data['confidence'] ?? null,
                 'status' => $status,
                 'original_filename' => $data['original_filename'] ?? null,
-                'file_path' => $data['file_path'] ?? null,
+                'file_path' => $data['file_path'] ?? $document->file_path,
                 'raw_payload' => $data['raw_payload'] ?? null,
                 'validation_errors' => $data['validation_errors'] ?? null,
             ]);
             $document->save();
+
+            if ($request->hasFile('file')) {
+                if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                    Storage::disk('local')->delete($document->file_path);
+                }
+                $file = $request->file('file');
+                $filename = $document->id.'-'.bin2hex(random_bytes(8)).'.pdf';
+                $path = $file->storeAs('accounting-documents', $filename, 'local');
+                $document->update([
+                    'file_path' => $path,
+                    'original_filename' => $data['original_filename'] ?? $file->getClientOriginalName(),
+                ]);
+            }
+
             $document->lines()->delete();
 
             foreach ($data['lines'] as $line) {
-                $account = isset($line['account_number'])
-                    ? AccountingAccount::where('account_number', $line['account_number'])->first()
-                    : null;
-
-                $lineStatus = $account && (($line['confidence'] ?? 0) >= 90) ? 'proposed' : 'review';
+                $resolved = $this->resolveAccounting($supplier, $line);
+                $account = $resolved['account'];
+                $confidence = $line['confidence'] ?? $resolved['confidence'];
+                $taxRate = $line['tax_rate'] ?? $resolved['tax_rate'];
+                $lineStatus = $account && $confidence >= 90 ? 'proposed' : 'review';
 
                 $document->lines()->create([
                     ...$line,
+                    'tax_rate' => $taxRate,
                     'account_id' => $account?->id,
                     'account_number_snapshot' => $account?->account_number,
-                    'classification_source' => $line['classification_source'] ?? ($account ? 'rule' : 'ai'),
+                    'classification_source' => $line['classification_source'] ?? $resolved['source'],
+                    'confidence' => $confidence,
                     'status' => $lineStatus,
+                    'rule_key' => $resolved['rule_key'],
                 ]);
             }
 
@@ -250,6 +294,71 @@ class AccountingReviewController extends Controller
             ?? AccountingSupplier::where('active', true)->get()->first(function ($supplier) use ($normalized) {
                 return collect($supplier->aliases ?? [])->contains(fn ($alias) => mb_strtolower(trim($alias)) === $normalized);
             });
+    }
+
+    private function resolveAccounting(?AccountingSupplier $supplier, array $line): array
+    {
+        if (! empty($line['account_number'])) {
+            $account = AccountingAccount::where('account_number', $line['account_number'])->where('active', true)->first();
+            if ($account) {
+                return [
+                    'account' => $account,
+                    'tax_rate' => null,
+                    'confidence' => $line['confidence'] ?? 95,
+                    'source' => $line['classification_source'] ?? 'n8n',
+                    'rule_key' => null,
+                ];
+            }
+        }
+
+        if (! $supplier) {
+            return $this->unresolvedAccounting();
+        }
+
+        $description = mb_strtolower(trim($line['description'] ?? ''));
+        $articleNumber = trim((string) ($line['article_number'] ?? ''));
+        $rules = AccountingRule::with('account')
+            ->where('supplier_id', $supplier->id)
+            ->where('active', true)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($rules as $rule) {
+            $matchValue = mb_strtolower(trim($rule->match_value));
+            $matches = match ($rule->match_type) {
+                'article_number' => $articleNumber !== '' && strcasecmp($articleNumber, $rule->match_value) === 0,
+                'description_exact' => $description !== '' && $description === $matchValue,
+                'description_contains' => $description !== '' && $matchValue !== '' && str_contains($description, $matchValue),
+                'supplier_default' => true,
+                default => false,
+            };
+
+            if (! $matches || ! $rule->account?->active) {
+                continue;
+            }
+
+            return [
+                'account' => $rule->account,
+                'tax_rate' => $rule->tax_rate !== null ? (float) $rule->tax_rate : null,
+                'confidence' => $rule->learned_from_manual ? 100 : 98,
+                'source' => $rule->learned_from_manual ? 'learned_rule' : 'rule',
+                'rule_key' => $rule->match_type.':'.$rule->match_value,
+            ];
+        }
+
+        return $this->unresolvedAccounting();
+    }
+
+    private function unresolvedAccounting(): array
+    {
+        return [
+            'account' => null,
+            'tax_rate' => null,
+            'confidence' => 0,
+            'source' => 'unresolved',
+            'rule_key' => null,
+        ];
     }
 
     private function refreshStatus(AccountingDocument $document): void

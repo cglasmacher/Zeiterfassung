@@ -62,12 +62,19 @@ function Detail({ data, busy, saveLine, approve }) {
     const doc = data?.document;
     if (!doc) return <section className="card p-6 text-neutral-600">Beleg auswählen.</section>;
     return <section className="card p-5 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div><h2 className="text-xl font-semibold">{doc.supplier?.name || doc.supplier_name_raw || "Unbekannter Lieferant"}</h2><p className="text-neutral-600">Rechnung {doc.invoice_number || "–"} · {date(doc.invoice_date)}</p><p className="text-sm text-neutral-500">Kreditor {doc.supplier?.creditor_account || "noch nicht zugeordnet"}</p></div>
-            <div className="text-right"><strong className="text-xl">{formatMoney(doc.gross_cents)}</strong><div className="mt-2"><Badge status={doc.status} /></div></div>
+        <div className="grid grid-cols-1 2xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.1fr)] gap-5 items-start">
+            <div className="rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 min-h-[520px]">
+                {doc.file_path ? <iframe title={`Rechnung ${doc.invoice_number || doc.id}`} src={`/api/accounting/documents/${doc.id}/pdf`} className="w-full h-[720px] bg-white" /> : <div className="min-h-[520px] flex items-center justify-center p-6 text-center text-neutral-500">Zu diesem Beleg wurde noch kein PDF gespeichert.</div>}
+            </div>
+            <div className="space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div><h2 className="text-xl font-semibold">{doc.supplier?.name || doc.supplier_name_raw || "Unbekannter Lieferant"}</h2><p className="text-neutral-600">Rechnung {doc.invoice_number || "–"} · {date(doc.invoice_date)}</p><p className="text-sm text-neutral-500">Kreditor {doc.supplier?.creditor_account || "noch nicht zugeordnet"}</p>{doc.original_filename && <a className="inline-block mt-2 text-sm underline text-primary-700" href={`/api/accounting/documents/${doc.id}/pdf`} target="_blank" rel="noreferrer">Original-PDF öffnen</a>}</div>
+                    <div className="text-right"><strong className="text-xl">{formatMoney(doc.gross_cents)}</strong><div className="mt-2"><Badge status={doc.status} /></div></div>
+                </div>
+                {doc.validation_errors?.length > 0 && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{doc.validation_errors.join(" · ")}</div>}
+                <div className="grid grid-cols-3 gap-3 text-sm"><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">Netto</span><strong>{formatMoney(doc.net_cents)}</strong></div><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">USt.</span><strong>{formatMoney(doc.tax_cents)}</strong></div><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">Brutto</span><strong>{formatMoney(doc.gross_cents)}</strong></div></div>
+            </div>
         </div>
-
-        {doc.validation_errors?.length > 0 && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{doc.validation_errors.join(" · ")}</div>}
 
         <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -77,7 +84,7 @@ function Detail({ data, busy, saveLine, approve }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <div className="text-sm text-neutral-600">Netto {formatMoney(doc.net_cents)} · USt. {formatMoney(doc.tax_cents)} · Brutto {formatMoney(doc.gross_cents)}</div>
+            <div className="text-sm text-neutral-600">Erst nach vollständiger Kontierung wird der Beleg zur Freigabe zugelassen.</div>
             <Button disabled={busy || !["ready", "review", "analyzed"].includes(doc.status) || doc.lines.some((line) => !line.account_id)} onClick={approve}>Beleg freigeben</Button>
         </div>
     </section>;
@@ -95,7 +102,7 @@ function AccountingLine({ line, accounts, busy, save }) {
         <td className="py-3 pr-3 whitespace-nowrap">{line.tax_rate !== null ? `${Number(line.tax_rate).toLocaleString("de-DE")}%` : "–"}</td>
         <td className="py-3 pr-3">
             <div className="space-y-2">
-                <select className="w-full rounded-lg border-neutral-300" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || line.document?.status === "exported"}>
+                <select className="w-full rounded-lg border-neutral-300" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy}>
                     <option value="">Konto auswählen …</option>
                     {accounts.map((account) => <option key={account.id} value={account.id}>{account.account_number} · {account.name}</option>)}
                 </select>

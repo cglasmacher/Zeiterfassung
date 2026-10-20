@@ -14,6 +14,10 @@ class DatabaseSeeder extends Seeder
             BreakRule::firstOrCreate(['name' => $rule['name']], [...$rule, 'active' => true]);
         }
 
-        $this->call(AccountingSupplierSeeder::class);
+        $this->call([
+            AccountingSupplierSeeder::class,
+            AccountingAccountSeeder::class,
+            AccountingRuleSeeder::class,
+        ]);
     }
 }
