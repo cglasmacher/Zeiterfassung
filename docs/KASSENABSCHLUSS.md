@@ -30,6 +30,7 @@ Erwartet = tatsächlicher Anfangsbestand
          + Einlagen
          - Einkäufe und sonstige Ausgaben/Entnahmen
          - tatsächlich bestätigte Barauszahlungen
+         - noch nicht in einer vorherigen Übergabe berücksichtigte Gutscheineinlösungen
 Differenz = gezählt vor Umschlagentnahme - erwartet
 Restbestand = gezählt vor Umschlagentnahme - tatsächlicher Umschlag
 Auffüllbedarf = max(0, Wechselgeld-Soll - Restbestand)
@@ -37,7 +38,7 @@ Auffüllbedarf = max(0, Wechselgeld-Soll - Restbestand)
 
 Kartentrinkgeld wird im Betrieb aus dem gemeinsamen Bargeld ausgezahlt und ist bereits im Bar-Soll der Kasse berücksichtigt. Es darf nicht erneut als Ausgabe erfasst werden. Die Umsatzfelder enthalten keine Trinkgelder. Bar-/Karte-Umsatz und Bar-/Karte-Soll werden getrennt gespeichert.
 
-Ein X-Bericht ist kumulativ. Bei weiteren Übergaben müssen die Differenzen zum vorherigen Stand verwendet werden. Die Berichtsreferenz dokumentiert den Zeitraum; das Programm kann aus manuell eingegebenen Summen keine automatische Überschneidungsprüfung ableiten. Bedienerumsätze und fremdkassierte Tische sind nicht identisch; für Bargeld ist Bar-Soll maßgeblich. Gutscheinverkäufe „Mehrzweck“ werden separat erfasst (siehe unten). Weitere Finanzwege und eine eigenständige Gutscheineinlösung sind nicht Bestandteil dieser Erweiterung.
+Ein X-Bericht ist kumulativ. Bei weiteren Übergaben müssen die Differenzen zum vorherigen Stand verwendet werden. Die Berichtsreferenz dokumentiert den Zeitraum; das Programm kann aus manuell eingegebenen Summen keine automatische Überschneidungsprüfung ableiten. Bedienerumsätze und fremdkassierte Tische sind nicht identisch; für Bargeld ist Bar-Soll maßgeblich. Gutscheinverkäufe „Mehrzweck“ werden separat erfasst (siehe unten). Gutscheineinlösungen werden über die Gutscheinliste erfasst und separat vom erwarteten Bargeld abgezogen. Weitere Finanzwege sind nicht Bestandteil dieses Eingabemodells.
 
 Übergaben sind nach Bestätigung unveränderlich und durch eine UUID gegen doppelte Speicherung geschützt. Die Umschlagnummer lautet `SU-{handover_id}`; sie bleibt auch bei 0 EUR als Referenz der Übergabe bestehen. Korrekturen vor dem Tagesabschluss müssen als zusätzliche, begründete tatsächliche Bewegungen erfasst werden; eine falsch eingegebene Berichtssumme wird nicht durch eine fiktive Geldbewegung korrigiert. Solche Datenfehler vor Freigabe administrativ prüfen.
 
@@ -59,7 +60,31 @@ Konkreter Vectron-Testfall Z-294, Bediener 1: Barumsatz 449,95 EUR, Kartenumsatz
 
 Das unveränderte Bar Soll ist die Grundlage der Bargeldrechnung. Der Verkauf ist darin bereits berücksichtigt; **keine zusätzliche Bareinlage und keine nochmalige Addition des Gutscheinbetrags zum erwarteten Bargeld**. Dasselbe gilt bei mit Karte bezahlten Gutscheinverkäufen: Die tatsächliche Verteilung steht bereits in Bar Soll/Karte Soll. Der Gutscheinverkauf wird nicht als 7-/19-%-Umsatz und nicht als künstlicher 0-%-Umsatz erfasst.
 
-`voucher_sales_cents` wird separat in jedem Übergabe-Bericht und im `z_report` gespeichert, in beiden PDFs ausgewiesen und im bestehenden n8n-Abschluss-Payload mitgegeben. Alte Datensätze ohne Feld werden mit 0 angezeigt; bestehende abgeschlossene Snapshots bleiben unverändert. Keine Datenbankmigration und keine Änderung am FTP-Workflow nötig. Gutscheineinlösung und allgemeine Vereinfachung der Steuerfelder sind nicht Teil dieser Änderung.
+`voucher_sales_cents` wird separat in jedem Übergabe-Bericht und im `z_report` gespeichert, in beiden PDFs ausgewiesen und im bestehenden n8n-Abschluss-Payload mitgegeben. Alte Datensätze ohne Feld werden mit 0 angezeigt; bestehende abgeschlossene Snapshots bleiben unverändert. Die Gutscheinverwaltung ergänzt eigene Tabellen per Migration; am FTP-Workflow ist keine Änderung nötig. Die allgemeine Vereinfachung der Steuerfelder ist nicht Teil dieser Änderung.
+
+## Gutscheinliste, Formularnummern und Teil-Einlösung
+
+Menü **Kasse & Abrechnung → Gutscheinverkauf**, URL `/kasse/gutscheinverkauf`.
+
+1. Gutscheinverkauf wie bisher in der Schichtübergabe erfassen und diese bestätigen. Für jeden Bedienerbericht mit Gutscheinverkauf entsteht automatisch ein offener Verkaufseintrag mit Geschäftstag und Gesamtsumme. Bei wiederholter Übertragung derselben Übergabe entsteht kein zweiter Eintrag.
+2. Unter **Verkäufe ergänzen** die aufgedruckte fortlaufende Formularnummer, den Einzelwert und Bar/Karte eingeben. Ein Gutschein ist mit der gesamten Summe vorbelegt. **Weiterer Gutschein** teilt einen Sammelverkauf auf mehrere Formulare auf; die Einzelbeträge müssen exakt zur übernommenen Summe passen. Tag und Gesamtbetrag werden nicht frei verändert. Formularnummern bestehen aus Ziffern; führende Nullen werden angezeigt, aber bei der Eindeutigkeitsprüfung und Suche gleichgesetzt (`0001` = `1`). Diese Nummer ist unabhängig vom Vectron-Code.
+3. Nach Bestätigung steht der Gutschein mit ursprünglichem Wert, Restguthaben und Verkaufsnachweis in der Liste. Der Tagesabschluss verlangt die vollständige Nummerierung aller seit Einführung der Funktion erzeugten offenen Verkäufe.
+4. Einlösung: Gutschein über seine Nummer suchen, Teilbetrag oder **Restbetrag übernehmen** wählen, prüfen und verbindlich bestätigen. In Vectron weiterhin als Barzahlung abschließen. Es muss ein offener Geschäftstag bestehen; dieser wird automatisch übernommen. Bei Restguthaben > 0 lautet der Status **Teilweise eingelöst**, bei 0 **Entwertet**. Überziehung, unbekannte Nummern und erneute Nutzung eines vollständig entwerteten Gutscheins werden abgelehnt.
+5. Eine Einlösung vermindert das Restguthaben sofort. Sie wird mit Geschäftstag, Betrag, Benutzer und Zeitpunkt protokolliert. Die nächste bestätigte Übergabe übernimmt alle noch offenen Einlösungen dieses Tages und zieht sie genau einmal vom erwarteten Bargeld ab. Der Tagesabschluss übernimmt nur danach hinzugekommene Einlösungen. **Keine zusätzliche manuelle Entnahme erfassen.** Bar Soll aus Vectron unverändert übernehmen.
+
+Wenn nach einer gespeicherten Tageszählung ein Gutschein eingelöst wird, muss die Zählung neu eingegeben und der Abschluss erneut gespeichert werden. Einlösungen erhöhen die Tagesrevision; eine bereits geöffnete alte Abrechnungsansicht muss neu geladen werden. Geldbewegungen und Mitarbeiterdaten werden dabei nicht gelöscht. Dieselbe Einlöseanfrage kann bei einem Netzwerkfehler wiederholt werden, ohne das Guthaben erneut zu mindern. Datenbanktransaktionen und die gemeinsame Kassenstatus-Zeilensperre serialisieren parallele Vorgänge.
+
+Der gespeicherte Z-Bericht kann ebenfalls offene Verkäufe erzeugen, soweit dessen Tagessumme über die bereits bestätigten Schichtverkäufe hinausgeht. Es wird nur dieser zusätzliche Betrag erfasst. Wiederholtes Speichern erzeugt keine Duplikate. Noch nicht nummerierte Restbeträge dürfen korrigiert werden; bereits nummerierte Verkäufe können nicht stillschweigend verändert oder einer anderen Abrechnung zugeordnet werden. Die Tages-Gutscheinsumme darf nicht unter der Summe der bestätigten Schichten liegen.
+
+Gutscheine und Einlösungen sind nach Bestätigung unveränderlich; diese Version bietet keine Storno- oder Umbuchungsfunktion. Es gibt keinen Import und keine automatische Anlage alter Gutscheinbestände. Die Migration legt nur leere Registertabellen an; historische Abschluss-Snapshots werden nicht verändert oder nachträglich nummeriert.
+
+### Speicherung und Berichte
+
+`cash_voucher_batches` hält die aus Abrechnungen übernommenen Verkaufssummen, `cash_vouchers` die Formularnummern und Restguthaben, `cash_voucher_redemptions` die einzelnen Einlösungen und deren Zuordnung zur Übergabe. Alle Geldbeträge sind ganze Cent. Die Oberfläche ist wie die bestehenden Kassenfunktionen nur nach Anmeldung nutzbar und verwendet denselben CSRF-Schutz.
+
+Schicht-PDFs weisen übernommene Einlösungen mit Nummer und Betrag aus. Der endgültige Tages-Snapshot enthält zusätzlich `voucher_sales` mit den verkauften Nummern, Werten und Zahlarten; Einlösungen stehen in den jeweiligen Schicht-Snapshots beziehungsweise unter `supplement.voucher_redemptions`. `calculation.voucher_redemptions_cents` beziehungsweise `closing.voucher_redemptions_cents` bezeichnet nur den in diesem Rechnungsschritt abgezogenen Betrag. Diese Felder werden auch im bestehenden n8n-Abschluss-Payload geliefert. Einlösungen dürfen vom Empfänger nicht noch einmal als allgemeine Entnahme hinzugebucht werden.
+
+Vor Bereitstellung Datenbank sichern. Deployment einschließlich **`php artisan migrate --force`**, Frontend-Build und geleerten Routen-/Anwendungscaches durchführen; das vorhandene `scripts/deploy.sh` erledigt diese Schritte. Danach mit einem neuen Verkauf und zwei Teil-Einlösungen testen. Die beiden bestehenden n8n-FTP-Archivworkflows bleiben unverändert und verwenden die ergänzten PDFs.
 
 ## Vectron BI
 

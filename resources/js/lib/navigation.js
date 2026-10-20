@@ -9,6 +9,7 @@ import {
     ReceiptText,
     Download,
     Settings2,
+    Ticket,
 } from "lucide-react";
 
 export const navigation = [
@@ -23,6 +24,7 @@ export const navigation = [
         items: [
             { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
             { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+            { route: "cash.vouchers", label: "Gutscheinverkauf", icon: Ticket },
         ],
     },
     {

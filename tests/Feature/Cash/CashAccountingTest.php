@@ -112,6 +112,10 @@ class CashAccountingTest extends TestCase
         $this->postJson("/api/cash/days/$id/handovers", $body)->assertOk();
         $this->assertDatabaseCount('cash_handovers', 1);
         $handover = DB::table('cash_handovers')->first();
+        $batchId = DB::table('cash_voucher_batches')->where('handover_id', $handover->id)->value('id');
+        $this->postJson("/api/cash/vouchers/batches/$batchId/register", [
+            'request_id' => (string) Str::uuid(), 'vouchers' => [['number' => '1001', 'amount' => '40.00', 'payment_method' => 'cash']],
+        ])->assertOk();
         $handoverHtml = view('cash.handover', ['day' => (object) $detail['day'], 'handover' => $handover, 'snapshot' => $detail['handovers'][0]['snapshot']])->render();
         $this->assertStringContainsString('Gutscheinverkauf: 40,00 EUR', strip_tags($handoverHtml));
 
