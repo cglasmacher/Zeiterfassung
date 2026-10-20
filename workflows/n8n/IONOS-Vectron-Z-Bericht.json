@@ -32,7 +32,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://DEINE-ZEITERFASSUNG-DOMAIN';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle PDFs dieses dedizierten Postfachs.\nconst allowedSender = '';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase()}, binary: item.binary, pairedItem: {item: i}}));"
+        "jsCode": "// Einmal die Adresse eurer Zeiterfassung eintragen, ohne abschließenden Schrägstrich.\nconst platformUrl = 'https://dienstplan.hemingway-hilden.de';\n// Optional: bekannte Absenderadresse exakt eintragen. Leer = alle PDFs dieses dedizierten Postfachs.\nconst allowedSender = '';\nreturn $input.all().map((item, i) => ({json: {...item.json, platform_url: platformUrl.replace(/\\/$/, ''), allowed_sender: allowedSender.toLowerCase()}, binary: item.binary, pairedItem: {item: i}}));"
       }
     },
     {

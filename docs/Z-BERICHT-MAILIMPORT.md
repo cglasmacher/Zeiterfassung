@@ -8,7 +8,7 @@
 
    ```dotenv
    CASH_Z_REPORT_IMPORT_TOKEN=HIER_DAS_GENERIERTE_GEHEIMNIS
-   CASH_BUSINESS_DAY_START_HOUR=6
+   CASH_Z_REPORT_PREVIOUS_DAY_UNTIL=11:00
    ```
 
    Anschließend `php artisan config:clear`. Token nicht in Git oder die Workflow-JSON schreiben.
@@ -21,9 +21,13 @@
 
 ## Tageszuordnung
 
-Der Server liest ausschließlich Datum/Uhrzeit im Kassenfuß des bekannten Vectron-Layouts `Finanzbericht <Z1>`. Weder Empfangsdatum der Mail noch der Dateiname noch „Letzte Nullst.“ werden als Geschäftstag verwendet. Wiederholte identische Fußzeilen sind zulässig; unterschiedliche Zeitpunkte führen zu einer offenen Zuordnung. Unbekanntes Layout, gescannte PDFs oder fehlender PDF-Text bleiben ebenfalls offen und sichtbar.
+Der Server liest Datum/Uhrzeit **unten in der Finanzbericht-Zusammenfassung**. Weder Empfangsdatum der Mail noch der Dateiname noch „Letzte Nullst.“ oben werden als Geschäftstag verwendet. Spätere Bedienerberichte werden für diese Entscheidung ignoriert. Die Erkennung toleriert Zeilenumbrüche, Seitenumbrüche, geschützte Leerzeichen und in eine Zeile zusammengezogene PDF-Felder. Unbekannte Layouts oder gescannte PDFs ohne Text bleiben zur manuellen Zuordnung offen.
 
-Standard: Ein Bericht mit Kassenzeit vor 06:00 Uhr **Europe/Berlin** wird dem Vortag zugeordnet. Beispiel: 18.10.2026, 01:20 → Geschäftstag 17.10.2026. Diese Grenze entspricht der bisherigen Planung des Tagesabschluss-Zeitraums und ist mit `CASH_BUSINESS_DAY_START_HOUR` (0–23) änderbar. Bei abweichenden Öffnungszeiten anpassen. Ein Z-Bericht kann mehrere Tage abdecken; die automatische Zuordnung ist deshalb ein Vorschlag nach Berichtszeit, keine Bestätigung seines Umsatzzeitraums.
+**Bis einschließlich 11:00:00 Uhr Europe/Berlin gehört der Bericht zum Vortag.** Beispiele: 20.10.2026 09:15 → 19.10.2026; 20.10.2026 11:00 → 19.10.2026; ab 11:00:01 → 20.10.2026. Die neue Einstellung `CASH_Z_REPORT_PREVIOUS_DAY_UNTIL=11:00` gilt ausdrücklich für diese Z-Berichtszuordnung. Die alte Einstellung `CASH_BUSINESS_DAY_START_HOUR=6` wird hier nicht mehr ausgewertet und kann aus `.env` entfernt werden. Bestehende Kassen-/Abschlusszeiträume werden nicht geändert.
+
+Die **Z-Berichtsnummer** wird als sichtbare Berichts-ID und als `report_id`/`report_number` an n8n geliefert. Der technische Datensatzschlüssel (`id`, zusätzlich `record_id`) bleibt für vorhandene Links und APIs erhalten, weil verschiedene Kassen dieselbe Z-Nummer verwenden können. Dateiname z. B. `Z-Bericht_2026-10-19_Z-291.pdf`. Bei einem weiteren, inhaltlich abweichenden Original mit derselben Z-Nummer und demselben Geschäftstag wird `_Beleg-<Dateikennung>` ergänzt, damit nichts überschrieben wird. Ohne lesbare Z-Nummer wird eine Dateikennung verwendet, keine erfundene Berichtsnummer.
+
+**Bereits unzugeordnete Berichte:** Nach dem Update dieselbe Mail/PDF in n8n erneut ab der PDF-Auslese übermitteln. Die Plattform ergänzt erkannte Daten am vorhandenen Datensatz; es entsteht kein doppeltes PDF. Auch automatisch zugeordnete Berichte können so mit der neuen 11-Uhr-Regel korrigiert werden. Manuelle Tageszuordnungen werden niemals überschrieben. Frühere QNAP-Ablagen werden nicht automatisch verschoben oder umbenannt.
 
 Unter **Letzte Eingänge und Tageszuordnung korrigieren** können Mitarbeiter die Zuordnung nach Prüfung des Original-PDFs ändern. Nicht zugeordnete PDFs werden separat angezeigt. Die Änderung wird mit Benutzer, vorherigem und neuem Datum protokolliert. Sie ändert weder bestehende Abschlüsse noch Umsätze, Auszahlungen oder n8n-Buchungen.
 
@@ -62,11 +66,11 @@ Die Abrechnungsoberfläche und Gutscheinlogik werden dabei nicht verändert.
 3. Vor dem ersten Upload mit einem temporären **FTP**-Knoten, Protokoll **SFTP**, Operation **List**, den Pfad `/share/Buchhaltung` prüfen. Der Freigabename `Buchhaltung` ist nicht automatisch der vollständige SFTP-Pfad; bei QNAP liegt er üblicherweise unter `/share`. Falls die Freigabe im SFTP-Stamm anders eingeblendet wird, den tatsächlich sichtbaren absoluten Basispfad in **Konfiguration → qnapBasePath** eintragen. Die Standardeinstellung ist `/share/Buchhaltung/Kassendoku`.
 4. Mit einer neuen echten Mail testen. Der vollständige Ablauf muss bis zum letzten SFTP-Knoten erfolgreich sein; danach die Datei im QNAP File Station prüfen und erst anschließend den alten Workflow deaktivieren und den neuen aktivieren.
 
-Beispiel für Geschäftstag 16.10.2026 und Plattform-Bericht-ID 291:
+Beispiel für Geschäftstag 16.10.2026 und Z-Berichtsnummer 291:
 
-`Buchhaltung/Kassendoku/2026/10/Z-Bericht_2026-10-16_ID-291.pdf`
+`Buchhaltung/Kassendoku/2026/10/Z-Bericht_2026-10-16_Z-291.pdf`
 
-Jahr/Monat stammen aus `business_date` der erfolgreichen Plattformantwort. Auch bei Eingang im November landet ein Oktober-Geschäftstag im Oktober. Wiederholter Upload desselben PDF erhält von der Plattform dieselbe ID und verwendet denselben QNAP-Dateinamen. PDF-Binärdaten werden nach der HTTP-Antwort über die n8n-Item-Verknüpfung wieder mitgegeben; mehrere Anhänge werden nicht vermischt.
+Jahr/Monat stammen aus `business_date` der erfolgreichen Plattformantwort. Auch bei Eingang im November landet ein Oktober-Geschäftstag im Oktober. Der aktualisierte Workflow verwendet `archive_filename` aus der Plattformantwort und damit die Z-Berichtsnummer statt der internen Datenbank-ID. Wiederholungen verwenden denselben Dateinamen. PDF-Binärdaten werden nach der HTTP-Antwort über die n8n-Item-Verknüpfung wieder mitgegeben; mehrere Anhänge werden nicht vermischt.
 
 Der SFTP-Upload-Knoten legt fehlende Jahres-/Monatsordner automatisch an, wenn das Konto dafür Schreibrechte besitzt. Berichte ohne zugeordneten Geschäftstag landen in `Kassendoku/Unzugeordnet` statt in einem geratenen Monat. Eine spätere manuelle Zuordnung in der Plattform verschiebt die bereits archivierte Datei nicht automatisch; dann auf der QNAP ebenfalls verschieben.
 

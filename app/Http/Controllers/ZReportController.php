@@ -10,13 +10,45 @@ use Illuminate\Validation\ValidationException;
 
 class ZReportController extends Controller
 {
+    private static function publicId($row): ?string
+    {
+        return $row->report_number !== null && $row->report_number !== '' ? (string) $row->report_number : null;
+    }
+
+    private static function archiveFilename($row): string
+    {
+        $number = self::publicId($row);
+        $date = $row->business_date ?: 'unzugeordnet';
+        if (! $number) {
+            return 'Z-Bericht_'.$date.'_Beleg-'.substr($row->sha256, 0, 12).'.pdf';
+        }
+        // A Z counter can occur on more than one register or in a corrected original.
+        $earlier = DB::table('cash_z_reports')->where('report_number', $number)
+            ->where('business_date', $row->business_date)->where('id', '<', $row->id)->exists();
+
+        return 'Z-Bericht_'.$date.'_Z-'.$number.($earlier ? '_Beleg-'.substr($row->sha256, 0, 12) : '').'.pdf';
+    }
+
+    private static function receipt($row, bool $duplicate): array
+    {
+        return ['id' => $row->id, 'record_id' => $row->id, 'report_id' => self::publicId($row),
+            'report_number' => $row->report_number, 'archive_filename' => self::archiveFilename($row),
+            'duplicate' => $duplicate, 'business_date' => $row->business_date,
+            'needs_assignment' => $row->business_date === null];
+    }
+
     public static function listing($query)
     {
         return $query->orderByDesc('created_at')->get([
-            'id', 'original_name', 'report_number', 'register_name', 'reported_at',
+            'id', 'sha256', 'original_name', 'report_number', 'register_name', 'reported_at',
             'business_date', 'assignment_source', 'created_at',
-        ])->map(fn ($row) => [...(array) $row,
-            'pdf_url' => route('cash.z-reports.pdf', ['id' => $row->id], absolute: false)]);
+        ])->map(function ($row) {
+            $data = (array) $row;
+            unset($data['sha256']);
+
+            return [...$data, 'record_id' => $row->id, 'report_id' => self::publicId($row),
+                'pdf_url' => route('cash.z-reports.pdf', ['id' => $row->id], absolute: false)];
+        });
     }
 
     public function store(Request $request, ZReportMetadata $parser)
@@ -33,24 +65,39 @@ class ZReportController extends Controller
         }
         $hash = hash('sha256', $bytes);
 
-        // Per-content lock serializes retries; a repeated email never changes assignment.
+        // Serialize identical PDFs; retries may repair automatic metadata, but never manual assignments.
         return \Illuminate\Support\Facades\Cache::lock('cash-z-report-'.$hash, 60)->block(5, function () use ($hash, $bytes, $file, $data, $parser) {
+            $metadata = $parser->parse($data['extracted_text'] ?? '');
             $existing = DB::table('cash_z_reports')->where('sha256', $hash)->first();
             if ($existing) {
-                return response()->json(['id' => $existing->id, 'duplicate' => true, 'business_date' => $existing->business_date]);
+                DB::transaction(function () use ($existing, $metadata) {
+                    $current = DB::table('cash_z_reports')->lockForUpdate()->find($existing->id);
+                    $updates = [];
+                    foreach (['report_number', 'register_name'] as $field) {
+                        if (! $current->$field && $metadata[$field]) {
+                            $updates[$field] = $metadata[$field];
+                        }
+                    }
+                    if ($current->assignment_source !== 'manual' && $metadata['business_date']) {
+                        $updates = [...$updates, 'business_date' => $metadata['business_date'],
+                            'reported_at' => $metadata['reported_at'], 'assignment_source' => 'report_time'];
+                    }
+                    if ($updates) {
+                        DB::table('cash_z_reports')->where('id', $current->id)->update([...$updates, 'updated_at' => now()]);
+                    }
+                });
+
+                return response()->json(self::receipt(DB::table('cash_z_reports')->find($existing->id), true));
             }
             $path = 'cash/z-reports/'.$hash.'.pdf';
             abort_unless(Storage::disk('local')->put($path, $bytes), 500, 'PDF konnte nicht gespeichert werden.');
-            $metadata = $parser->parse($data['extracted_text'] ?? '');
             $id = DB::table('cash_z_reports')->insertGetId([
                 ...$metadata, 'sha256' => $hash, 'path' => $path,
                 'original_name' => mb_substr(basename(str_replace('\\', '/', $file->getClientOriginalName())), 0, 255),
                 'message_id' => $data['message_id'] ?? null, 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            return response()->json(['id' => $id, 'duplicate' => false,
-                'business_date' => $metadata['business_date'],
-                'needs_assignment' => $metadata['business_date'] === null], 201);
+            return response()->json(self::receipt(DB::table('cash_z_reports')->find($id), false), 201);
         });
     }
 
@@ -88,7 +135,7 @@ class ZReportController extends Controller
         $report = DB::table('cash_z_reports')->find($id);
         abort_unless($report && Storage::disk('local')->exists($report->path), 404);
 
-        return Storage::disk('local')->response($report->path, 'Z-Bericht-'.$id.'.pdf', [
+        return Storage::disk('local')->response($report->path, self::archiveFilename($report), [
             'Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
