@@ -102,7 +102,7 @@ function AccountingLine({ line, accounts, busy, save }) {
         <td className="py-3 pr-3 whitespace-nowrap">{line.tax_rate !== null ? `${Number(line.tax_rate).toLocaleString("de-DE")}%` : "–"}</td>
         <td className="py-3 pr-3">
             <div className="space-y-2">
-                <select className="w-full rounded-lg border-neutral-300" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || doc?.status === "exported"}>
+                <select className="w-full rounded-lg border-neutral-300" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy}>
                     <option value="">Konto auswählen …</option>
                     {accounts.map((account) => <option key={account.id} value={account.id}>{account.account_number} · {account.name}</option>)}
                 </select>
