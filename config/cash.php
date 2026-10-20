@@ -4,7 +4,7 @@ return [
     'archive' => ['export_token' => env('CASH_DOCUMENT_EXPORT_TOKEN')],
     'z_reports' => [
         'import_token' => env('CASH_Z_REPORT_IMPORT_TOKEN'),
-        'business_day_starts_at' => env('CASH_BUSINESS_DAY_START_HOUR', 6),
+        'previous_day_until' => env('CASH_Z_REPORT_PREVIOUS_DAY_UNTIL', '11:00'),
     ],
     'vectron' => [
         // Explicit production URL required; do not accidentally send credentials to demo.

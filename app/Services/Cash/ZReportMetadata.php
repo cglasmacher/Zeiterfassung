@@ -10,24 +10,32 @@ class ZReportMetadata
     {
         $result = ['report_number' => null, 'register_name' => null, 'reported_at' => null,
             'business_date' => null, 'assignment_source' => 'pending'];
-        // Only the known original Vectron Z1 layout is dated automatically.
-        // Last reset dates and dates in email headers/file names are never used.
-        if (! preg_match('/Finanzbericht\s*<\s*Z1\s*>/iu', $text)) {
+        // PDF extractors can put footer fields on one line, several lines or different pages.
+        $text = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $text);
+        $text = preg_replace('/[\s\p{Z}]+/u', ' ', $text);
+        if (! preg_match('/Finanzbericht\s*<\s*Z\s*1\s*>/iu', $text)) {
             return $result;
         }
-        if (preg_match('/Finanzbericht\s+1\s+(\d{1,20})\b/u', $text, $number)) {
+        // Only use the financial summary, never later operator-report footers.
+        $summary = preg_split('/Bediener\s*(?:\([^)]*\))?\s*<\s*Z\s*1\s*>/iu', $text, 2)[0];
+        if (preg_match('/Finanzbericht\s*1\s*(\d{1,20})\b/iu', $summary, $number)) {
             $result['report_number'] = $number[1];
         }
-        preg_match_all('/(?:^|\n)\s*(Kasse[^\n]{0,90})\n\s*(\d{2}\.\d{2}\.\d{2}(?:\d{2})?)\s+(\d{2}:\d{2})\b/u', str_replace("\r", '', $text), $matches, PREG_SET_ORDER);
+        preg_match_all('/(Kasse\s*[\p{L}\p{N} #_.-]{0,70}?)\s*(\d{2}\.\d{2}\.(?:\d{4}|\d{2}))\s*(\d{2}:\d{2}(?::\d{2})?)(?!\d)/iu', $summary, $matches, PREG_SET_ORDER);
         $timestamps = [];
         foreach ($matches as $match) {
+            // The reset date near the top is not the date this report was produced.
+            if (preg_match('/Nullst|Letzte/iu', $match[1])) {
+                continue;
+            }
             try {
-                $format = strlen($match[2]) === 8 ? 'd.m.y H:i' : 'd.m.Y H:i';
+                $format = (strlen($match[2]) === 8 ? 'd.m.y' : 'd.m.Y').(strlen($match[3]) === 5 ? ' H:i' : ' H:i:s');
                 $at = CarbonImmutable::createFromFormat('!'.$format, $match[2].' '.$match[3], 'Europe/Berlin');
                 if (! $at || $at->format($format) !== $match[2].' '.$match[3]) {
                     continue;
                 }
-                $timestamps[$at->toIso8601String()] = [$at, trim($match[1])];
+                $register = trim(preg_replace('/^.*(?=Kasse)/iu', '', $match[1]));
+                $timestamps[$at->toIso8601String()] = [$at, $register];
             } catch (\Throwable) {
                 continue;
             }
@@ -36,10 +44,13 @@ class ZReportMetadata
             return $result;
         }
         [$at, $register] = array_values($timestamps)[0];
-        $cutoff = max(0, min(23, (int) config('cash.z_reports.business_day_starts_at', 6)));
+        $until = (string) config('cash.z_reports.previous_day_until', '11:00');
+        if (! preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D', $until)) {
+            throw new \RuntimeException('CASH_Z_REPORT_PREVIOUS_DAY_UNTIL muss HH:MM enthalten.');
+        }
         $result['register_name'] = $register;
         $result['reported_at'] = $at->utc()->format('Y-m-d H:i:s');
-        $result['business_date'] = ($at->hour < $cutoff ? $at->subDay() : $at)->toDateString();
+        $result['business_date'] = ($at->format('H:i:s') <= $until.':00' ? $at->subDay() : $at)->toDateString();
         $result['assignment_source'] = 'report_time';
 
         return $result;

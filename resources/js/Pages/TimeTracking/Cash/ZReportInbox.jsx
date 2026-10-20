@@ -44,7 +44,7 @@ export default function ZReportInbox({ businessDate }) {
             <a href={report.pdf_url} target="_blank" rel="noopener noreferrer"
                 className="text-link text-sm break-words">
                 <FileText size={17} className="shrink-0" />
-                Z-Bericht {report.report_number ? `Nr. ${report.report_number}` : report.original_name} öffnen
+                Z-Bericht {report.report_number ? `ID ${report.report_number}` : report.original_name} öffnen
             </a>
             <p className="text-xs text-neutral-600">
                 {report.register_name && `${report.register_name} · `}
