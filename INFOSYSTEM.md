@@ -29,22 +29,20 @@ Die TV-Ansicht hat große Karten, blättert längere Listen automatisch durch un
 
 Auf dem Stream-Host sind Verwaltungs-, Login- und Integrationspfade gesperrt. Die eigentlichen Display-Endpunkte sind auch auf dem Verwaltungs-Host tokenpflichtig nutzbar. Token-Queryparameter des einmaligen Verbindungslinks dürfen nicht in dauerhaft gespeicherten Access-Logs landen; am Proxy redigieren. Danach wird auf eine URL ohne Token weitergeleitet (`no-store`, `no-referrer`).
 
-## resmio: Implementierungsstand und erforderlicher Live-Abgleich
+## resmio: API-Key und Synchronisation
 
-Die öffentlich zugängliche resmio-Dokumentation bestätigt POST-Webhooks mit Basic Auth und den Feldern `id`, `facility_id`, `action`. Sie enthalten keine Reservierungsdetails: https://www.resmio.com/hilfe/webhook/ . Webhooks sind laut Anbieter ab PREMIUM verfügbar.
+Implementiert anhand der offiziellen Dokumentation: https://documentation.resmio.com/authenticatedapi.html . Basis: `RESMIO_BASE_URL=https://api.resmio.com/v1`.
 
-Der API-Zugang des Hemingway und dessen vollständige API-Spezifikation liegen dieser Implementierung **nicht** vor. Die folgenden Adapter-Annahmen wurden mit simulierten Antworten getestet, nicht gegen ein echtes resmio-Konto verifiziert:
+1. Unter **Infosystem → resmio** Facility-ID `hemingway-hilden` und den **reinen API-Key** aus resmio speichern. Kein Bearer-Präfix erforderlich. Der Key bleibt verschlüsselt im bisherigen Datenbankfeld `authorization`; es ist keine neue Migration nötig.
+2. **Jetzt synchronisieren** starten. Die Anwendung sendet `Api-Key` und `Content-Type: application/json`, liest `/facility/{facility}/bookings` sowie `/facility/{facility}/resources` und verarbeitet alle Seiten. Buchungsfelder sind `id`, `date`, `num`, `name`, `status` und `facility_resources`. Tischreferenzen werden über die Ressourcen in Tischnamen übersetzt. Stornierte Buchungen und No-Shows werden auf dem TV ausgeblendet.
+3. Webhook-Ziel: `https://dienstplan.hemingway-hilden.de/api/integrations/resmio/webhook`. Eigene Basic-Auth-Zugangsdaten an beiden Stellen identisch hinterlegen; Aktionen `BOOKING_CREATED`, `BOOKING_UPDATED`, `BOOKING_DELETED`. Diese Einstellungen ändern sich durch die API-Korrektur nicht.
+4. Für Dauerbetrieb Scheduler und Queue wie oben einrichten. Regelabgleich alle fünf Minuten; manuell auch `php artisan info:sync-resmio`.
 
-- Basis `RESMIO_BASE_URL=https://api.resmio.com/v1` und Lesepfad `/facility/{facility}/booking/`.
-- Vom Anbieter übergebener vollständiger `Authorization`-Header, verschlüsselt in der Datenbank gespeichert.
-- Filter `date__gte`, `date__lte`, `limit`, Antwort `objects` und optionale Paginierung `meta.next`.
-- Buchungsfelder `id`, `date` (ISO oder Unix-Sekunden), `num_people`, optional `first_name`, `last_name`, `tables`, `status`.
+Zeitfilter werden als UTC-Zeitpunkte `date__gte` und `date__lt` für das Berliner Zeitfenster gesendet, auch über den Sommerzeitwechsel hinweg. Die Filter bleiben auf Folgeseiten erhalten. Nur Seiten derselben HTTPS-Origin und desselben Facility-Endpunkts werden akzeptiert. Weiterleitungen werden nicht verfolgt.
 
-**Vor Aktivierung sind Pfad, Authentifizierung, Filter, Statuswerte und Feldnamen anhand der für das Konto freigegebenen resmio-Dokumentation zu bestätigen und gegebenenfalls im Adapter anzupassen.** Ein erfolgreicher Mock-Test ist kein Nachweis einer fertigen Live-Anbindung. Insbesondere muss der Lesepfad einen vollständigen Snapshot des abgefragten Zeitfensters liefern. Erst nach Bestätigung `RESMIO_RECONCILE_MISSING=true` setzen: nur dann werden nicht mehr gelieferte Reservierungen als entfernt markiert. Standardmäßig bleiben solche Datensätze erhalten; Lösch-Webhooks und ausdrücklich gelieferte Stornostatus werden trotzdem verarbeitet.
+Alle Buchungs- und Ressourcenseiten werden vor der atomaren Übernahme validiert. Fehler erhalten den bisherigen Datenbestand und zeigen konkrete Hinweise. `RESMIO_RECONCILE_MISSING=true` aktiviert zusätzlich das Ausblenden von Buchungen, die im vollständigen Snapshot des Zeitfensters fehlen; standardmäßig bleibt diese Option deaktiviert. Lösch-Webhooks und explizite Stornos werden unabhängig davon verarbeitet. Reservierungen älter als sieben Tage werden beim erfolgreichen Abgleich entfernt.
 
-In der Verwaltung Facility-ID, Authorization sowie eigene Basic-Auth-Zugangsdaten für den Webhook eintragen, zunächst speichern und **Jetzt synchronisieren** testen. Webhook in resmio für `BOOKING_CREATED`, `BOOKING_UPDATED`, `BOOKING_DELETED` auf `https://dienstplan.hemingway-hilden.de/api/integrations/resmio/webhook` registrieren. Ausschließlich passende Facility und Buchungsaktionen werden akzeptiert. Löschungen werden sofort lokal als solche markiert; anschließend lädt ein Queue-Job die Details nach. Regelabgleich alle fünf Minuten, manuell auch mit `php artisan info:sync-resmio`.
-
-Alle Seiten werden zuerst validiert und dann atomar übernommen. Ein Abgleich ist zeitlich begrenzt und per Lock gegen parallele Ausführung geschützt. Fehler bewahren den bisherigen Datenbestand und erzeugen einen sichtbaren Fehlerstatus. Nur HTTPS und Seiten innerhalb des konfigurierten API-Pfades sind zulässig; Weiterleitungen werden nicht verfolgt. Doppelte IDs erzeugen keine doppelten Reservierungen. Gelöschte Buchungen werden durch eine überholte API-Antwort nicht wieder aktiviert. Reservierungen älter als sieben Tage werden beim erfolgreichen Abgleich entfernt.
+Der Adapter ist gegen dokumentationsgetreue Testantworten geprüft. Ein erfolgreicher Live-Abgleich mit dem im Produktionssystem gespeicherten Schlüssel steht weiterhin aus; der Schlüssel liegt dieser Entwicklungsumgebung nicht vor.
 
 ## Tests
 

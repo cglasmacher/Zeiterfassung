@@ -23,7 +23,7 @@ class DisplayFeed
             })->whereNull('completed_at')->orderByDesc('priority')->orderBy('sort_order')->orderBy('id')->get();
         $reservations = InfoReservation::where('starts_at', '>=', $now->copy()->timezone('Europe/Berlin')->startOfDay()->utc())
             ->where('starts_at', '<', $now->copy()->timezone('Europe/Berlin')->addDay()->startOfDay()->utc())
-            ->whereNotIn('status', ['cancelled', 'canceled', 'deleted', 'no_show', 'removed'])->orderBy('starts_at')->get()
+            ->whereNotIn('status', ['cancelled', 'canceled', 'deleted', 'no_show', 'noshow', 'removed'])->orderBy('starts_at')->get()
             ->map(fn ($r) => ['id' => $r->id, 'starts_at' => $r->starts_at->toIso8601String(), 'people' => $r->people,
                 'guest_name' => $display->show_guest_names ? $r->guest_name : null, 'tables' => $r->tables, 'status' => $r->status]);
         $shifts = Shift::with(['employee:id,first_name,last_name', 'department:id,name', 'shiftType'])
