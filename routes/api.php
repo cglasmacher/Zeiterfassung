@@ -23,3 +23,5 @@ Route::prefix('integrations/cash-documents')
         Route::get('/{kind}/{id}/pdf', 'pdf')->whereIn('kind', ['handover', 'day'])->whereNumber('id');
         Route::post('/{kind}/{id}/ack', 'acknowledge')->whereIn('kind', ['handover', 'day'])->whereNumber('id');
     });
+
+Route::post('/integrations/resmio/webhook', \App\Http\Controllers\Info\ResmioWebhookController::class)->middleware('throttle:120,1');

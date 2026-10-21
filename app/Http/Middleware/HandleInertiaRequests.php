@@ -31,8 +31,9 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'allowedNavigation' => $request->user() && ! $request->is('display/*') ? \App\Support\WorkspaceAccess::navigation($request->user()) : [],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->is('display/*') ? null : $request->user(),
             ],
         ];
     }

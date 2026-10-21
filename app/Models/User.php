@@ -38,11 +38,21 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    public function landingRoute(): string
+    {
+        return match ($this->access_role) {
+            'admin' => 'dashboard',
+            'operations' => 'cash.days',
+            default => 'profile.edit',
+        };
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_info_admin' => 'boolean',
         ];
     }
 }

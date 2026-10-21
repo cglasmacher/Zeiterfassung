@@ -1,5 +1,6 @@
 import {
     LayoutDashboard,
+    Monitor,
     Clock3,
     CalendarDays,
     CalendarRange,
@@ -18,6 +19,7 @@ export const navigation = [
         label: "Betrieb",
         items: [
             { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
+            { route: "info.admin", label: "Infosystem", icon: Monitor },
         ],
     },
     {
@@ -31,7 +33,11 @@ export const navigation = [
     {
         label: "Buchhaltung",
         items: [
-            { route: "accounting.documents", label: "Eingangsbelege", icon: BookOpenCheck },
+            {
+                route: "accounting.documents",
+                label: "Eingangsbelege",
+                icon: BookOpenCheck,
+            },
         ],
     },
     {
@@ -119,4 +125,5 @@ export const mobileNavigation = [
     { route: "timetracking.planner", label: "Dienstplan", icon: CalendarRange },
     { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
     { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+    { route: "cash.vouchers", label: "Gutscheine", icon: Ticket },
 ];
