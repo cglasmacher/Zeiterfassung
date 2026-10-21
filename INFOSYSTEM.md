@@ -15,6 +15,10 @@ Neue Tabellen: `info_displays`, `info_items`, `info_integrations`, `info_reserva
 - Displays: „Küche“ (`kitchen`) ist vorangelegt. Weitere Displays können erstellt, umbenannt, deaktiviert und auf Dienstplan-Abteilungen beschränkt werden. Gastnamen sind standardmäßig ausgeblendet.
 - Unter **Displays → Zugang neu erzeugen** den einmal angezeigten Verbindungslink auf dem TV öffnen. Das verschlüsselte HttpOnly-Cookie verbindet diesen Browser; in der Datenbank liegt nur ein Token-Hash. Erneutes Erzeugen widerruft bisherige Verbindungen.
 
+Der TV zeigt links Medien und Mitteilungen, in der Mitte Reservierungen über Aufgaben und rechts Events über beide Zeilen. Reservierungen werden nach Beginn in Berliner Ortszeit als Gästezahlen für 10–12, 12–17 und 17–21 Uhr zusammengefasst; außerhalb dieser Zeiten gebuchte Gäste werden zusätzlich ausgewiesen.
+
+YouTube: **Infosystem → Medien → Neu → YouTube** wählen, normalen Video-Link einfügen, das gewünschte Display auswählen und speichern. Die Anzeigedauer legt den Wechsel zum nächsten Medium fest (z. B. 3600 Sekunden für eine Stunde); am TV bei Bedarf **Ton an** drücken. Der Player erhält nur die Origin als Referer, keinen Display-Verbindungstoken.
+
 Die TV-Ansicht hat große Karten, blättert längere Listen automatisch durch und rotiert Medien. Sie startet stumm; **Ton an** und **Vollbild** benötigen eine Benutzeraktion. YouTube kann Werbung zeigen, Einbettung einzelner Videos verbieten oder auf bestimmten TV-Browsern zusätzliche Interaktion erfordern. Es wird YouTube eingebettet, keine YouTube-App ferngesteuert.
 
 ## Bereitstellung auf Plesk
@@ -48,9 +52,9 @@ Der Adapter ist gegen dokumentationsgetreue Testantworten geprüft. Ein erfolgre
 
 `php artisan test` prüft bestehende Features und das Infosystem. Neue Tests decken Verwaltungsrechte, Display-Cookies/Tokenrotation, Aufgabenstatus, Zeit-/Displayfilter, Gastnamen, API-Paginierung, fehlerhafte Antworten, Schutz vor Credential-Weiterleitung, Webhook-Authentifizierung, UTC/Sommerzeitwechsel und private Uploads ab.
 
-`node --test tests/Workflow/*.test.mjs` prüft bestehende n8n-Workflows und die YouTube-Linkverarbeitung. `npm run build` baut die komplette Anwendung mit dem bestehenden Lockfile.
+`node --test tests/Workflow/*.test.mjs` prüft bestehende n8n-Workflows die YouTube-Linkverarbeitung und die Gästezählung einschließlich Zeitgrenzen und Sommer-/Winterzeit. `npm run build` baut die komplette Anwendung mit dem bestehenden Lockfile.
 
-Die lokale Playwright-Browserprüfung konnte in dieser Umgebung nicht ausgeführt werden, da die Browser-Downloads scheitern. Eine Abnahme auf dem echten Küchen-TV und ein resmio-Live-Test sind zusätzlich erforderlich. DNS, Plesk, TLS und Produktionszugangsdaten wurden aus dieser Entwicklungsumgebung nicht verändert.
+Die TV-Anordnung wird lokal mit Playwright in 1920×1080, 1280×720, 960×540 sowie mobiler Breite geprüft. Eine Abnahme auf dem echten Küchen-TV und ein resmio-Live-Test sind zusätzlich erforderlich. DNS, Plesk, TLS und Produktionszugangsdaten wurden aus dieser Entwicklungsumgebung nicht verändert.
 
 ## Benutzerrechte und Teamkonto
 

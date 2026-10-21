@@ -449,6 +449,19 @@ export default function Admin() {
                                                     }
                                                 />
                                             </Field>
+                                            {edit.media_type === "youtube" && (
+                                                <p className="text-sm text-neutral-600 md:col-span-2">
+                                                    Einen normalen
+                                                    YouTube-Video-Link einfügen.
+                                                    Die Anzeigedauer bestimmt,
+                                                    wann zum nächsten Medium
+                                                    gewechselt wird; zum
+                                                    Beispiel 3600 Sekunden für
+                                                    eine Stunde. Den Ton
+                                                    aktivierst du auf dem
+                                                    Fernseher über „Ton an“.
+                                                </p>
+                                            )}
                                             {edit.media_type !== "youtube" && (
                                                 <Field label="Oder Datei hochladen (max. 100 MB)">
                                                     <input
@@ -836,7 +849,8 @@ export default function Admin() {
                                 resmio-Anbindung
                             </h2>
                             <p className="text-neutral-600">
-                                Den reinen API-Key aus eurem resmio-Konto eintragen, ohne Bearer oder sonstiges Präfix.
+                                Den reinen API-Key aus eurem resmio-Konto
+                                eintragen, ohne Bearer oder sonstiges Präfix.
                                 Gespeicherte Zugangsdaten werden nicht zurück
                                 angezeigt. Leere Passwortfelder behalten den
                                 bisherigen Wert.
