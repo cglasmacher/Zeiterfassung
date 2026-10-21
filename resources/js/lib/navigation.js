@@ -33,7 +33,11 @@ export const navigation = [
     {
         label: "Buchhaltung",
         items: [
-            { route: "accounting.documents", label: "Eingangsbelege", icon: BookOpenCheck },
+            {
+                route: "accounting.documents",
+                label: "Eingangsbelege",
+                icon: BookOpenCheck,
+            },
         ],
     },
     {
@@ -121,4 +125,5 @@ export const mobileNavigation = [
     { route: "timetracking.planner", label: "Dienstplan", icon: CalendarRange },
     { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
     { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+    { route: "cash.vouchers", label: "Gutscheine", icon: Ticket },
 ];

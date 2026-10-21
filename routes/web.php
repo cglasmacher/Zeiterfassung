@@ -10,7 +10,7 @@ Route::domain(config('infosystem.stream_host'))->get('/', fn () => redirect('/di
 
 require __DIR__.'/infosystem.php';
 
-Route::get('/', fn (Request $request) => redirect()->route($request->user() ? 'dashboard' : 'login'))->name('home');
+Route::get('/', fn (Request $request) => redirect()->route($request->user() ? $request->user()->landingRoute() : 'login'))->name('home');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');

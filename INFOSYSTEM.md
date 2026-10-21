@@ -4,7 +4,7 @@
 
 Ein Codebestand, eine Datenbank: Laravel 12, React 18/Inertia und Vite. Die vorhandene Sitzung und CSRF-Prüfung schützen die Verwaltung unter `/infosystem`; die Navigation enthält den Eintrag **Betrieb → Infosystem**. Zeiterfassung, RFID-Endpunkte, Dienstplan, Kasse, Gutscheine, Belegimport und Exporte bleiben in ihren bestehenden Modulen. Der TV liest den heutigen Dienstplan einschließlich Standardzeiten aus den Schichttypen. Es werden keine Löhne, Kontaktdaten oder RFID-Kennungen an den TV geliefert.
 
-Neue Tabellen: `info_displays`, `info_items`, `info_integrations`, `info_reservations`; neues Berechtigungsfeld `users.is_info_admin`. Die Migration übernimmt vorhandene Verwaltungskonten als Infosystem-Administratoren. Neu registrierte Konten erhalten diese Berechtigung nicht. Bei Bedarf: `php artisan info:admin name@example.com` bzw. `--revoke`. Die bestehende Anwendung hat außerhalb dieses Moduls weiterhin eine offene Registrierungsstrecke und weitgehend sitzungsbasierte Verwaltungsrechte; das ist keine neu eingeführte Rollenverwaltung für die übrigen Module.
+Neue Tabellen: `info_displays`, `info_items`, `info_integrations`, `info_reservations`; neues Berechtigungsfeld `users.is_info_admin`. Die Migration übernimmt vorhandene Verwaltungskonten als Infosystem-Administratoren. Neu registrierte Konten erhalten diese Berechtigung nicht. Bei Bedarf: `php artisan info:admin name@example.com` bzw. `--revoke`. Die nachfolgende Workspace-Migration ergänzt rollenbasierte Rechte für die gesamte Verwaltung (siehe unten).
 
 ## Bedienung
 
@@ -53,3 +53,19 @@ Alle Seiten werden zuerst validiert und dann atomar übernommen. Ein Abgleich is
 `node --test tests/Workflow/*.test.mjs` prüft bestehende n8n-Workflows und die YouTube-Linkverarbeitung. `npm run build` baut die komplette Anwendung mit dem bestehenden Lockfile.
 
 Die lokale Playwright-Browserprüfung konnte in dieser Umgebung nicht ausgeführt werden, da die Browser-Downloads scheitern. Eine Abnahme auf dem echten Küchen-TV und ein resmio-Live-Test sind zusätzlich erforderlich. DNS, Plesk, TLS und Produktionszugangsdaten wurden aus dieser Entwicklungsumgebung nicht verändert.
+
+## Benutzerrechte und Teamkonto
+
+Die Migration `2026_10_21_110000_add_workspace_access` erhält vorhandenen Konten ihre bisherigen Administratorrechte und legt **info@hemingway-hilden.de** als Teamkonto an. Existiert diese Adresse bereits, wird das Konto eingeschränkt; sein Passwort bleibt erhalten. Neue Konten erhalten standardmäßig keine Verwaltungsrechte. Die Rollen sind `admin`, `operations` (Teamkonto) und `none` (nur eigenes Profil/Passwort).
+
+Das Teamkonto erhält ausschließlich **Schichtübergabe, Abrechnung, Gutscheinverkauf/-einlösung und Dienstplan** einschließlich Schichten bearbeiten, kopieren, Vorlagen und PDF-Export. Zeiterfassung, Tages-/Monatsübersicht, Korrekturen, Lohnexport, Mitarbeiter-/Abteilungs-/Schichttypenverwaltung, Buchhaltung, Einstellungen und Infosystem sind gesperrt. Desktop- und Mobilnavigation verwenden die serverseitige Berechtigungsliste; direkte URLs und Verwaltungs-APIs werden ebenfalls geprüft. API-Abhängigkeiten der erlaubten Seiten bleiben nutzbar. Der Dienstplan liefert dem Teamkonto keine RFID-Tags, E-Mails, Telefonnummern oder Stundenlöhne. In der ausdrücklich erlaubten Abrechnung bleiben die dort benötigten Mitarbeiter-Stundensätze verfügbar.
+
+Nach dem Deployment `php artisan migrate --force` ausführen. Für ein neu angelegtes Teamkonto wird kein bekanntes Standardpasswort hinterlegt. Passwort über die vorhandene Funktion **Passwort vergessen?** durch den Kontoinhaber setzen (funktionierender Mailversand vorausgesetzt), oder lokal am Server verdeckt setzen:
+
+```sh
+php artisan users:info --set-password
+```
+
+Mit `php artisan users:info` lässt sich das Konto erneut auf seine Teamrechte setzen, ohne ein bestehendes Passwort zu ändern. Eine abweichende Adresse kann ausdrücklich per `--email=adresse@example.com` angegeben werden. Anmeldungen des Teamkontos führen direkt zur Abrechnung, unberechtigte neue Registrierungen nur zum eigenen Profil. Öffentliche Selbstregistrierung verleiht keine Verwaltungsrechte; Profiländerungen können keine Rolle setzen.
+
+Diese Änderung erstellt das Produktionskonto erst beim Ausführen der Migration auf dem Server. Es wurden keine Konten oder Passwörter in der laufenden Produktionsdatenbank geändert und keine E-Mails versendet.

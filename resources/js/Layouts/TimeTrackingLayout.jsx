@@ -10,7 +10,11 @@ import {
     UserRound,
     ChevronDown,
 } from "lucide-react";
-import { navigation, mobileNavigation, currentNavigation } from "@/lib/navigation";
+import {
+    navigation,
+    mobileNavigation,
+    currentNavigation,
+} from "@/lib/navigation";
 
 export default function TimeTrackingLayout({ children }) {
     const { url, props } = usePage();
@@ -24,6 +28,17 @@ export default function TimeTrackingLayout({ children }) {
     });
     const current = currentNavigation(url.split("?")[0]);
     const user = props.auth?.user;
+    const allowed = new Set(props.allowedNavigation || []);
+    const visibleNavigation = navigation
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => allowed.has(item.route)),
+        }))
+        .filter((group) => group.items.length);
+    const visibleMobile = mobileNavigation
+        .filter((item) => allowed.has(item.route))
+        .slice(0, 4);
+    const homeRoute = visibleNavigation[0]?.items[0]?.route || "profile.edit";
     const initials = (user?.name || "")
         .split(" ")
         .filter(Boolean)
@@ -76,11 +91,17 @@ export default function TimeTrackingLayout({ children }) {
             >
                 <div className="brand-row">
                     <Link
-                        href={route("dashboard")}
+                        href={route(homeRoute)}
                         className="brand-link"
                         aria-label="Hemingway Übersicht"
                     >
-                        <img className="brand-logo" src="/brand/hemingway-logo.png?v=20261018" alt="Hemingway · Café · Bar · Restaurant" width="132" height="132" />
+                        <img
+                            className="brand-logo"
+                            src="/brand/hemingway-logo.png?v=20261018"
+                            alt="Hemingway · Café · Bar · Restaurant"
+                            width="132"
+                            height="132"
+                        />
                         <span className="brand-copy">
                             <span>Team · Planung · Kasse</span>
                         </span>
@@ -94,7 +115,7 @@ export default function TimeTrackingLayout({ children }) {
                     </button>
                 </div>
                 <nav className="sidebar-navigation custom-scrollbar">
-                    {navigation.map((group) => (
+                    {visibleNavigation.map((group) => (
                         <div className="nav-group" key={group.label}>
                             <p className="nav-group-label">{group.label}</p>
                             <div className="space-y-1">
@@ -218,15 +239,24 @@ export default function TimeTrackingLayout({ children }) {
                 </main>
             </div>
             <nav className="mobile-taskbar" aria-label="Schnellnavigation">
-                {mobileNavigation.map(({ route: routeName, label, icon: Icon }) => (
-                    <Link key={routeName} href={route(routeName)}
-                        className={current.route === routeName ? "active" : ""}
-                        aria-current={current.route === routeName ? "page" : undefined}
-                        onClick={() => setMobileOpen(false)}>
-                        <Icon size={21} strokeWidth={1.8} />
-                        <span>{label}</span>
-                    </Link>
-                ))}
+                {visibleMobile.map(
+                    ({ route: routeName, label, icon: Icon }) => (
+                        <Link
+                            key={routeName}
+                            href={route(routeName)}
+                            className={
+                                current.route === routeName ? "active" : ""
+                            }
+                            aria-current={
+                                current.route === routeName ? "page" : undefined
+                            }
+                            onClick={() => setMobileOpen(false)}
+                        >
+                            <Icon size={21} strokeWidth={1.8} />
+                            <span>{label}</span>
+                        </Link>
+                    ),
+                )}
             </nav>
         </div>
     );
