@@ -164,7 +164,7 @@ class AdminController extends Controller
         try {
             return response()->json(['count' => $sync->run()]);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'resmio-Synchronisation fehlgeschlagen. Zugang und API-Format prüfen.'], 502);
+            return response()->json(['message' => \App\Exceptions\ResmioSyncException::messageFor($e)], 502);
         }
     }
 }

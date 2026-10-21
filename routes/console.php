@@ -11,7 +11,7 @@ Artisan::command('inspire', function () {
     try {
         $this->info('Synchronisiert: '.$sync->run());
     } catch (\Throwable $e) {
-        $this->error('resmio-Synchronisation fehlgeschlagen. Konfiguration prüfen.');
+        $this->error(\App\Exceptions\ResmioSyncException::messageFor($e));
 
         return 1;
     }
