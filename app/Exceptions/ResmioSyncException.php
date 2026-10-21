@@ -13,7 +13,7 @@ class ResmioSyncException extends RuntimeException
     public static function http(int $status): self
     {
         $message = match ($status) {
-            401 => 'resmio hat den API-Zugang abgelehnt (HTTP 401). Token und das vom Anbieter geforderte Authorization-Format prüfen.',
+            401 => 'resmio hat den API-Zugang abgelehnt (HTTP 401). Reinen API-Key und dessen Freigabe prüfen.',
             403 => 'resmio verweigert den Zugriff (HTTP 403). API-Freigabe und Berechtigung für diese Facility prüfen.',
             404 => 'Die resmio-API-Adresse oder Facility wurde nicht gefunden (HTTP 404). API-Basis, Lesepfad und Facility-ID anhand der resmio-Dokumentation prüfen.',
             400, 422 => 'resmio hat die Anfrage abgelehnt (HTTP '.$status.'). API-Pfad und Filterparameter anhand der resmio-Dokumentation prüfen.',

@@ -836,7 +836,7 @@ export default function Admin() {
                                 resmio-Anbindung
                             </h2>
                             <p className="text-neutral-600">
-                                API-Zugang aus eurem resmio-Konto eintragen.
+                                Den reinen API-Key aus eurem resmio-Konto eintragen, ohne Bearer oder sonstiges Präfix.
                                 Gespeicherte Zugangsdaten werden nicht zurück
                                 angezeigt. Leere Passwortfelder behalten den
                                 bisherigen Wert.
@@ -855,14 +855,14 @@ export default function Admin() {
                                     />
                                 </Field>
                                 <Field
-                                    label={`Authorization-Header ${data.has_authorization ? "(gespeichert)" : ""}`}
+                                    label={`API-Key ${data.has_authorization ? "(gespeichert)" : ""}`}
                                 >
                                     <input
                                         type="password"
                                         autoComplete="new-password"
                                         className={input}
                                         value={settings.authorization}
-                                        placeholder="Vollständiger API-Authorization-Wert"
+                                        placeholder="Reinen API-Key aus resmio einfügen"
                                         onChange={(e) =>
                                             setSettings({
                                                 ...settings,

@@ -148,7 +148,7 @@ class AdminController extends Controller
             }
         }
         if ($data['enabled'] && (empty($data['facility']) || (empty($data['authorization']) && ! $s->authorization))) {
-            return response()->json(['message' => 'Facility-ID und API-Authorization fehlen.'], 422);
+            return response()->json(['message' => 'Facility-ID und API-Key fehlen.'], 422);
         }
         // Old-facility reservations must never appear under a new integration.
         if ($s->facility !== ($data['facility'] ?? null)) {

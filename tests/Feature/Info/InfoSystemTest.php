@@ -86,12 +86,12 @@ class InfoSystemTest extends TestCase
 
     public function test_resmio_pagination_idempotence_and_failure_preserve_previous_data(): void
     {
-        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'ApiKey example:secret']);
-        Http::fakeSequence()->push(['objects' => [['id' => 1, 'date' => '2026-10-21T18:00:00+02:00', 'num_people' => 4, 'first_name' => 'Test']], 'meta' => ['next' => '/v1/facility/hemingway/booking/?offset=100']])->push(['objects' => [['id' => 2, 'date' => 1792600000, 'num_people' => 2]], 'meta' => ['next' => null]]);
+        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'test-secret']);
+        Http::fakeSequence()->push(['objects' => [['id' => 1, 'date' => '2026-10-21T18:00:00+02:00', 'num' => 4, 'name' => 'Test Guest']], 'meta' => ['next' => '/v1/facility/hemingway/bookings?offset=100']])->push(['objects' => [['id' => 2, 'date' => '2026-10-21T16:00:00Z', 'num' => 2]], 'meta' => ['next' => null]])->push(['objects' => [], 'meta' => ['next' => null]]);
         $this->assertSame(2, app(ResmioSync::class)->run());
         $this->assertDatabaseCount('info_reservations', 2);
         Http::swap(new \Illuminate\Http\Client\Factory);
-        Http::fake(['*' => Http::response(['objects' => [['id' => 1, 'date' => '2026-10-21T18:00:00+02:00', 'num_people' => 5]], 'meta' => ['next' => null]])]);
+        Http::fake(['*/resources*' => Http::response(['objects' => []]), '*' => Http::response(['objects' => [['id' => 1, 'date' => '2026-10-21T18:00:00+02:00', 'num' => 5]], 'meta' => ['next' => null]])]);
         app(ResmioSync::class)->run();
         $this->assertDatabaseCount('info_reservations', 2);
         $this->assertSame(5, InfoReservation::where('external_id', '1')->first()->people);
@@ -109,7 +109,7 @@ class InfoSystemTest extends TestCase
 
     public function test_pagination_cannot_exfiltrate_credentials(): void
     {
-        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'ApiKey secret']);
+        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'raw-secret']);
         Http::swap(new \Illuminate\Http\Client\Factory);
         Http::fake(['*' => Http::response(['objects' => [], 'meta' => ['next' => 'https://evil.example/collect']])]);
         try {
@@ -123,7 +123,7 @@ class InfoSystemTest extends TestCase
     public function test_webhooks_authenticate_facility_and_process_cancellation(): void
     {
         Queue::fake();
-        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'ApiKey secret', 'webhook_user' => 'hook', 'webhook_password' => 'password']);
+        InfoIntegration::settings()->update(['enabled' => true, 'facility' => 'hemingway', 'authorization' => 'raw-secret', 'webhook_user' => 'hook', 'webhook_password' => 'password']);
         InfoReservation::create(['external_id' => '1', 'facility' => 'hemingway', 'starts_at' => now(), 'people' => 2]);
         $payload = ['id' => 1, 'facility_id' => 'hemingway', 'action' => 'BOOKING_DELETED'];
         $url = '/api/integrations/resmio/webhook';
