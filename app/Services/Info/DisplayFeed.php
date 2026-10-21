@@ -7,6 +7,7 @@ use App\Models\InfoIntegration;
 use App\Models\InfoItem;
 use App\Models\InfoReservation;
 use App\Models\Shift;
+use Carbon\CarbonImmutable;
 
 class DisplayFeed
 {
@@ -24,7 +25,7 @@ class DisplayFeed
         $reservations = InfoReservation::where('starts_at', '>=', $now->copy()->timezone('Europe/Berlin')->startOfDay()->utc())
             ->where('starts_at', '<', $now->copy()->timezone('Europe/Berlin')->addDay()->startOfDay()->utc())
             ->whereNotIn('status', ['cancelled', 'canceled', 'deleted', 'no_show', 'noshow', 'removed'])->orderBy('starts_at')->get()
-            ->map(fn ($r) => ['id' => $r->id, 'starts_at' => $r->starts_at->toIso8601String(), 'people' => $r->people,
+            ->map(fn ($r) => ['id' => $r->id, 'starts_at' => CarbonImmutable::parse($r->getRawOriginal('starts_at'), 'UTC')->toIso8601String(), 'people' => $r->people,
                 'guest_name' => $display->show_guest_names ? $r->guest_name : null, 'tables' => $r->tables, 'status' => $r->status]);
         $shifts = Shift::with(['employee:id,first_name,last_name', 'department:id,name', 'shiftType'])
             ->whereDate('shift_date', $today)->when($display->department_id, fn ($q) => $q->where('department_id', $display->department_id))

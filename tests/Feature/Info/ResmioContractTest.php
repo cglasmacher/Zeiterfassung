@@ -58,6 +58,7 @@ class ResmioContractTest extends TestCase
         $feed = app(DisplayFeed::class)->snapshot(InfoDisplay::first());
         $this->assertCount(1, $feed['reservations']);
         $this->assertSame($row->id, $feed['reservations'][0]['id']);
+        $this->assertSame('2026-10-25T16:00:00+00:00', $feed['reservations'][0]['starts_at']);
     }
 
     public function test_pagination_cannot_change_facility_endpoint_or_origin(): void

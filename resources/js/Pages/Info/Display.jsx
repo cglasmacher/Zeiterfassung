@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Head } from "@inertiajs/react";
 import { youtubeId, berlinTime, berlinDate } from "./media";
 import "./display.css";
+import { reservationSummary } from "./reservations";
 
 function Media({ items, sound }) {
     const [index, setIndex] = useState(0);
@@ -33,7 +34,7 @@ function Media({ items, sound }) {
                     src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=${sound ? 0 : 1}&playsinline=1&rel=0&loop=1&playlist=${id}`}
                     allow="autoplay; encrypted-media; fullscreen"
                     allowFullScreen
-                    referrerPolicy="no-referrer"
+                    referrerPolicy="strict-origin-when-cross-origin"
                 />
             ) : item.media_type === "video" ? (
                 <video
@@ -156,6 +157,7 @@ export default function Display({ feed: initial }) {
         events = items
             .filter((i) => i.kind === "event")
             .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    const reservations = reservationSummary(feed.reservations);
     const fullscreen = () => {
         if (!document.fullscreenElement)
             document.documentElement.requestFullscreen?.().catch(() => {});
@@ -218,39 +220,29 @@ export default function Display({ feed: initial }) {
                         />
                     </div>
                 </section>
-                <section className="tv-panel">
+                <section className="tv-panel tv-reservations">
                     <h2>
-                        Reservierungen heute{" "}
-                        <b>
-                            {feed.reservations.reduce(
-                                (n, r) => n + r.people,
-                                0,
-                            )}{" "}
-                            Gäste
-                        </b>
+                        Reservierungen heute <b>{reservations.total} Gäste</b>
                     </h2>
-                    <Pages
-                        items={feed.reservations}
-                        size={5}
-                        empty="Keine Reservierungen vorhanden."
-                        render={(r) => (
-                            <article key={r.id} className="tv-row">
-                                <strong>{berlinTime(r.starts_at)}</strong>
-                                <div>
-                                    <b>{r.people} Personen</b>
-                                    <p>
-                                        {r.guest_name ||
-                                            (r.tables
-                                                ? `Tisch ${r.tables}`
-                                                : "Reservierung")}
-                                        {r.guest_name && r.tables
-                                            ? ` · ${r.tables}`
-                                            : ""}
-                                    </p>
-                                </div>
+                    <div className="tv-reservation-blocks">
+                        {reservations.blocks.map((block) => (
+                            <article
+                                className="tv-reservation-block"
+                                key={block.label}
+                            >
+                                <strong>{block.label}</strong>
+                                <span>
+                                    <b>{block.guests}</b>{" "}
+                                    {block.guests === 1 ? "Gast" : "Gäste"}
+                                </span>
                             </article>
-                        )}
-                    />
+                        ))}
+                    </div>
+                    {reservations.outside > 0 && (
+                        <small className="tv-outside">
+                            {reservations.outside} Gäste außerhalb dieser Zeiten
+                        </small>
+                    )}
                     <small className="tv-sync">
                         {!feed.resmio.enabled
                             ? "resmio noch nicht verbunden"
@@ -261,13 +253,13 @@ export default function Display({ feed: initial }) {
                                 : "resmio: erster Abgleich ausstehend"}
                     </small>
                 </section>
-                <section className="tv-panel">
+                <section className="tv-panel tv-tasks">
                     <h2>
                         Aufgaben <b>{tasks.length} offen</b>
                     </h2>
                     <Pages
                         items={tasks}
-                        size={4}
+                        size={1}
                         empty="Alle Aufgaben erledigt."
                         render={(i) => (
                             <article
@@ -288,11 +280,11 @@ export default function Display({ feed: initial }) {
                         )}
                     />
                 </section>
-                <section className="tv-panel">
-                    <h2>Demnächst</h2>
+                <section className="tv-panel tv-events">
+                    <h2>Events</h2>
                     <Pages
                         items={events}
-                        size={3}
+                        size={2}
                         empty="Keine anstehenden Events."
                         render={(i) => (
                             <article className="tv-row" key={i.id}>
