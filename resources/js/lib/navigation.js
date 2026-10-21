@@ -1,5 +1,6 @@
 import {
     LayoutDashboard,
+    Monitor,
     Clock3,
     CalendarDays,
     CalendarRange,
@@ -18,6 +19,7 @@ export const navigation = [
         label: "Betrieb",
         items: [
             { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
+            { route: "info.admin", label: "Infosystem", icon: Monitor },
         ],
     },
     {
