@@ -19,6 +19,20 @@ Route::prefix('app/v1')->group(function () {
         Route::get('/me', [\App\Http\Controllers\App\MobileAuthController::class, 'me']);
         Route::get('/dashboard', [\App\Http\Controllers\App\MobileDashboardController::class, 'dashboard']);
         Route::get('/shifts', [\App\Http\Controllers\App\MobileDashboardController::class, 'shifts']);
+
+        Route::prefix('time')->controller(\App\Http\Controllers\App\MobileTimeController::class)->group(function () {
+            Route::get('/status', 'status');
+            Route::get('/history', 'history');
+            Route::post('/clock-in', 'clockIn')->middleware('throttle:10,1');
+            Route::post('/clock-out', 'clockOut')->middleware('throttle:10,1');
+        });
+
+        Route::controller(\App\Http\Controllers\App\MobileInfoController::class)->group(function () {
+            Route::get('/tasks', 'tasks');
+            Route::patch('/tasks/{item}/complete', 'complete');
+            Route::get('/announcements', 'announcements');
+            Route::get('/events', 'events');
+        });
     });
 });
 
