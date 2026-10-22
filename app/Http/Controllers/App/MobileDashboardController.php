@@ -38,7 +38,10 @@ class MobileDashboardController extends Controller
             ->where(function ($query) use ($employee) {
                 $query->whereNull('employee_id')->orWhere('employee_id', $employee->id);
             })
-            ->where('type', 'task')
+            ->where('kind', 'task')
+            ->where(function ($query) {
+                $query->whereNull('starts_at')->orWhere('starts_at', '<=', now());
+            })
             ->count();
 
         return response()->json([
