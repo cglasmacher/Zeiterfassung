@@ -8,6 +8,7 @@ Route::prefix('display/{slug}')->controller(DisplayController::class)->group(fun
     Route::get('/connect', 'connect')->middleware('throttle:20,1');
     Route::get('/', 'show');
     Route::get('/data', 'data')->middleware('throttle:120,1');
+    Route::get('/youtube/search', 'youtubeSearch')->middleware('throttle:12,1');
     Route::get('/events', 'events')->middleware('throttle:30,1');
     Route::get('/media/{item}', 'media');
 });

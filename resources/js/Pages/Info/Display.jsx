@@ -3,6 +3,7 @@ import { Head } from "@inertiajs/react";
 import { youtubeId, berlinTime, berlinDate } from "./media";
 import "./display.css";
 import { reservationSummary } from "./reservations";
+import YouTubeWindow from "./YouTubeWindow";
 
 function Media({ items, sound }) {
     const [index, setIndex] = useState(0);
@@ -197,9 +198,16 @@ export default function Display({ feed: initial }) {
             )}
             <main className="tv-grid">
                 <section className="tv-screen">
-                    <Media
+                    <YouTubeWindow
                         items={items.filter((i) => i.kind === "media")}
                         sound={sound}
+                        base={base}
+                        fallback={
+                            <Media
+                                items={items.filter((i) => i.kind === "media")}
+                                sound={sound}
+                            />
+                        }
                     />
                     <div className="tv-notices">
                         <Pages

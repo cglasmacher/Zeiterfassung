@@ -17,9 +17,13 @@ Neue Tabellen: `info_displays`, `info_items`, `info_integrations`, `info_reserva
 
 Der TV zeigt links Medien und Mitteilungen, in der Mitte Reservierungen über Aufgaben und rechts Events über beide Zeilen. Reservierungen werden nach Beginn in Berliner Ortszeit als Gästezahlen für 10–12, 12–17 und 17–21 Uhr zusammengefasst; außerhalb dieser Zeiten gebuchte Gäste werden zusätzlich ausgewiesen.
 
-YouTube: **Infosystem → Medien → Neu → YouTube** wählen, normalen Video-Link einfügen, das gewünschte Display auswählen und speichern. Die Anzeigedauer legt den Wechsel zum nächsten Medium fest (z. B. 3600 Sekunden für eine Stunde); am TV bei Bedarf **Ton an** drücken. Der Player erhält nur die Origin als Referer, keinen Display-Verbindungstoken.
+YouTube direkt am TV: **Video auswählen** öffnen, Suchbegriff eingeben, **Suchen** drücken und ein Video auswählen. Ergebnisse lassen sich mit Pfeiltasten/OK bedienen; weitere Treffer über **Weitere Ergebnisse**. Alternativ einen normalen YouTube-Video-Link in dasselbe Feld einfügen. Die Auswahl bleibt je Display in diesem Browser gespeichert und läuft ohne Zeitlimit; Live-Aktualisierungen und Tonwechsel starten das Video nicht neu. **Pause/Abspielen** steuert den Player. Die Suche pausiert ein laufendes Video, bis sie geschlossen wird. Der Player erhält nur die Origin als Referer, keinen Display-Verbindungstoken.
 
-Die TV-Ansicht hat große Karten, blättert längere Listen automatisch durch und rotiert Medien. Sie startet stumm; **Ton an** und **Vollbild** benötigen eine Benutzeraktion. YouTube kann Werbung zeigen, Einbettung einzelner Videos verbieten oder auf bestimmten TV-Browsern zusätzliche Interaktion erfordern. Es wird YouTube eingebettet, keine YouTube-App ferngesteuert.
+Einmalig serverseitig `YOUTUBE_API_KEY=...` in der `.env` setzen und danach `php artisan config:cache` ausführen. Im Google-Projekt muss **YouTube Data API v3** aktiviert sein. Der Key wird nur vom Server an Google gesendet; gegebenenfalls auf diese API und die ausgehende Server-IP beschränken, keine HTTP-Referrer-Beschränkung verwenden. Die Suche braucht nur das verbundene Display-Cookie, keinen Verwaltungslogin. Ergebnisse sind auf einbettbare Videos beschränkt, zehn Minuten gecacht und die Suchroute auf zwölf Aufrufe pro Minute/IP begrenzt. Ohne Key ist die direkte Linkauswahl bereits nutzbar. Es ist keine Migration und kein Queue-Worker für YouTube erforderlich.
+
+Die bisherige Medienrotation bleibt über **Medien anzeigen** erreichbar. Dort gelten weiterhin Reihenfolge und Anzeigedauer aus der Verwaltung. Ein dort hinterlegtes YouTube-Video ist auch Startvorschlag für den festen Player, solange am TV noch nichts gewählt wurde.
+
+Die TV-Ansicht hat große Karten und blättert längere Listen automatisch durch. Sie startet stumm; **Ton an** und **Vollbild** benötigen eine Benutzeraktion. YouTube kann Werbung zeigen, Einbettung einzelner Videos verbieten oder auf bestimmten TV-Browsern zusätzliche Interaktion erfordern. Es wird YouTube eingebettet, keine YouTube-App ferngesteuert.
 
 ## Bereitstellung auf Plesk
 
@@ -27,7 +31,7 @@ Die TV-Ansicht hat große Karten, blättert längere Listen automatisch durch un
 2. `php artisan migrate --force`, `php artisan optimize:clear`, anschließend `php artisan config:cache` und bei Bedarf `php artisan route:cache`.
 3. `stream.hemingway-hilden.de` als zusätzlichen Host derselben Anwendung mit demselben `public`-Document-Root einrichten. DNS auf den Plesk-Server und ein gültiges TLS-Zertifikat setzen. Keinen zweiten Laravel-Installationsstand anlegen. `APP_URL` bleibt `https://dienstplan.hemingway-hilden.de`; `INFO_STREAM_HOST=stream.hemingway-hilden.de`.
 4. Session-Cookies auf den Verwaltungs-Host beschränken (`SESSION_DOMAIN` leer lassen), `SESSION_SECURE_COOKIE=true`. Die Display-Verbindung immer per HTTPS öffnen.
-5. Scheduler einmal pro Minute: `php artisan schedule:run`. Queue-Worker betreiben, z. B. `php artisan queue:work --tries=3 --timeout=180`; Queue-`retry_after` muss über 180 Sekunden liegen. Alternativ für den Sync-Job eine entsprechend konfigurierte separate Queue verwenden. Fehlgeschlagene Jobs überwachen und nach Behebung erneut ausführen.
+5. Scheduler einmal pro Minute: `php artisan schedule:run`. Dieser führt den regelmäßigen resmio-Abgleich direkt aus. Für Webhook-Jobs bei asynchroner Queue zusätzlich einen Queue-Worker betreiben, z. B. `php artisan queue:work --tries=3 --timeout=180`; Queue-`retry_after` muss über 180 Sekunden liegen. Alternativ für den Sync-Job eine entsprechend konfigurierte separate Queue verwenden. Fehlgeschlagene Jobs überwachen und nach Behebung erneut ausführen.
 6. PHP `upload_max_filesize` mindestens 100M, `post_max_size` größer als 100M und gegebenenfalls nginx `client_max_body_size` anpassen. Dateien bleiben im privaten lokalen Storage, werden nur nach Display-Prüfung ausgeliefert und bei Entfernen eines Mediums gelöscht.
 7. Für `/display/*/events` nginx-Buffering deaktivieren (`X-Accel-Buffering: no` wird gesetzt), Proxy-Lesezeit mindestens 30 Sekunden. Mehrere PHP-FPM-Worker bereitstellen. Ein Display hält jeweils einen SSE-Request für bis zu 20 Sekunden offen. Ohne funktionierendes SSE lädt die Ansicht alle 15 Sekunden nach. Der eingebaute PHP-Entwicklungsserver mit nur einem Worker ist deshalb kein geeigneter Lasttest.
 
@@ -52,9 +56,9 @@ Der Adapter ist gegen dokumentationsgetreue Testantworten geprüft. Ein erfolgre
 
 `php artisan test` prüft bestehende Features und das Infosystem. Neue Tests decken Verwaltungsrechte, Display-Cookies/Tokenrotation, Aufgabenstatus, Zeit-/Displayfilter, Gastnamen, API-Paginierung, fehlerhafte Antworten, Schutz vor Credential-Weiterleitung, Webhook-Authentifizierung, UTC/Sommerzeitwechsel und private Uploads ab.
 
-`node --test tests/Workflow/*.test.mjs` prüft bestehende n8n-Workflows die YouTube-Linkverarbeitung und die Gästezählung einschließlich Zeitgrenzen und Sommer-/Winterzeit. `npm run build` baut die komplette Anwendung mit dem bestehenden Lockfile.
+`node --test tests/Workflow/*.test.mjs` prüft bestehende n8n-Workflows, YouTube-Linkverarbeitung, gespeicherte TV-Auswahl und die Gästezählung einschließlich Zeitgrenzen und Sommer-/Winterzeit. Die PHP-Tests zur YouTube-Suche prüfen Display-Autorisierung/Rotation, Validierung, API-Filter, Key-Geheimhaltung, Caching, Paginierung und Fehlerantworten. `npm run build` baut die komplette Anwendung mit dem bestehenden Lockfile.
 
-Die TV-Anordnung wird lokal mit Playwright in 1920×1080, 1280×720, 960×540 sowie mobiler Breite geprüft. Eine Abnahme auf dem echten Küchen-TV und ein resmio-Live-Test sind zusätzlich erforderlich. DNS, Plesk, TLS und Produktionszugangsdaten wurden aus dieser Entwicklungsumgebung nicht verändert.
+Die TV-Anordnung wird lokal mit Playwright in 1920×1080, 1280×720, 960×540 sowie mobiler Breite geprüft. Die YouTube-Browserprüfung verwendet simulierte Suchantworten und Player-API: Auswahl, Paginierung, Pfeiltasten, Speicherung nach Neuladen, laufende Feed-Aktualisierung, Tonwechsel, Fehler und erneutes Laden. Echte YouTube-Wiedergabe mit dem Produktions-Key und Abnahme auf dem Küchen-TV stehen noch aus. DNS, Plesk, TLS und Produktionszugangsdaten wurden aus dieser Entwicklungsumgebung nicht verändert.
 
 ## Benutzerrechte und Teamkonto
 

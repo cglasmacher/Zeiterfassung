@@ -48,6 +48,159 @@
     flex-direction: column;
     min-width: 0;
 }
+.tv-youtube-window {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 1;
+}
+.tv-youtube-toolbar,
+.tv-youtube-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0;
+    font-size: 0.8em;
+}
+.tv-youtube-toolbar {
+    flex-wrap: wrap;
+}
+.tv-youtube-toolbar > strong {
+    margin-right: auto;
+    color: var(--tv-green);
+}
+.tv-youtube-status > span {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.tv-youtube-window button,
+.tv-search-dialog button {
+    border: 1px solid #a9b89d;
+    border-radius: 7px;
+    padding: 0.45em 0.7em;
+    background: white;
+    color: #304728;
+}
+.tv-youtube-window button:disabled,
+.tv-search-dialog button:disabled {
+    opacity: 0.55;
+}
+.tv-shell button:focus-visible,
+.tv-search-dialog button:focus,
+.tv-search-dialog input:focus {
+    outline: 3px solid #78915b;
+    outline-offset: 3px;
+}
+.tv-youtube-player {
+    min-height: 200px;
+    min-width: 200px;
+    flex-shrink: 0;
+}
+.tv-youtube-player iframe {
+    min-height: 200px;
+}
+.tv-youtube-error {
+    color: #8a3c1b;
+    background: #fff0d6;
+    padding: 0.5em;
+    font-size: 0.85em;
+}
+.tv-youtube-player.has-error iframe {
+    visibility: hidden;
+}
+.tv-player-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1em;
+    text-align: center;
+    padding: 1em;
+}
+.tv-youtube-empty button {
+    color: #304728;
+}
+.tv-search-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #172011e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3vh 3vw;
+}
+.tv-search-dialog {
+    background: #f5f3eb;
+    border-radius: 14px;
+    padding: 1.3em;
+    width: min(1100px, 100%);
+    max-height: 94vh;
+    overflow: auto;
+}
+.tv-search-dialog header,
+.tv-search-dialog form > div {
+    display: flex;
+    align-items: center;
+    gap: 0.7em;
+}
+.tv-search-dialog header {
+    justify-content: space-between;
+    margin-bottom: 1em;
+}
+.tv-search-dialog h2 {
+    color: var(--tv-green);
+    font-size: 1.25em;
+    font-weight: 650;
+}
+.tv-search-dialog label {
+    display: block;
+    margin-bottom: 0.4em;
+}
+.tv-search-dialog input {
+    flex: 1;
+    min-width: 0;
+    border-radius: 7px;
+    background: white;
+    color: #20251e;
+}
+.tv-search-dialog > small {
+    display: block;
+    margin-top: 1em;
+    color: #616858;
+}
+.tv-search-results {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1em;
+    margin: 1em 0;
+}
+.tv-search-results button {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+}
+.tv-search-results img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    border-radius: 4px;
+}
+.tv-search-results strong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+.tv-search-results span {
+    font-size: 0.8em;
+    color: #616858;
+}
 .tv-media,
 .tv-placeholder {
     position: relative;
@@ -315,7 +468,13 @@
         flex-shrink: 1;
     }
     .tv-notices {
-        min-height: 0;
+        min-height: 8em;
+    }
+    .tv-youtube-window {
+        max-height: calc(100% - 9em - 1vw);
+    }
+    .tv-youtube-window .tv-youtube-player {
+        flex-shrink: 1;
     }
     .tv-team {
         max-height: 8em;
@@ -333,6 +492,9 @@
 }
 
 @media (max-width: 600px) {
+    .tv-search-results {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .tv-grid {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: "screen" "reservations" "tasks" "events" "team";
