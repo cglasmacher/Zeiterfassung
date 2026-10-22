@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, CheckSquare, Clock3, Home, LogOut, Megaphone, MoreHorizontal } from 'lucide-react';
+import { CalendarDays, CheckSquare, Clock3, Home, LogOut, MoreHorizontal } from 'lucide-react';
 import api, { hasToken, login, logout } from './api';
 
 const tabs = [
@@ -7,7 +7,7 @@ const tabs = [
   ['tasks', CheckSquare, 'Aufgaben'], ['more', MoreHorizontal, 'Mehr'],
 ];
 
-function fmtDate(v) { return v ? new Intl.DateTimeFormat('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' }).format(new Date(v)) : ''; }
+function fmtDate(v) { if (!v) return ''; const d = /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:00:00`) : new Date(v); return new Intl.DateTimeFormat('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' }).format(d); }
 function fmtTime(v) { if (!v) return ''; const d = v.includes?.('T') ? new Date(v) : new Date(`2000-01-01T${v}`); return new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'}).format(d); }
 
 export default function App() {
