@@ -1,7 +1,7 @@
 export function youtubeId(url) {
     try {
         const u = new URL(url);
-        const host = u.hostname.replace(/^www\./, "");
+        const host = u.hostname.replace(/^(www|m|music)\./, "");
         const id =
             host === "youtu.be"
                 ? u.pathname.slice(1)

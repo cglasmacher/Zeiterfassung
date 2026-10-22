@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InfoDisplay;
 use App\Models\InfoItem;
 use App\Services\Info\DisplayFeed;
+use App\Services\Info\YouTubeSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -45,6 +46,22 @@ class DisplayController extends Controller
         $d->update(['last_seen_at' => now()]);
 
         return response()->json($feed->snapshot($d))->header('Cache-Control', 'no-store');
+    }
+
+    public function youtubeSearch(Request $r, string $slug, YouTubeSearch $youtube)
+    {
+        $this->authorizeDisplay($r, $slug);
+        $input = $r->validate([
+            'q' => ['required', 'string', 'min:2', 'max:120'],
+            'page' => ['nullable', 'string', 'max:512', 'regex:/^[a-zA-Z0-9_=-]+$/'],
+        ]);
+
+        try {
+            return response()->json($youtube->search(trim($input['q']), $input['page'] ?? ''))
+                ->header('Cache-Control', 'private, no-store');
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 503)->header('Cache-Control', 'no-store');
+        }
     }
 
     public function events(Request $r, string $slug, DisplayFeed $feed)

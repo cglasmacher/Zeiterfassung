@@ -7,6 +7,8 @@ test("YouTube accepts video links and rejects untrusted hosts and invalid IDs", 
         "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=5",
         "https://youtube.com/embed/dQw4w9WgXcQ",
         "https://youtube.com/shorts/dQw4w9WgXcQ",
+        "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
     ])
         assert.equal(youtubeId(url), "dQw4w9WgXcQ");
     for (const url of [
