@@ -5,6 +5,7 @@ namespace App\Http\Controllers\App;
 use App\Http\Controllers\Controller;
 use App\Models\InfoItem;
 use App\Models\Shift;
+use App\Models\ShiftApplication;
 use App\Models\TimeEntry;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -76,12 +77,24 @@ class MobileDashboardController extends Controller
         abort_if($to->lt($from), 422, 'Das Enddatum darf nicht vor dem Startdatum liegen.');
         abort_if($from->diffInDays($to) > 92, 422, 'Der abgefragte Zeitraum darf maximal 93 Tage umfassen.');
 
-        $shifts = Shift::with(['department', 'shiftType'])
+        $shifts = Shift::with([
+                'department',
+                'shiftType',
+                'applications' => fn ($query) => $query
+                    ->where('employee_id', $employee->id)
+                    ->where('status', ShiftApplication::STATUS_APPROVED),
+            ])
             ->where('employee_id', $employee->id)
             ->whereBetween('shift_date', [$from->toDateString(), $to->toDateString()])
             ->orderBy('shift_date')
             ->orderBy('start_time')
-            ->get();
+            ->get()
+            ->map(function (Shift $shift) {
+                $shift->setAttribute('from_application', $shift->applications->isNotEmpty());
+                $shift->unsetRelation('applications');
+
+                return $shift;
+            });
 
         return response()->json([
             'from' => $from->toDateString(),
