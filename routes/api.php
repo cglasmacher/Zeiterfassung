@@ -20,6 +20,12 @@ Route::prefix('app/v1')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\App\MobileDashboardController::class, 'dashboard']);
         Route::get('/shifts', [\App\Http\Controllers\App\MobileDashboardController::class, 'shifts']);
 
+        Route::prefix('open-shifts')->controller(\App\Http\Controllers\App\MobileShiftApplicationController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::post('/{shift}/apply', 'apply')->middleware('throttle:20,1');
+            Route::delete('/{shift}/apply', 'withdraw')->middleware('throttle:20,1');
+        });
+
         Route::prefix('time')->controller(\App\Http\Controllers\App\MobileTimeController::class)->group(function () {
             Route::get('/status', 'status');
             Route::get('/history', 'history');
