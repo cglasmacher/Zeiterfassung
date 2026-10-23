@@ -27,6 +27,13 @@ export default function App() {
   useEffect(()=>{ hasToken().then(v=>{setAuth(v);setReady(true);}); },[]);
   useEffect(()=>{ if(auth) refresh(); },[auth]);
   useEffect(()=>{ if(auth&&tab==='plan') loadWeek(weekStart); },[auth,tab,weekStart]);
+  useEffect(()=>{ if(auth&&tab==='home') refresh(); },[auth,tab]);
+  useEffect(()=>{
+    if(!auth) return;
+    const handleVisibility=()=>{ if(document.visibilityState==='visible') refresh(); };
+    document.addEventListener('visibilitychange',handleVisibility);
+    return ()=>document.removeEventListener('visibilitychange',handleVisibility);
+  },[auth]);
 
   async function refresh(){
     const requests = await Promise.allSettled([
