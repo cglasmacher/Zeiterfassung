@@ -7,18 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        // employee_id is already nullable via 0001_01_01_000023.
         Schema::table('shifts', function (Blueprint $table) {
             $table->boolean('is_open_for_applications')->default(false)->after('status');
-        });
-
-        // Rebuild the employee foreign key so a shift can exist before it is assigned.
-        Schema::table('shifts', function (Blueprint $table) {
-            $table->dropForeign(['employee_id']);
-        });
-
-        Schema::table('shifts', function (Blueprint $table) {
-            $table->foreignId('employee_id')->nullable()->change();
-            $table->foreign('employee_id')->references('id')->on('employees')->cascadeOnDelete();
         });
 
         Schema::create('shift_applications', function (Blueprint $table) {
@@ -39,13 +30,7 @@ return new class extends Migration {
         Schema::dropIfExists('shift_applications');
 
         Schema::table('shifts', function (Blueprint $table) {
-            $table->dropForeign(['employee_id']);
             $table->dropColumn('is_open_for_applications');
-        });
-
-        Schema::table('shifts', function (Blueprint $table) {
-            $table->foreignId('employee_id')->nullable(false)->change();
-            $table->foreign('employee_id')->references('id')->on('employees')->cascadeOnDelete();
         });
     }
 };
