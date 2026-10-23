@@ -39,18 +39,93 @@ Route::prefix('summary')->group(function () {
 });
 
 Route::prefix('employees')->group(function () {
-    Route::get('/', [EmployeeController::class, 'index']); Route::post('/', [EmployeeController::class, 'store']); Route::put('/{id}', [EmployeeController::class, 'update']); Route::delete('/{id}', [EmployeeController::class, 'destroy']);
+    Route::get('/', [EmployeeController::class, 'index']);
+    Route::post('/', [EmployeeController::class, 'store']);
+    Route::put('/{id}', [EmployeeController::class, 'update']);
+    Route::delete('/{id}', [EmployeeController::class, 'destroy']);
 });
-Route::prefix('departments')->group(function () { Route::get('/', [DepartmentController::class, 'index']); Route::post('/', [DepartmentController::class, 'store']); Route::put('/{id}', [DepartmentController::class, 'update']); Route::delete('/{id}', [DepartmentController::class, 'destroy']); });
-Route::prefix('shift-types')->group(function () { Route::get('/', [ShiftTypeController::class, 'index']); Route::post('/', [ShiftTypeController::class, 'store']); Route::put('/{id}', [ShiftTypeController::class, 'update']); Route::delete('/{id}', [ShiftTypeController::class, 'destroy']); });
-Route::prefix('manual-time')->group(function () { Route::post('/clock-in', [ManualTimeEntryController::class, 'clockIn']); Route::post('/clock-out', [ManualTimeEntryController::class, 'clockOut']); Route::get('/open-entries', [ManualTimeEntryController::class, 'getOpenEntries']); Route::get('/today-entries', [ManualTimeEntryController::class, 'getTodayEntries']); });
-Route::prefix('time-manipulation')->group(function () { Route::get('/month-entries', [TimeEntryManipulationController::class, 'getMonthEntries']); Route::put('/entries/{id}', [TimeEntryManipulationController::class, 'updateEntry']); Route::post('/entries/{id}/split', [TimeEntryManipulationController::class, 'splitEntry']); Route::delete('/entries/{id}', [TimeEntryManipulationController::class, 'deleteEntry']); Route::get('/entries/{id}/audit', [TimeEntryManipulationController::class, 'getAuditLog']); });
-Route::prefix('lexware-export')->group(function () { Route::post('/preview', [LexwareExportController::class, 'preview']); Route::post('/export', [LexwareExportController::class, 'export']); });
-Route::prefix('daily-overview')->group(function () { Route::get('/', [DailyOverviewController::class, 'index']); Route::post('/entries/{id}/mark-paid', [DailyOverviewController::class, 'markAsPaid']); Route::post('/entries/{id}/unmark-paid', [DailyOverviewController::class, 'unmarkAsPaid']); Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']); Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']); });
+
+Route::prefix('departments')->group(function () {
+    Route::get('/', [DepartmentController::class, 'index']);
+    Route::post('/', [DepartmentController::class, 'store']);
+    Route::put('/{id}', [DepartmentController::class, 'update']);
+    Route::delete('/{id}', [DepartmentController::class, 'destroy']);
+});
+
+Route::prefix('shift-types')->group(function () {
+    Route::get('/', [ShiftTypeController::class, 'index']);
+    Route::post('/', [ShiftTypeController::class, 'store']);
+    Route::put('/{id}', [ShiftTypeController::class, 'update']);
+    Route::delete('/{id}', [ShiftTypeController::class, 'destroy']);
+});
+
+Route::prefix('manual-time')->group(function () {
+    Route::post('/clock-in', [ManualTimeEntryController::class, 'clockIn']);
+    Route::post('/clock-out', [ManualTimeEntryController::class, 'clockOut']);
+    Route::get('/open-entries', [ManualTimeEntryController::class, 'getOpenEntries']);
+    Route::get('/today-entries', [ManualTimeEntryController::class, 'getTodayEntries']);
+});
+
+Route::prefix('time-manipulation')->group(function () {
+    Route::get('/month-entries', [TimeEntryManipulationController::class, 'getMonthEntries']);
+    Route::put('/entries/{id}', [TimeEntryManipulationController::class, 'updateEntry']);
+    Route::post('/entries/{id}/split', [TimeEntryManipulationController::class, 'splitEntry']);
+    Route::delete('/entries/{id}', [TimeEntryManipulationController::class, 'deleteEntry']);
+    Route::get('/entries/{id}/audit', [TimeEntryManipulationController::class, 'getAuditLog']);
+});
+
+Route::prefix('lexware-export')->group(function () {
+    Route::post('/preview', [LexwareExportController::class, 'preview']);
+    Route::post('/export', [LexwareExportController::class, 'export']);
+});
+
+Route::prefix('daily-overview')->group(function () {
+    Route::get('/', [DailyOverviewController::class, 'index']);
+    Route::post('/entries/{id}/mark-paid', [DailyOverviewController::class, 'markAsPaid']);
+    Route::post('/entries/{id}/unmark-paid', [DailyOverviewController::class, 'unmarkAsPaid']);
+    Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']);
+    Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']);
+});
+
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.data');
 Route::get('/summary/monthly', [SummaryController::class, 'monthOverview']);
-Route::prefix('settings')->group(function () { Route::get('/', [SettingsController::class, 'index']); Route::post('/', [SettingsController::class, 'update']); });
-Route::prefix('cash')->controller(\App\Http\Controllers\CashAccountingController::class)->group(function () { Route::get('/days', 'index'); Route::post('/days', 'store'); Route::get('/days/{id}', 'show')->whereNumber('id'); Route::post('/days/{id}/handovers', 'handover')->whereNumber('id'); Route::put('/days/{id}', 'save')->whereNumber('id'); Route::post('/days/{id}/finalize', 'finalize')->whereNumber('id'); Route::get('/days/{id}/pdf', 'pdf')->whereNumber('id'); Route::post('/days/{id}/deliver', 'deliver')->whereNumber('id'); Route::post('/vectron/sync', 'vectronSync'); Route::get('/vectron/summary', 'vectronSummary'); });
-Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportController::class)->group(function () { Route::get('/', 'index'); Route::get('/{id}/pdf', 'pdf')->whereNumber('id')->name('cash.z-reports.pdf'); Route::patch('/{id}/assignment', 'assign')->whereNumber('id'); });
-Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherController::class)->group(function () { Route::get('/', 'index'); Route::get('/{id}', 'show')->whereNumber('id'); Route::post('/batches/{id}/register', 'register')->whereNumber('id'); Route::post('/redeem', 'redeem'); });
-Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewController::class)->group(function () { Route::get('/documents', 'index'); Route::post('/documents', 'store'); Route::get('/documents/{id}', 'show')->whereNumber('id'); Route::get('/documents/{id}/pdf', 'pdf')->whereNumber('id'); Route::patch('/documents/{documentId}/lines/{lineId}', 'updateLine')->whereNumber(['documentId', 'lineId']); Route::post('/documents/{id}/approve', 'approve')->whereNumber('id'); });
+
+Route::prefix('settings')->group(function () {
+    Route::get('/', [SettingsController::class, 'index']);
+    Route::post('/', [SettingsController::class, 'update']);
+});
+
+Route::prefix('cash')->controller(\App\Http\Controllers\CashAccountingController::class)->group(function () {
+    Route::get('/days', 'index');
+    Route::post('/days', 'store');
+    Route::get('/days/{id}', 'show')->whereNumber('id');
+    Route::post('/days/{id}/handovers', 'handover')->whereNumber('id');
+    Route::put('/days/{id}', 'save')->whereNumber('id');
+    Route::post('/days/{id}/finalize', 'finalize')->whereNumber('id');
+    Route::get('/days/{id}/pdf', 'pdf')->whereNumber('id');
+    Route::post('/days/{id}/deliver', 'deliver')->whereNumber('id');
+    Route::post('/vectron/sync', 'vectronSync');
+    Route::get('/vectron/summary', 'vectronSummary');
+});
+
+Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{id}/pdf', 'pdf')->whereNumber('id')->name('cash.z-reports.pdf');
+    Route::patch('/{id}/assignment', 'assign')->whereNumber('id');
+});
+
+Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{id}', 'show')->whereNumber('id');
+    Route::post('/batches/{id}/register', 'register')->whereNumber('id');
+    Route::post('/redeem', 'redeem');
+});
+
+Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewController::class)->group(function () {
+    Route::get('/documents', 'index');
+    Route::post('/documents', 'store');
+    Route::get('/documents/{id}', 'show')->whereNumber('id');
+    Route::get('/documents/{id}/pdf', 'pdf')->whereNumber('id');
+    Route::patch('/documents/{documentId}/lines/{lineId}', 'updateLine')->whereNumber(['documentId', 'lineId']);
+    Route::post('/documents/{id}/approve', 'approve')->whereNumber('id');
+});
