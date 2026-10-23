@@ -6,6 +6,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\LexwareExportController;
 use App\Http\Controllers\ManualTimeEntryController;
+use App\Http\Controllers\PlannerShiftApplicationController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\ShiftTypeController;
@@ -18,13 +19,18 @@ Route::prefix('shifts')->group(function () {
     Route::post('/', [ShiftController::class, 'store']);
     Route::put('/{id}', [ShiftController::class, 'update']);
     Route::delete('/{id}', [ShiftController::class, 'destroy']);
-    Route::post('/{shift}/applications/{application}/approve', [ShiftController::class, 'approveApplication']);
     Route::post('/copy-week', [ShiftController::class, 'copyWeek']);
     Route::post('/save-template', [ShiftController::class, 'saveTemplate']);
     Route::get('/templates', [ShiftController::class, 'getTemplates']);
     Route::post('/templates/{id}/load', [ShiftController::class, 'loadTemplate']);
     Route::delete('/templates/{id}', [ShiftController::class, 'deleteTemplate']);
     Route::post('/export-pdf', [ShiftController::class, 'exportPDF']);
+});
+
+Route::prefix('planner/open-shifts')->controller(PlannerShiftApplicationController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::post('/', 'store');
+    Route::post('/{shift}/applications/{application}/approve', 'approve');
 });
 
 Route::prefix('summary')->group(function () {
