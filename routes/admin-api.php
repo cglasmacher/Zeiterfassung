@@ -30,6 +30,7 @@ Route::prefix('shifts')->group(function () {
 Route::prefix('planner/open-shifts')->controller(PlannerShiftApplicationController::class)->group(function () {
     Route::get('/', 'index');
     Route::post('/', 'store');
+    Route::put('/{shift}', 'update');
     Route::post('/{shift}/applications/{application}/approve', 'approve');
 });
 
