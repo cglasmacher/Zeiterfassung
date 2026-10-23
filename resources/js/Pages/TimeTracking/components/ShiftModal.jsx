@@ -2,38 +2,54 @@ import React, { useState, useEffect } from 'react';
 import Modal from '@/Components/ui/Modal';
 import Button from '@/Components/ui/Button';
 import Input from '@/Components/ui/Input';
-import { AlertCircle, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import axios from 'axios';
 
-export default function ShiftModal({ isOpen, onClose, onSave, onApproved, shift, date, shiftTypes, employees }) {
-  const [formData, setFormData] = useState({ shift_type_id:'', employee_id:'', department_id:'', shift_date:date||'', start_time:'', end_time:'', is_open_for_applications:false });
-  const [errors, setErrors] = useState({});
-  const [approving, setApproving] = useState(null);
+export default function ShiftModal({ isOpen, onClose, onSave, shift, date, shiftTypes, employees }) {
+  const [formData,setFormData]=useState({shift_type_id:'',employee_id:'',department_id:'',shift_date:date||'',start_time:'',end_time:'',is_open_for_applications:false});
+  const [errors,setErrors]=useState({});
+  const [applications,setApplications]=useState([]);
+  const [approving,setApproving]=useState(null);
+  const [saving,setSaving]=useState(false);
 
-  useEffect(() => {
-    if (shift) setFormData({
-      shift_type_id: shift.shift_type_id || '', employee_id: shift.employee_id || '', department_id: shift.department_id || '',
-      shift_date: shift.shift_date || date || '', start_time: shift.start_time?.substring(0,5)||'', end_time: shift.end_time?.substring(0,5)||'',
-      is_open_for_applications: !!shift.is_open_for_applications,
-    });
-    else setFormData({ shift_type_id:'', employee_id:'', department_id:'', shift_date:date||'', start_time:'', end_time:'', is_open_for_applications:false });
-    setErrors({});
-  }, [shift,date,isOpen]);
+  useEffect(()=>{
+    if(shift)setFormData({shift_type_id:shift.shift_type_id||'',employee_id:shift.employee_id||'',department_id:shift.department_id||'',shift_date:shift.shift_date||date||'',start_time:shift.start_time?.substring(0,5)||'',end_time:shift.end_time?.substring(0,5)||'',is_open_for_applications:!!shift.is_open_for_applications});
+    else setFormData({shift_type_id:'',employee_id:'',department_id:'',shift_date:date||'',start_time:'',end_time:'',is_open_for_applications:false});
+    setErrors({});setApplications([]);
+  },[shift,date,isOpen]);
 
-  const handleShiftTypeChange = (id) => {
-    const type=shiftTypes.find(s=>s.id===parseInt(id)); let dept=formData.department_id;
-    if(type?.departments?.length && !type.departments.find(d=>d.id===parseInt(dept))) dept=type.departments[0].id;
-    setFormData({...formData,shift_type_id:id,department_id:dept,start_time:type?.default_start?.substring(0,5)||'',end_time:type?.default_end?.substring(0,5)||''});
+  useEffect(()=>{
+    if(!isOpen||!shift?.id||!shift.is_open_for_applications)return;
+    axios.get('/api/planner/open-shifts',{params:{start:shift.shift_date,end:shift.shift_date}})
+      .then(res=>{const current=(res.data.shifts||[]).find(s=>s.id===shift.id);setApplications(current?.applications||[]);})
+      .catch(()=>setApplications([]));
+  },[isOpen,shift]);
+
+  const handleShiftTypeChange=id=>{const type=shiftTypes.find(s=>s.id===parseInt(id));let dept=formData.department_id;if(type?.departments?.length&&!type.departments.find(d=>d.id===parseInt(dept)))dept=type.departments[0].id;setFormData({...formData,shift_type_id:id,department_id:dept,start_time:type?.default_start?.substring(0,5)||'',end_time:type?.default_end?.substring(0,5)||''});};
+
+  const handleSubmit=async e=>{
+    e.preventDefault();setErrors({});
+    if(!formData.shift_type_id){setErrors({shift_type_id:['Bitte wählen Sie einen Schichttyp']});return;}
+    const d={...formData};const type=shiftTypes.find(s=>s.id===parseInt(d.shift_type_id));if(!d.department_id&&type?.departments?.length)d.department_id=type.departments[0].id;
+    if(d.employee_id)d.is_open_for_applications=false;
+    if(!shift?.id&&d.is_open_for_applications){
+      setSaving(true);
+      try{await axios.post('/api/planner/open-shifts',{shift_type_id:d.shift_type_id,department_id:d.department_id||null,shift_date:d.shift_date,start_time:d.start_time,end_time:d.end_time});onClose();window.location.reload();}
+      catch(error){setErrors(error.response?.data?.errors||{general:['Freie Schicht konnte nicht erstellt werden.']});}
+      finally{setSaving(false);}return;
+    }
+    onSave(d);
   };
-  const handleSubmit=(e)=>{e.preventDefault();setErrors({});if(!formData.shift_type_id){setErrors({shift_type_id:['Bitte wählen Sie einen Schichttyp']});return;}const d={...formData};const type=shiftTypes.find(s=>s.id===parseInt(d.shift_type_id));if(!d.department_id&&type?.departments?.length)d.department_id=type.departments[0].id;if(d.employee_id)d.is_open_for_applications=false;onSave(d);};
+
   const type=shiftTypes.find(s=>s.id===parseInt(formData.shift_type_id));
   const filtered=formData.department_id?employees.filter(e=>e.departments?.some(d=>d.id===parseInt(formData.department_id))):employees;
-  const pending=(shift?.applications||[]).filter(a=>a.status==='pending');
-  const approve=async(app)=>{if(!shift?.id)return;setApproving(app.id);try{await axios.post(`/api/planner/open-shifts/${shift.id}/applications/${app.id}/approve`);onApproved?.();onClose();}finally{setApproving(null);}};
-  const hourInfo=e=>{if(!e.max_monthly_hours)return null;const p=parseFloat(e.monthly_planned_hours)||0,m=parseFloat(e.max_monthly_hours)||0,r=m-p;return{planned:p,max:m,remaining:r,percentage:m?(p/m)*100:0,isOverloaded:r<0,isNearLimit:r<m*.2&&r>=0};};
+  const pending=applications.filter(a=>a.status==='pending');
+  const approve=async app=>{setApproving(app.id);try{await axios.post(`/api/planner/open-shifts/${shift.id}/applications/${app.id}/approve`);onClose();window.location.reload();}finally{setApproving(null);}};
+  const hourInfo=e=>{if(!e.max_monthly_hours)return null;const p=parseFloat(e.monthly_planned_hours)||0,m=parseFloat(e.max_monthly_hours)||0;return{planned:p,max:m};};
 
-  return <Modal isOpen={isOpen} onClose={onClose} title={shift?.id?'Schicht bearbeiten':'Neue Schicht'} size="md" footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Abbrechen</Button><Button variant="primary" onClick={handleSubmit}>{shift?.id?'Speichern':'Erstellen'}</Button></div>}>
+  return <Modal isOpen={isOpen} onClose={onClose} title={shift?.id?'Schicht bearbeiten':'Neue Schicht'} size="md" footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Abbrechen</Button><Button variant="primary" disabled={saving} onClick={handleSubmit}>{saving?'Erstellen…':shift?.id?'Speichern':'Erstellen'}</Button></div>}>
     <form onSubmit={handleSubmit} className="space-y-4">
+      {errors.general&&<p className="text-sm text-error-600">{errors.general[0]}</p>}
       <Input type="date" label="Datum" value={formData.shift_date} onChange={e=>setFormData({...formData,shift_date:e.target.value})} required />
       <div><label className="block text-sm font-medium text-neutral-700 mb-1.5">Schichttyp *</label><select className="input" value={formData.shift_type_id} onChange={e=>handleShiftTypeChange(e.target.value)} required><option value="">Bitte wählen...</option>{shiftTypes.map(t=><option key={t.id} value={t.id}>{t.name} ({t.default_start?.substring(0,5)} - {t.default_end?.substring(0,5)})</option>)}</select>{errors.shift_type_id&&<p className="mt-1 text-sm text-error-500">{errors.shift_type_id[0]}</p>}</div>
       {type?.departments?.length>0&&<div><label className="block text-sm font-medium text-neutral-700 mb-1.5">Station *</label><select className="input" value={formData.department_id} onChange={e=>setFormData({...formData,department_id:e.target.value,employee_id:''})}>{type.departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></div>}
