@@ -11,13 +11,15 @@ class MobileInfoController extends Controller
     public function tasks(Request $request)
     {
         $employee = $this->employee($request);
-
-        return response()->json(['tasks' => $this->items($employee->id, 'task')
+        $tasks = $this->items($employee->id, 'task')
             ->orderByRaw('completed_at IS NOT NULL')
             ->orderByDesc('priority')
             ->orderBy('due_at')
             ->limit(100)
-            ->get()]);
+            ->get()
+            ->map(fn (InfoItem $item) => $this->serializeItem($item));
+
+        return response()->json(['tasks' => $tasks]);
     }
 
     public function complete(Request $request, InfoItem $item)
@@ -29,31 +31,52 @@ class MobileInfoController extends Controller
         $data = $request->validate(['completed' => ['required', 'boolean']]);
         $item->update(['completed_at' => $data['completed'] ? now() : null]);
 
-        return response()->json(['task' => $item->fresh()]);
+        return response()->json(['task' => $this->serializeItem($item->fresh())]);
     }
 
     public function announcements(Request $request)
     {
         $employee = $this->employee($request);
-
-        return response()->json(['announcements' => $this->items($employee->id, 'notice')
+        $items = $this->items($employee->id, 'notice')
             ->orderByDesc('priority')
             ->orderByDesc('id')
             ->limit(100)
-            ->get()]);
+            ->get()
+            ->map(fn (InfoItem $item) => $this->serializeItem($item));
+
+        return response()->json(['announcements' => $items]);
     }
 
     public function events(Request $request)
     {
         $employee = $this->employee($request);
-
-        return response()->json(['events' => $this->items($employee->id, 'event')
+        $items = $this->items($employee->id, 'event')
             ->where(function ($query) {
                 $query->whereNull('ends_at')->orWhere('ends_at', '>=', now());
             })
             ->orderBy('starts_at')
             ->limit(100)
-            ->get()]);
+            ->get()
+            ->map(fn (InfoItem $item) => $this->serializeItem($item));
+
+        return response()->json(['events' => $items]);
+    }
+
+    private function serializeItem(InfoItem $item): array
+    {
+        return [
+            'id' => $item->id,
+            'kind' => $item->kind,
+            'title' => $item->title,
+            'body' => $item->body,
+            'employee_id' => $item->employee_id,
+            'starts_at' => $item->starts_at?->toIso8601String(),
+            'ends_at' => $item->ends_at?->toIso8601String(),
+            'due_at' => $item->due_at?->toIso8601String(),
+            'completed_at' => $item->completed_at?->toIso8601String(),
+            'priority' => (int) $item->priority,
+            'url' => $item->url,
+        ];
     }
 
     private function items(int $employeeId, string $kind)
