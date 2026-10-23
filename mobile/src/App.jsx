@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, Clock3, Home, LogOut, MoreHorizontal } from 'lucide-react';
+import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, Clock3, Coffee, Home, LogOut, MoreHorizontal } from 'lucide-react';
 import api, { hasToken, login, logout } from './api';
 
 const tabs = [
@@ -12,9 +12,15 @@ function localDate(v){ return /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T12:
 function dateKey(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function mondayOf(d){ const x=new Date(d); x.setHours(12,0,0,0); const day=x.getDay()||7; x.setDate(x.getDate()-day+1); return x; }
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function addMonths(d,n){ const x=new Date(d.getFullYear(),d.getMonth()+n,1,12); return x; }
 function fmtDate(v) { if (!v) return ''; return new Intl.DateTimeFormat('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' }).format(localDate(v)); }
+function fmtLongDate(v){ if(!v) return ''; return new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}).format(new Date(v)); }
 function fmtTime(v) { if (!v) return ''; const d = v.includes?.('T') ? new Date(v) : new Date(`2000-01-01T${v}`); return new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'}).format(d); }
 function fmtWeek(start){ const end=addDays(start,6); const a=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit'}).format(start); const b=new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}).format(end); return `${a} – ${b}`; }
+function fmtMonth(d){ return new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(d); }
+function fmtHours(v){ return `${Number(v||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:2})} h`; }
+function fmtMinutes(v){ const mins=Number(v||0); if(mins<60) return `${mins} min`; const h=Math.floor(mins/60),m=mins%60; return m?`${h} h ${m} min`:`${h} h`; }
 
 export default function App() {
   const [ready,setReady]=useState(false), [auth,setAuth]=useState(false), [tab,setTab]=useState('home');
@@ -23,17 +29,19 @@ export default function App() {
   const [busy,setBusy]=useState(false), [actionError,setActionError]=useState('');
   const [weekStart,setWeekStart]=useState(()=>mondayOf(new Date())), [selectedDay,setSelectedDay]=useState(()=>dateKey(new Date())), [planBusy,setPlanBusy]=useState(false), [planError,setPlanError]=useState('');
   const [openShifts,setOpenShifts]=useState([]), [applicationBusy,setApplicationBusy]=useState(null);
+  const [timeMonth,setTimeMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1,12)), [timeHistory,setTimeHistory]=useState(null), [timeBusy,setTimeBusy]=useState(false), [timeError,setTimeError]=useState('');
 
   useEffect(()=>{ hasToken().then(v=>{setAuth(v);setReady(true);}); },[]);
   useEffect(()=>{ if(auth) refresh(); },[auth]);
   useEffect(()=>{ if(auth&&tab==='plan') loadWeek(weekStart); },[auth,tab,weekStart]);
+  useEffect(()=>{ if(auth&&tab==='time') loadTimeHistory(timeMonth); },[auth,tab,timeMonth]);
   useEffect(()=>{ if(auth&&tab==='home') refresh(); },[auth,tab]);
   useEffect(()=>{
     if(!auth) return;
-    const handleVisibility=()=>{ if(document.visibilityState==='visible') refresh(); };
+    const handleVisibility=()=>{ if(document.visibilityState==='visible'){ refresh(); if(tab==='time') loadTimeHistory(timeMonth); } };
     document.addEventListener('visibilitychange',handleVisibility);
     return ()=>document.removeEventListener('visibilitychange',handleVisibility);
-  },[auth]);
+  },[auth,tab,timeMonth]);
 
   async function refresh(){
     const requests = await Promise.allSettled([
@@ -67,6 +75,14 @@ export default function App() {
       setPlanError(err.response?.data?.message||'Dienstplan konnte nicht geladen werden.');
     }finally{setPlanBusy(false);}
   }
+  async function loadTimeHistory(month){
+    setTimeBusy(true); setTimeError('');
+    try{ const res=await api.get('/time/history',{params:{month:monthKey(month)}}); setTimeHistory(res.data); }
+    catch(err){
+      if(err.response?.status===401){ await logout(); setAuth(false); return; }
+      setTimeError(err.response?.data?.message||'Arbeitszeiten konnten nicht geladen werden.');
+    }finally{setTimeBusy(false);}
+  }
   function changeWeek(delta){ const next=addDays(weekStart,delta*7); setWeekStart(next); setSelectedDay(dateKey(next)); }
   function currentWeek(){ const start=mondayOf(new Date()); setWeekStart(start); setSelectedDay(dateKey(new Date())); }
 
@@ -90,6 +106,7 @@ export default function App() {
       const status = await api.get('/time/status');
       setTime(status.data);
       await refresh();
+      if(tab==='time') await loadTimeHistory(timeMonth);
     }catch(err){
       setActionError(err.response?.data?.message||'Zeiterfassung konnte nicht aktualisiert werden.');
       if(err.response?.status===409){ try{ const status=await api.get('/time/status'); setTime(status.data); }catch{} }
@@ -107,6 +124,8 @@ export default function App() {
   const selectedOpenShifts=openShifts.filter(s=>s.shift_date===selectedDay);
   const todayKey=dateKey(new Date());
   const currentStart=dateKey(mondayOf(new Date()));
+  const timeSummary=timeHistory?.summary||{};
+  const timeEntries=timeHistory?.entries||[];
 
   return <div className="app"><header><div><small>HEMINGWAY · HILDEN</small><h1>{tab==='home'?`Hallo${emp?.first_name?` ${emp.first_name}`:''}`:tabs.find(x=>x[0]===tab)?.[2]}</h1></div>{tab==='more'&&<button className="icon" onClick={signout}><LogOut size={20}/></button>}</header>
     <main className="content">
@@ -125,7 +144,14 @@ export default function App() {
         <div className={`selected-shift ${selectedShifts.some(s=>s.from_application)?'approved-shift':''}`}><small>{selectedDay===todayKey?'HEUTE':fmtDate(selectedDay).toUpperCase()}</small>{planBusy?<p>Lade Dienstplan …</p>:selectedShifts.length?selectedShifts.map(s=><div className="shift-main" key={s.id}><div><h2>{s.shift_type?.name||s.department?.name||'Schicht'}</h2><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong>{s.from_application&&<span className="approved-label">Bestätigte Bewerbung</span>}</div><CalendarDays size={25}/>{s.shift_type?.name&&s.department?.name&&<span>{s.department.name}</span>}</div>):<div className="free-day"><h2>Frei</h2><p>Für diesen Tag ist keine feste Schicht eingetragen.</p></div>}</div>
         <div className="open-shift-list"><h3>Verfügbare Schichten</h3>{planBusy?<div className="empty">Lade verfügbare Schichten …</div>:selectedOpenShifts.length?selectedOpenShifts.map(s=><div className={`open-shift ${s.application?.status==='pending'?'applied':''}`} key={s.id}><div className="open-shift-copy"><small>{s.shift_type?.name||s.department?.name||'Freie Schicht'}</small><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong>{s.department?.name&&<span>{s.department.name}</span>}</div><button disabled={applicationBusy===s.id} onClick={()=>applyForShift(s)}>{applicationBusy===s.id?'…':s.application?.status==='pending'?'Angefragt':'Ich kann'}</button>{s.application?.status==='pending'&&<p>Deine Bewerbung wartet auf Bestätigung. Tippe auf „Angefragt“, um sie zurückzuziehen.</p>}</div>):<Empty text="Für diesen Tag sind keine freien Schichten ausgeschrieben."/>}</div>
       </section>}
-      {tab==='time'&&<section><div className="status"><Clock3/><div><small>AKTUELLER STATUS</small><h2>{time?.clocked_in?'Eingestempelt':'Nicht eingestempelt'}</h2>{time?.entry?.clock_in&&<span>Seit {fmtTime(time.entry.clock_in)} Uhr</span>}</div></div><button className={`clock ${time?.clocked_in?'out':''}`} onClick={clock} disabled={busy}>{time?.clocked_in?'AUSSTEMPELN':'EINSTEMPELN'}</button>{actionError&&<div className="error">{actionError}</div>}</section>}
+      {tab==='time'&&<section className="time-page">
+        <div className="status"><Clock3/><div><small>AKTUELLER STATUS</small><h2>{time?.clocked_in?'Eingestempelt':'Nicht eingestempelt'}</h2>{time?.entry?.clock_in&&<span>Seit {fmtTime(time.entry.clock_in)} Uhr</span>}</div></div>
+        <button className={`clock ${time?.clocked_in?'out':''}`} onClick={clock} disabled={busy}>{time?.clocked_in?'AUSSTEMPELN':'EINSTEMPELN'}</button>{actionError&&<div className="error">{actionError}</div>}
+        <div className="time-month-head"><button onClick={()=>setTimeMonth(addMonths(timeMonth,-1))}><ChevronLeft/></button><div><small>ARBEITSZEITEN</small><strong>{fmtMonth(timeMonth)}</strong></div><button onClick={()=>setTimeMonth(addMonths(timeMonth,1))} disabled={monthKey(timeMonth)>=monthKey(new Date())}><ChevronRight/></button></div>
+        {timeError&&<div className="error plan-error">{timeError}</div>}
+        <div className="time-summary"><div><small>Stunden</small><strong>{timeBusy?'–':fmtHours(timeSummary.hours)}</strong></div><div><small>Arbeitstage</small><strong>{timeBusy?'–':timeSummary.days||0}</strong></div><div><small>Pausen</small><strong>{timeBusy?'–':fmtMinutes(timeSummary.break_minutes)}</strong></div></div>
+        <div className="time-history"><h3>Verlauf</h3>{timeBusy?<Empty text="Lade Arbeitszeiten …"/>:timeEntries.length?timeEntries.map(entry=><div className="time-entry" key={entry.id}><div className="time-entry-date"><strong>{fmtLongDate(entry.clock_in)}</strong>{entry.is_manual&&<small>Manuell</small>}</div><div className="time-entry-times"><strong>{fmtTime(entry.clock_in)} – {entry.clock_out?fmtTime(entry.clock_out):'läuft'}</strong><span>{entry.clock_out?`${fmtHours(entry.hours_worked)} netto`:'Aktive Arbeitszeit'}</span></div>{entry.clock_out&&<div className="time-entry-break"><Coffee size={15}/><span>{entry.break_minutes?`${entry.break_minutes} min Pause`:'Keine Pause'}</span></div>}</div>):<Empty text="Für diesen Monat sind noch keine Arbeitszeiten vorhanden."/>}</div>
+      </section>}
       {tab==='tasks'&&<section><h3>Aufgaben</h3>{tasks.length?tasks.map(x=><label className="task" key={x.id}><input type="checkbox" checked={!!x.completed_at} onChange={e=>complete(x.id,e.target.checked)}/><div><strong>{x.title}</strong>{x.body&&<span>{x.body}</span>}</div></label>):<Empty text="Keine offenen Aufgaben."/>}</section>}
       {tab==='more'&&<><section><h3>Mitteilungen</h3>{notices.map(x=><Item key={x.id} item={x}/>)}</section><section><h3>Events</h3>{events.length?events.map(x=><Item key={x.id} item={x} meta={fmtDate(x.starts_at)}/>):<Empty text="Keine anstehenden Events."/>}</section><section className="profile"><b>{emp?.first_name} {emp?.last_name}</b><span>{emp?.position}</span></section></>}
     </main>
