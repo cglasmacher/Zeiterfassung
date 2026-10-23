@@ -34,6 +34,7 @@ class User extends Authenticatable
         return match ($this->access_role) {
             'admin' => 'dashboard',
             'operations' => 'cash.days',
+            'planner' => 'timetracking.planner',
             default => 'profile.edit',
         };
     }
