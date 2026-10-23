@@ -22,6 +22,7 @@ export default function App() {
   const [dashboard,setDashboard]=useState(null), [shifts,setShifts]=useState([]), [tasks,setTasks]=useState([]), [notices,setNotices]=useState([]), [events,setEvents]=useState([]), [time,setTime]=useState(null);
   const [busy,setBusy]=useState(false), [actionError,setActionError]=useState('');
   const [weekStart,setWeekStart]=useState(()=>mondayOf(new Date())), [selectedDay,setSelectedDay]=useState(()=>dateKey(new Date())), [planBusy,setPlanBusy]=useState(false), [planError,setPlanError]=useState('');
+  const [openShifts,setOpenShifts]=useState([]), [applicationBusy,setApplicationBusy]=useState(null);
 
   useEffect(()=>{ hasToken().then(v=>{setAuth(v);setReady(true);}); },[]);
   useEffect(()=>{ if(auth) refresh(); },[auth]);
@@ -29,7 +30,7 @@ export default function App() {
 
   async function refresh(){
     const requests = await Promise.allSettled([
-      api.get('/dashboard'), api.get('/shifts'), api.get('/tasks'), api.get('/notices'), api.get('/events'), api.get('/time/status')
+      api.get('/dashboard'), api.get('/shifts'), api.get('/tasks'), api.get('/announcements'), api.get('/events'), api.get('/time/status')
     ]);
     const unauthorized = requests.some(r=>r.status==='rejected' && r.reason?.response?.status===401);
     if(unauthorized){ await logout(); setAuth(false); return; }
@@ -37,7 +38,7 @@ export default function App() {
     if(d.status==='fulfilled') setDashboard(d.value.data);
     if(s.status==='fulfilled') setShifts(s.value.data.shifts||[]);
     if(t.status==='fulfilled') setTasks(t.value.data.tasks||[]);
-    if(n.status==='fulfilled') setNotices(n.value.data.notices||[]);
+    if(n.status==='fulfilled') setNotices(n.value.data.announcements||n.value.data.notices||[]);
     if(e.status==='fulfilled') setEvents(e.value.data.events||[]);
     if(ts.status==='fulfilled') setTime(ts.value.data);
     const failed = requests.find(r=>r.status==='rejected');
@@ -48,8 +49,12 @@ export default function App() {
     setPlanBusy(true); setPlanError('');
     try{
       const from=dateKey(start), to=dateKey(addDays(start,6));
-      const response=await api.get('/shifts',{params:{from,to}});
-      setShifts(response.data.shifts||[]);
+      const [assigned,open]=await Promise.all([
+        api.get('/shifts',{params:{from,to}}),
+        api.get('/open-shifts',{params:{from,to}}),
+      ]);
+      setShifts(assigned.data.shifts||[]);
+      setOpenShifts(open.data.shifts||[]);
     }catch(err){
       if(err.response?.status===401){ await logout(); setAuth(false); return; }
       setPlanError(err.response?.data?.message||'Dienstplan konnte nicht geladen werden.');
@@ -57,6 +62,18 @@ export default function App() {
   }
   function changeWeek(delta){ const next=addDays(weekStart,delta*7); setWeekStart(next); setSelectedDay(dateKey(next)); }
   function currentWeek(){ const start=mondayOf(new Date()); setWeekStart(start); setSelectedDay(dateKey(new Date())); }
+
+  async function applyForShift(shift){
+    setApplicationBusy(shift.id); setPlanError('');
+    try{
+      if(shift.application?.status==='pending') await api.delete(`/open-shifts/${shift.id}/apply`);
+      else await api.post(`/open-shifts/${shift.id}/apply`);
+      await loadWeek(weekStart);
+    }catch(err){
+      setPlanError(err.response?.data?.message||'Bewerbung konnte nicht aktualisiert werden.');
+      if(err.response?.status===409) await loadWeek(weekStart);
+    }finally{setApplicationBusy(null);}
+  }
 
   async function submit(e){ e.preventDefault(); setBusy(true); setError(''); try{ await login(email,password);setAuth(true); }catch(err){setError(err.response?.data?.message||'Anmeldung fehlgeschlagen.');}finally{setBusy(false);} }
   async function clock(){
@@ -71,7 +88,7 @@ export default function App() {
       if(err.response?.status===409){ try{ const status=await api.get('/time/status'); setTime(status.data); }catch{} }
     }finally{setBusy(false);}
   }
-  async function complete(id,completed){ await api.patch(`/tasks/${id}`,{completed}); await refresh(); }
+  async function complete(id,completed){ await api.patch(`/tasks/${id}/complete`,{completed}); await refresh(); }
   async function signout(){ await logout();setAuth(false);setDashboard(null); }
 
   if(!ready) return <div className="splash">HEMINGWAY</div>;
@@ -80,6 +97,7 @@ export default function App() {
   const emp=dashboard?.employee;
   const weekDays=Array.from({length:7},(_,i)=>addDays(weekStart,i));
   const selectedShifts=shifts.filter(s=>s.shift_date===selectedDay);
+  const selectedOpenShifts=openShifts.filter(s=>s.shift_date===selectedDay);
   const todayKey=dateKey(new Date());
   const currentStart=dateKey(mondayOf(new Date()));
 
@@ -95,10 +113,10 @@ export default function App() {
       {tab==='plan'&&<section className="plan">
         <div className="week-head"><button onClick={()=>changeWeek(-1)} aria-label="Vorherige Woche"><ChevronLeft/></button><div><small>DEINE WOCHE</small><strong>{fmtWeek(weekStart)}</strong></div><button onClick={()=>changeWeek(1)} aria-label="Nächste Woche"><ChevronRight/></button></div>
         {dateKey(weekStart)!==currentStart&&<button className="today-button" onClick={currentWeek}>Diese Woche</button>}
-        <div className="day-strip">{weekDays.map((d,i)=>{const key=dateKey(d),has=shifts.some(s=>s.shift_date===key);return <button key={key} className={`${selectedDay===key?'selected ':''}${key===todayKey?'today':''}`} onClick={()=>setSelectedDay(key)}><span>{dayNames[i]}</span><b>{d.getDate()}</b><i className={has?'has-shift':''}/></button>})}</div>
+        <div className="day-strip">{weekDays.map((d,i)=>{const key=dateKey(d),has=shifts.some(s=>s.shift_date===key),hasOpen=openShifts.some(s=>s.shift_date===key);return <button key={key} className={`${selectedDay===key?'selected ':''}${key===todayKey?'today':''}`} onClick={()=>setSelectedDay(key)}><span>{dayNames[i]}</span><b>{d.getDate()}</b><i className={has?'has-shift':hasOpen?'has-open':''}/></button>})}</div>
         {planError&&<div className="error plan-error">{planError}</div>}
-        <div className="selected-shift"><small>{selectedDay===todayKey?'HEUTE':fmtDate(selectedDay).toUpperCase()}</small>{planBusy?<p>Lade Dienstplan …</p>:selectedShifts.length?selectedShifts.map(s=><div className="shift-main" key={s.id}><div><h2>{s.shift_type?.name||s.department?.name||'Schicht'}</h2><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong></div><CalendarDays size={25}/>{s.shift_type?.name&&s.department?.name&&<span>{s.department.name}</span>}</div>):<div className="free-day"><h2>Frei</h2><p>Für diesen Tag ist keine Schicht eingetragen.</p></div>}</div>
-        <div className="week-list"><h3>Wochenübersicht</h3>{weekDays.map((d,i)=>{const key=dateKey(d),dayShifts=shifts.filter(s=>s.shift_date===key);return <button key={key} className={selectedDay===key?'active':''} onClick={()=>setSelectedDay(key)}><div className="week-date"><b>{dayNames[i]}</b><span>{String(d.getDate()).padStart(2,'0')}.{String(d.getMonth()+1).padStart(2,'0')}.</span></div><div className="week-shift">{dayShifts.length?dayShifts.map(s=><span key={s.id}><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong><small>{s.shift_type?.name||s.department?.name||'Schicht'}</small></span>):<em>Frei</em>}</div></button>})}</div>
+        <div className="selected-shift"><small>{selectedDay===todayKey?'HEUTE':fmtDate(selectedDay).toUpperCase()}</small>{planBusy?<p>Lade Dienstplan …</p>:selectedShifts.length?selectedShifts.map(s=><div className="shift-main" key={s.id}><div><h2>{s.shift_type?.name||s.department?.name||'Schicht'}</h2><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong></div><CalendarDays size={25}/>{s.shift_type?.name&&s.department?.name&&<span>{s.department.name}</span>}</div>):<div className="free-day"><h2>Frei</h2><p>Für diesen Tag ist keine feste Schicht eingetragen.</p></div>}</div>
+        <div className="open-shift-list"><h3>Verfügbare Schichten</h3>{planBusy?<div className="empty">Lade verfügbare Schichten …</div>:selectedOpenShifts.length?selectedOpenShifts.map(s=><div className={`open-shift ${s.application?.status==='pending'?'applied':''}`} key={s.id}><div className="open-shift-copy"><small>{s.shift_type?.name||s.department?.name||'Freie Schicht'}</small><strong>{fmtTime(s.start_time)} – {fmtTime(s.end_time)}</strong>{s.department?.name&&<span>{s.department.name}</span>}</div><button disabled={applicationBusy===s.id} onClick={()=>applyForShift(s)}>{applicationBusy===s.id?'…':s.application?.status==='pending'?'Angefragt':'Ich kann'}</button>{s.application?.status==='pending'&&<p>Deine Bewerbung wartet auf Bestätigung. Tippe auf „Angefragt“, um sie zurückzuziehen.</p>}</div>):<Empty text="Für diesen Tag sind keine freien Schichten ausgeschrieben."/>}</div>
       </section>}
       {tab==='time'&&<section><div className="status"><Clock3/><div><small>AKTUELLER STATUS</small><h2>{time?.clocked_in?'Eingestempelt':'Nicht eingestempelt'}</h2>{time?.entry?.clock_in&&<span>Seit {fmtTime(time.entry.clock_in)} Uhr</span>}</div></div><button className={`clock ${time?.clocked_in?'out':''}`} onClick={clock} disabled={busy}>{time?.clocked_in?'AUSSTEMPELN':'EINSTEMPELN'}</button>{actionError&&<div className="error">{actionError}</div>}</section>}
       {tab==='tasks'&&<section><h3>Aufgaben</h3>{tasks.length?tasks.map(x=><label className="task" key={x.id}><input type="checkbox" checked={!!x.completed_at} onChange={e=>complete(x.id,e.target.checked)}/><div><strong>{x.title}</strong>{x.body&&<span>{x.body}</span>}</div></label>):<Empty text="Keine offenen Aufgaben."/>}</section>}
