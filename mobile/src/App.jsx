@@ -21,6 +21,7 @@ function fmtWeek(start){ const end=addDays(start,6); const a=new Intl.DateTimeFo
 function fmtMonth(d){ return new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(d); }
 function fmtHours(v){ return `${Number(v||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:2})} h`; }
 function fmtMinutes(v){ const mins=Number(v||0); if(mins<60) return `${mins} min`; const h=Math.floor(mins/60),m=mins%60; return m?`${h} h ${m} min`:`${h} h`; }
+function taskDue(item){ if(!item.due_at) return null; const due=new Date(item.due_at),today=new Date(); today.setHours(0,0,0,0); const dueDay=new Date(due); dueDay.setHours(0,0,0,0); const diff=Math.round((dueDay-today)/86400000); if(diff<0&&!item.completed_at) return {text:`Überfällig · ${fmtDate(item.due_at)}`,className:'overdue'}; if(diff===0) return {text:`Heute · ${fmtTime(item.due_at)} Uhr`,className:'today'}; if(diff===1) return {text:`Morgen · ${fmtTime(item.due_at)} Uhr`,className:''}; return {text:`Fällig ${fmtDate(item.due_at)} · ${fmtTime(item.due_at)} Uhr`,className:''}; }
 
 export default function App() {
   const [ready,setReady]=useState(false), [auth,setAuth]=useState(false), [tab,setTab]=useState('home');
@@ -126,6 +127,7 @@ export default function App() {
   const currentStart=dateKey(mondayOf(new Date()));
   const timeSummary=timeHistory?.summary||{};
   const timeEntries=timeHistory?.entries||[];
+  const openTasks=tasks.filter(x=>!x.completed_at), completedTasks=tasks.filter(x=>x.completed_at);
 
   return <div className="app"><header><div><small>HEMINGWAY · HILDEN</small><h1>{tab==='home'?`Hallo${emp?.first_name?` ${emp.first_name}`:''}`:tabs.find(x=>x[0]===tab)?.[2]}</h1></div>{tab==='more'&&<button className="icon" onClick={signout}><LogOut size={20}/></button>}</header>
     <main className="content">
@@ -152,13 +154,14 @@ export default function App() {
         <div className="time-summary"><div><small>Stunden</small><strong>{timeBusy?'–':fmtHours(timeSummary.hours)}</strong></div><div><small>Arbeitstage</small><strong>{timeBusy?'–':timeSummary.days||0}</strong></div><div><small>Pausen</small><strong>{timeBusy?'–':fmtMinutes(timeSummary.break_minutes)}</strong></div></div>
         <div className="time-history"><h3>Verlauf</h3>{timeBusy?<Empty text="Lade Arbeitszeiten …"/>:timeEntries.length?timeEntries.map(entry=><div className="time-entry" key={entry.id}><div className="time-entry-date"><strong>{fmtLongDate(entry.clock_in)}</strong>{entry.is_manual&&<small>Manuell</small>}</div><div className="time-entry-times"><strong>{fmtTime(entry.clock_in)} – {entry.clock_out?fmtTime(entry.clock_out):'läuft'}</strong><span>{entry.clock_out?`${fmtHours(entry.hours_worked)} netto`:'Aktive Arbeitszeit'}</span></div>{entry.clock_out&&<div className="time-entry-break"><Coffee size={15}/><span>{entry.break_minutes?`${entry.break_minutes} min Pause`:'Keine Pause'}</span></div>}</div>):<Empty text="Für diesen Monat sind noch keine Arbeitszeiten vorhanden."/>}</div>
       </section>}
-      {tab==='tasks'&&<section><h3>Aufgaben</h3>{tasks.length?tasks.map(x=><label className="task" key={x.id}><input type="checkbox" checked={!!x.completed_at} onChange={e=>complete(x.id,e.target.checked)}/><div><strong>{x.title}</strong>{x.body&&<span>{x.body}</span>}</div></label>):<Empty text="Keine offenen Aufgaben."/>}</section>}
+      {tab==='tasks'&&<section className="tasks-page"><div className="task-summary"><div><small>OFFEN</small><strong>{openTasks.length}</strong></div><div><small>ERLEDIGT</small><strong>{completedTasks.length}</strong></div></div><h3>Offene Aufgaben</h3>{openTasks.length?openTasks.map(x=><TaskCard key={x.id} item={x} onComplete={complete}/>):<Empty text="Keine offenen Aufgaben."/>}{completedTasks.length>0&&<div className="completed-tasks"><h3>Erledigt</h3>{completedTasks.map(x=><TaskCard key={x.id} item={x} onComplete={complete}/>)}</div>}</section>}
       {tab==='more'&&<><section><h3>Mitteilungen</h3>{notices.map(x=><Item key={x.id} item={x}/>)}</section><section><h3>Events</h3>{events.length?events.map(x=><Item key={x.id} item={x} meta={fmtDate(x.starts_at)}/>):<Empty text="Keine anstehenden Events."/>}</section><section className="profile"><b>{emp?.first_name} {emp?.last_name}</b><span>{emp?.position}</span></section></>}
     </main>
     <nav>{tabs.map(([id,Icon,label])=><button className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}><Icon size={21}/><span>{label}</span></button>)}</nav>
   </div>;
 }
 
+function TaskCard({item,onComplete}){ const due=taskDue(item); return <div className={`task-card ${item.completed_at?'done':''} ${due?.className||''}`}><label className="task-check"><input type="checkbox" checked={!!item.completed_at} onChange={e=>onComplete(item.id,e.target.checked)}/><span/></label><div className="task-copy"><div className="task-tags">{item.priority>0&&<small className={`priority p${item.priority}`}>{item.priority>=2?'Wichtig':'Priorität'}</small>}<small className="audience">{item.employee_id?'Für dich':'Für alle'}</small></div><strong>{item.title}</strong>{item.body&&<p>{item.body}</p>}<div className="task-meta">{due&&<span className={due.className}>{due.text}</span>}{item.completed_at&&<span>Erledigt {fmtDate(item.completed_at)}</span>}</div></div></div> }
 function Card({title,children}){return <div className="card"><small>{title}</small>{children}</div>}
 function Item({item,meta}){return <div className="item"><div><strong>{item.title}</strong>{item.body&&<span>{item.body}</span>}</div>{meta&&<small>{meta}</small>}</div>}
 function Empty({text}){return <div className="empty">{text}</div>}
