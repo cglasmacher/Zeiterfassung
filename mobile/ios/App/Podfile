@@ -21,4 +21,13 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Capacitor currently restores its pod targets to its own minimum iOS
+  # version during `cap sync`. Keep every generated Pods target aligned with
+  # the app so Xcode does not require manual deployment-target changes.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
+    end
+  end
 end
