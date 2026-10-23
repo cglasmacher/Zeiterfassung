@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\InfoItem;
 use App\Models\Shift;
 use App\Models\TimeEntry;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class MobileDashboardController extends Controller
@@ -64,16 +65,29 @@ class MobileDashboardController extends Controller
     public function shifts(Request $request)
     {
         $employee = $this->employee($request);
+        $validated = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $from = isset($validated['from']) ? Carbon::createFromFormat('Y-m-d', $validated['from'])->startOfDay() : today();
+        $to = isset($validated['to']) ? Carbon::createFromFormat('Y-m-d', $validated['to'])->startOfDay() : $from->copy()->addDays(59);
+
+        abort_if($to->lt($from), 422, 'Das Enddatum darf nicht vor dem Startdatum liegen.');
+        abort_if($from->diffInDays($to) > 92, 422, 'Der abgefragte Zeitraum darf maximal 93 Tage umfassen.');
 
         $shifts = Shift::with(['department', 'shiftType'])
             ->where('employee_id', $employee->id)
-            ->whereDate('shift_date', '>=', today())
+            ->whereBetween('shift_date', [$from->toDateString(), $to->toDateString()])
             ->orderBy('shift_date')
             ->orderBy('start_time')
-            ->limit(60)
             ->get();
 
-        return response()->json(['shifts' => $shifts]);
+        return response()->json([
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'shifts' => $shifts,
+        ]);
     }
 
     private function employee(Request $request)
