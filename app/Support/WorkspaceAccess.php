@@ -60,6 +60,7 @@ class WorkspaceAccess
             return self::can($user, 'info');
         }
 
+        // HACCP master data and the final monthly closing are administrative.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
