@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/gutscheinverkauf', fn () => Inertia::render('TimeTracking/Cash/Vouchers'))->name('cash.vouchers');
     });
 
+    Route::get('/haccp', fn () => Inertia::render('Haccp/Dashboard'))->name('haccp.dashboard');
     Route::get('/buchhaltung/belege', fn () => Inertia::render('Accounting/Documents'))->name('accounting.documents');
 
     Route::get('/exporte/lohn', fn () => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
@@ -43,7 +44,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Keep existing bookmarks and links working while using one canonical page per task.
     $legacyPages = [
         '/timetracking' => 'dashboard', '/timetracking/daily' => 'timetracking.daily',
         '/timetracking/monthly' => 'timetracking.monthly', '/timetracking/planner' => 'timetracking.planner',
@@ -57,7 +57,6 @@ Route::middleware('auth')->group(function () {
         Route::get($path, fn () => redirect()->route($destination));
     }
 
-    // Browser administration APIs use the same session and CSRF protection as their pages.
     Route::prefix('api')->group(base_path('routes/admin-api.php'));
 });
 
