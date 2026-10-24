@@ -6,6 +6,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\LexwareExportController;
 use App\Http\Controllers\ManualTimeEntryController;
+use App\Http\Controllers\PlannerShiftApplicationController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\ShiftTypeController;
@@ -26,10 +27,16 @@ Route::prefix('shifts')->group(function () {
     Route::post('/export-pdf', [ShiftController::class, 'exportPDF']);
 });
 
+Route::prefix('planner/open-shifts')->controller(PlannerShiftApplicationController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::post('/', 'store');
+    Route::put('/{shift}', 'update');
+    Route::post('/{shift}/applications/{application}/approve', 'approve');
+});
+
 Route::prefix('summary')->group(function () {
     Route::get('/daily/{employeeId}/{date}', [SummaryController::class, 'daily']);
     Route::get('/monthly/{employeeId}/{year}/{month}', [SummaryController::class, 'monthly']);
-
 });
 
 Route::prefix('employees')->group(function () {
@@ -79,7 +86,6 @@ Route::prefix('daily-overview')->group(function () {
     Route::post('/entries/{id}/unmark-paid', [DailyOverviewController::class, 'unmarkAsPaid']);
     Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']);
     Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']);
-
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.data');

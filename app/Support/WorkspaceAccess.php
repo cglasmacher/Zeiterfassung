@@ -31,6 +31,9 @@ class WorkspaceAccess
         if ($user->access_role === 'admin') {
             return true;
         }
+        if ($user->access_role === 'planner') {
+            return $module === 'planner';
+        }
 
         return $user->access_role === 'operations' && in_array($module, ['cash', 'vouchers', 'planner'], true);
     }
@@ -61,7 +64,7 @@ class WorkspaceAccess
         if ($request->is('api/cash/*', 'timetracking/handovers', 'timetracking/cash-days')) {
             return self::can($user, 'cash');
         }
-        if ($request->is('api/shifts', 'api/shifts/*', 'timetracking/planner', 'time-tracking/shift-planner')) {
+        if ($request->is('api/shifts', 'api/shifts/*', 'api/planner/open-shifts', 'api/planner/open-shifts/*', 'timetracking/planner', 'time-tracking/shift-planner')) {
             return self::can($user, 'planner');
         }
 
