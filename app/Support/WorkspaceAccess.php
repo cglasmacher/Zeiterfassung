@@ -60,8 +60,6 @@ class WorkspaceAccess
             return self::can($user, 'info');
         }
 
-        // HACCP master data and the final monthly close are admin-only.
-        // Operational HACCP work remains available to operations users.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
