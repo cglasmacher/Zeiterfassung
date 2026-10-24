@@ -37,6 +37,8 @@ class HaccpTaskGenerator
                     'snapshot' => json_encode([
                         'name' => $template->name,
                         'category' => $template->category,
+                        'criticality' => $template->criticality ?? 'normal',
+                        'template_version' => (int) ($template->version ?? 1),
                         'result_type' => $template->result_type,
                         'configuration' => json_decode($template->configuration ?: '{}', true),
                         'requires_corrective_action' => (bool) $template->requires_corrective_action,
