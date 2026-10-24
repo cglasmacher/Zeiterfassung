@@ -14,11 +14,20 @@ class HaccpDocumentationController extends Controller
     {
         abort_unless($request->user()?->access_role==='admin',403); abort_unless($month>=1&&$month<=12,404);
         abort_if(DB::table('haccp_monthly_closings')->where(['year'=>$year,'month'=>$month])->exists(),409,'Dieser HACCP-Monat ist bereits abgeschlossen.');
-        $snapshot=$documentation->build($year,$month); if($snapshot['statistics']['open_deviations']>0)return response()->json(['message'=>'Offene Abweichungen müssen vor dem Monatsabschluss erledigt werden.','document'=>$snapshot],422);
+        $snapshot=$documentation->build($year,$month);
+        $blocking=[];
+        if($snapshot['statistics']['open_deviations']>0)$blocking[]='Offene Abweichungen';
+        if($snapshot['statistics']['open_ccp_deviations']>0)$blocking[]='Offene CCP-Abweichungen';
+        if($snapshot['statistics']['cleaning_missing']>0)$blocking[]='Nicht dokumentierte Reinigungen';
+        if($snapshot['statistics']['missing_food_samples']>0)$blocking[]='Offene Speisenzubereitungs-Stichproben';
+        if($blocking)return response()->json(['message'=>'Monatsabschluss nicht möglich: '.implode(', ',$blocking).'.','blocking'=>$blocking,'document'=>$snapshot],422);
+
         $start=sprintf('%04d-%02d-01',$year,$month);$end=date('Y-m-t',strtotime($start));
         $closingId=DB::transaction(function()use($request,$year,$month,$snapshot,$start,$end){
             $templateIds=DB::table('haccp_tasks')->whereBetween('due_at',[$start.' 00:00:00',$end.' 23:59:59'])->distinct()->pluck('template_id');
             $roleIds=DB::table('haccp_tasks')->whereBetween('due_at',[$start.' 00:00:00',$end.' 23:59:59'])->whereNotNull('haccp_role_id')->distinct()->pluck('haccp_role_id');
+            $cleaningRoleIds=DB::table('haccp_cleaning_records as r')->join('haccp_cleaning_plans as p','p.id','=','r.cleaning_plan_id')->whereBetween('r.due_date',[$start,$end])->whereNotNull('p.haccp_role_id')->distinct()->pluck('p.haccp_role_id');
+            $roleIds=$roleIds->merge($cleaningRoleIds)->unique();
             if($templateIds->isNotEmpty())DB::table('haccp_templates')->whereIn('id',$templateIds)->whereNull('locked_at')->update(['locked_at'=>now(),'updated_at'=>now()]);
             if($roleIds->isNotEmpty())DB::table('haccp_roles')->whereIn('id',$roleIds)->whereNull('locked_at')->update(['locked_at'=>now(),'updated_at'=>now()]);
             return DB::table('haccp_monthly_closings')->insertGetId(['year'=>$year,'month'=>$month,'closed_by'=>$request->user()->id,'closed_at'=>now(),'snapshot'=>json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),'statistics'=>json_encode($snapshot['statistics'],JSON_UNESCAPED_UNICODE),'created_at'=>now(),'updated_at'=>now()]);
