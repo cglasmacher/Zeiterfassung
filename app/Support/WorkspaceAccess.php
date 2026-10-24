@@ -10,6 +10,7 @@ class WorkspaceAccess
     private const PAGES = [
         'dashboard' => 'admin',
         'info.admin' => 'info',
+        'haccp.dashboard' => 'haccp',
         'cash.handovers' => 'cash',
         'cash.days' => 'cash',
         'cash.vouchers' => 'vouchers',
@@ -32,7 +33,7 @@ class WorkspaceAccess
             return true;
         }
 
-        return $user->access_role === 'operations' && in_array($module, ['cash', 'vouchers', 'planner'], true);
+        return $user->access_role === 'operations' && in_array($module, ['cash', 'vouchers', 'planner', 'haccp'], true);
     }
 
     public static function navigation(User $user): array
@@ -55,6 +56,9 @@ class WorkspaceAccess
         if ($request->is('api/infosystem', 'api/infosystem/*')) {
             return self::can($user, 'info');
         }
+        if ($request->is('api/haccp', 'api/haccp/*')) {
+            return self::can($user, 'haccp');
+        }
         if ($request->is('api/cash/vouchers', 'api/cash/vouchers/*')) {
             return self::can($user, 'vouchers');
         }
@@ -65,7 +69,6 @@ class WorkspaceAccess
             return self::can($user, 'planner');
         }
 
-        // New administration endpoints remain closed until explicitly granted.
         return false;
     }
 }
