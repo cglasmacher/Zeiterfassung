@@ -60,7 +60,6 @@ class WorkspaceAccess
             return self::can($user, 'info');
         }
 
-        // Operations can execute HACCP work, but cannot alter HACCP master data or finalize a month.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
