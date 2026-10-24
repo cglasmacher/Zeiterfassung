@@ -38,7 +38,8 @@ class WorkspaceAccess
 
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) return false;
         if ($request->is('api/haccp/documentation/*/close')) return false;
-        if ($request->is('api/haccp/maintenance-plans*', 'api/haccp/deviations/*/resolve')) return false;
+        if ($request->is('api/haccp/maintenance-plans') && $request->isMethod('post')) return false;
+        if ($request->is('api/haccp/deviations/*/resolve')) return false;
         if ($request->is('api/haccp', 'api/haccp/*')) return self::can($user, 'haccp');
 
         if ($request->is('api/cash/vouchers', 'api/cash/vouchers/*')) return self::can($user, 'vouchers');
