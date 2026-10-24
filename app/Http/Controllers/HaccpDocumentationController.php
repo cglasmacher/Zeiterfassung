@@ -3,25 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Services\Haccp\HaccpMonthlyDocumentation;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class HaccpDocumentationController extends Controller
 {
-    public function preview(int $year,int $month,HaccpMonthlyDocumentation $documentation){abort_unless($month>=1&&$month<=12,404);$closing=DB::table('haccp_monthly_closings')->where(['year'=>$year,'month'=>$month])->first();return response()->json(['closed'=>(bool)$closing,'closing'=>$closing,'document'=>$closing&&$closing->snapshot?json_decode($closing->snapshot,true):$documentation->build($year,$month)]);}
+    public function preview(int $year,int $month,HaccpMonthlyDocumentation $documentation){abort_unless($month>=1&&$month<=12,404);$closing=$this->closing($year,$month);return response()->json(['closed'=>(bool)$closing,'closing'=>$closing,'document'=>$this->document($year,$month,$documentation,$closing)]);}
+
+    public function pdf(int $year,int $month,HaccpMonthlyDocumentation $documentation)
+    {
+        abort_unless($month>=1&&$month<=12,404);$closing=$this->closing($year,$month);$document=$this->document($year,$month,$documentation,$closing);
+        return Pdf::loadView('haccp.monthly-documentation',['document'=>$document,'closed'=>(bool)$closing])->setPaper('a4','landscape')->download(sprintf('HACCP_%04d-%02d.pdf',$year,$month));
+    }
 
     public function close(Request $request,int $year,int $month,HaccpMonthlyDocumentation $documentation)
     {
         abort_unless($request->user()?->access_role==='admin',403); abort_unless($month>=1&&$month<=12,404);
-        abort_if(DB::table('haccp_monthly_closings')->where(['year'=>$year,'month'=>$month])->exists(),409,'Dieser HACCP-Monat ist bereits abgeschlossen.');
-        $snapshot=$documentation->build($year,$month);
-        $blocking=[];
+        abort_if($this->closing($year,$month),409,'Dieser HACCP-Monat ist bereits abgeschlossen.');
+        $snapshot=$documentation->build($year,$month);$blocking=[];
         if($snapshot['statistics']['open_deviations']>0)$blocking[]='Offene Abweichungen';
         if($snapshot['statistics']['open_ccp_deviations']>0)$blocking[]='Offene CCP-Abweichungen';
         if($snapshot['statistics']['cleaning_missing']>0)$blocking[]='Nicht dokumentierte Reinigungen';
         if($snapshot['statistics']['missing_food_samples']>0)$blocking[]='Offene Speisenzubereitungs-Stichproben';
         if($blocking)return response()->json(['message'=>'Monatsabschluss nicht möglich: '.implode(', ',$blocking).'.','blocking'=>$blocking,'document'=>$snapshot],422);
-
         $start=sprintf('%04d-%02d-01',$year,$month);$end=date('Y-m-t',strtotime($start));
         $closingId=DB::transaction(function()use($request,$year,$month,$snapshot,$start,$end){
             $templateIds=DB::table('haccp_tasks')->whereBetween('due_at',[$start.' 00:00:00',$end.' 23:59:59'])->distinct()->pluck('template_id');
@@ -34,4 +39,7 @@ class HaccpDocumentationController extends Controller
         });
         return response()->json(['id'=>$closingId,'document'=>$snapshot],201);
     }
+
+    private function closing(int $year,int $month): ?object{return DB::table('haccp_monthly_closings')->where(['year'=>$year,'month'=>$month])->first();}
+    private function document(int $year,int $month,HaccpMonthlyDocumentation $documentation,?object $closing): array{return $closing&&$closing->snapshot?json_decode($closing->snapshot,true):$documentation->build($year,$month);}
 }
