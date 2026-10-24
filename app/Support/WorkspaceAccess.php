@@ -36,7 +36,7 @@ class WorkspaceAccess
         if ($user->access_role === 'admin') return true;
         if ($request->is('api/infosystem', 'api/infosystem/*')) return self::can($user, 'info');
 
-        if ($request->is('api/haccp')) return false;
+        if ($request->is('api/haccp')) return self::can($user, 'haccp');
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) return false;
         if ($request->is('api/haccp/documentation/*/close')) return false;
         if ($request->is('api/haccp/maintenance-plans') && $request->isMethod('post')) return false;
