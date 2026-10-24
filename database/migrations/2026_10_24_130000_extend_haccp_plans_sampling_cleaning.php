@@ -22,8 +22,10 @@ return new class extends Migration {
             $table->timestamp('locked_at')->nullable();
         });
         Schema::table('haccp_roles', function (Blueprint $table) {
+            $table->dropUnique('haccp_roles_name_unique');
             $table->unsignedInteger('version')->default(1); $table->foreignId('supersedes_role_id')->nullable()->constrained('haccp_roles')->nullOnDelete();
             $table->timestamp('locked_at')->nullable();
+            $table->unique(['name','version'],'haccp_roles_name_version_unique');
         });
         Schema::create('haccp_cleaning_plans', function (Blueprint $table) {
             $table->id(); $table->string('name'); $table->string('location')->nullable(); $table->text('activity');
@@ -60,7 +62,7 @@ return new class extends Migration {
         Schema::dropIfExists('haccp_retention_samples'); Schema::dropIfExists('haccp_food_samples'); Schema::dropIfExists('haccp_goods_receipts');
         Schema::dropIfExists('haccp_cleaning_records'); Schema::dropIfExists('haccp_cleaning_plans');
         Schema::table('haccp_templates', function(Blueprint $t){$t->dropConstrainedForeignId('supersedes_template_id');$t->dropColumn(['criticality','version','locked_at']);});
-        Schema::table('haccp_roles', function(Blueprint $t){$t->dropConstrainedForeignId('supersedes_role_id');$t->dropColumn(['version','locked_at']);});
+        Schema::table('haccp_roles', function(Blueprint $t){$t->dropUnique('haccp_roles_name_version_unique');$t->dropConstrainedForeignId('supersedes_role_id');$t->dropColumn(['version','locked_at']);$t->unique('name','haccp_roles_name_unique');});
         Schema::table('haccp_devices', fn(Blueprint $t) => $t->dropConstrainedForeignId('device_type_id'));
         Schema::dropIfExists('haccp_device_types');
     }
