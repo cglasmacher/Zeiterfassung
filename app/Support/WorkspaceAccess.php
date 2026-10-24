@@ -60,7 +60,6 @@ class WorkspaceAccess
             return self::can($user, 'info');
         }
 
-        // Operations users can execute HACCP work. Configuration and final month closing remain admin-only.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
