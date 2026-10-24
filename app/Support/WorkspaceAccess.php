@@ -59,6 +59,8 @@ class WorkspaceAccess
         if ($request->is('api/infosystem', 'api/infosystem/*')) {
             return self::can($user, 'info');
         }
+
+        // HACCP configuration and final monthly closing are admin-only.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
@@ -71,6 +73,7 @@ class WorkspaceAccess
         if ($request->is('api/haccp', 'api/haccp/*')) {
             return self::can($user, 'haccp');
         }
+
         if ($request->is('api/cash/vouchers', 'api/cash/vouchers/*')) {
             return self::can($user, 'vouchers');
         }
