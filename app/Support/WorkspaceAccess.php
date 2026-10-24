@@ -60,7 +60,7 @@ class WorkspaceAccess
             return self::can($user, 'info');
         }
 
-        // Operations may perform HACCP controls and follow-up work, but cannot alter master data or close a month.
+        // HACCP master data and final month closing are admin-only.
         if ($request->is('api/haccp/roles*', 'api/haccp/devices*', 'api/haccp/templates*')) {
             return false;
         }
