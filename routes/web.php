@@ -25,12 +25,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/gutscheinverkauf', fn () => Inertia::render('TimeTracking/Cash/Vouchers'))->name('cash.vouchers');
     });
     Route::get('/haccp', fn () => Inertia::render('Haccp/Dashboard'))->name('haccp.dashboard');
-    Route::get('/haccp/verwaltung', function (Request $request) {
-        abort_unless($request->user()->access_role === 'admin', 403);
-        return Inertia::render('Haccp/Management');
-    })->name('haccp.management');
-    Route::get('/haccp/dokumentation', fn () => Inertia::render('Haccp/Documentation'))->name('haccp.documentation');
-    Route::get('/haccp/wartungen-abweichungen', fn () => Inertia::render('Haccp/MaintenanceDeviations'))->name('haccp.maintenance');
+    Route::get('/haccp/verwaltung', fn () => Inertia::render('Haccp/Management'))->name('haccp.management');
     Route::get('/buchhaltung/belege', fn () => Inertia::render('Accounting/Documents'))->name('accounting.documents');
     Route::get('/exporte/lohn', fn () => Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
     Route::get('/einstellungen', function (Request $request) { $tab=$request->query('tab','general'); abort_unless(in_array($tab,['general','departments','shift-types','employees'],true),404); return Inertia::render('TimeTracking/Settings',['initialTab'=>$tab]); })->name('timetracking.settings');
