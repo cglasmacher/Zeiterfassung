@@ -1,36 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
-
-const cards = [
-    ['Heute fällig', '0', 'Kontrollen und Checklisten für heute'],
-    ['Überfällig', '0', 'Nicht fristgerecht erledigte Kontrollen'],
-    ['Abweichungen', '0', 'Offene Abweichungen und Maßnahmen'],
-    ['Wartungen', '0', 'Demnächst fällige Gerätewartungen'],
-];
+import axios from 'axios';
 
 export default function HaccpDashboard() {
-    return (
-        <TimeTrackingLayout>
-            <main id="main-content" className="p-4 md:p-6 lg:p-8 space-y-6">
-                <div>
-                    <p className="text-xs uppercase tracking-[0.16em] text-neutral-500">HACCP</p>
-                    <h1 className="text-2xl font-semibold text-neutral-900">Hygiene & Kontrollen</h1>
-                    <p className="mt-1 text-sm text-neutral-600">Kontrollen, Geräte, Wartungen, Abweichungen und Monatsdokumentation.</p>
-                </div>
-                <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {cards.map(([title, value, text]) => (
-                        <article key={title} className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-                            <p className="text-sm font-medium text-neutral-600">{title}</p>
-                            <p className="mt-2 text-3xl font-semibold text-neutral-900">{value}</p>
-                            <p className="mt-2 text-xs leading-5 text-neutral-500">{text}</p>
-                        </article>
-                    ))}
-                </section>
-                <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-                    <h2 className="text-lg font-semibold text-neutral-900">Grundmodul eingerichtet</h2>
-                    <p className="mt-2 text-sm text-neutral-600">Als Nächstes werden Stammdaten für HACCP-Rollen und Geräte sowie frei konfigurierbare Kontrollvorlagen auf dieses Datenmodell gesetzt.</p>
-                </section>
-            </main>
-        </TimeTrackingLayout>
-    );
+ const [tasks,setTasks]=useState([]); const [values,setValues]=useState({}); const [busy,setBusy]=useState(null); const [error,setError]=useState('');
+ const load=()=>axios.get('/api/haccp/today').then(r=>setTasks(r.data)); useEffect(()=>{load()},[]);
+ const set=(id,key,value)=>setValues(v=>({...v,[id]:{...(v[id]||{}),[key]:value}}));
+ const complete=async task=>{setBusy(task.id);setError('');try{await axios.post(`/api/haccp/tasks/${task.id}/complete`,values[task.id]||{});await load();}catch(e){setError(e.response?.data?.message||'Kontrolle konnte nicht gespeichert werden.')}finally{setBusy(null)}};
+ const open=tasks.filter(t=>t.status==='open'); const deviations=tasks.filter(t=>t.status==='deviation'); const completed=tasks.filter(t=>t.status==='completed');
+ return <TimeTrackingLayout><main id="main-content" className="p-4 md:p-6 lg:p-8 space-y-6">
+  <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs uppercase tracking-[.16em] text-neutral-500">HACCP</p><h1 className="text-2xl font-semibold">HACCP heute</h1><p className="mt-1 text-sm text-neutral-600">Deine fälligen Kontrollen für heute.</p></div><a href="/haccp/verwaltung" className="rounded-lg border bg-white px-4 py-2 text-sm">Verwaltung</a></div>
+  <section className="grid gap-3 sm:grid-cols-3"><Card title="Offen" value={open.length}/><Card title="Abweichungen" value={deviations.length}/><Card title="Erledigt" value={completed.length}/></section>
+  {error&&<div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+  <section className="space-y-3">{tasks.length===0&&<div className="rounded-xl border bg-white p-6 text-sm text-neutral-500">Für heute sind keine HACCP-Kontrollen fällig.</div>}{tasks.map(task=><Task key={task.id} task={task} value={values[task.id]||{}} setValue={(k,v)=>set(task.id,k,v)} onComplete={()=>complete(task)} busy={busy===task.id}/>)}</section>
+ </main></TimeTrackingLayout>;
+}
+function Card({title,value}){return <div className="rounded-xl border bg-white p-4"><p className="text-sm text-neutral-500">{title}</p><p className="mt-1 text-3xl font-semibold">{value}</p></div>}
+function Task({task,value,setValue,onComplete,busy}){
+ const type=task.snapshot?.result_type||'checkbox'; const done=task.status!=='open'; const time=new Date(task.due_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); const field='w-full rounded-lg border border-neutral-300 px-3 py-2';
+ return <article className={`rounded-xl border bg-white p-5 ${task.status==='deviation'?'border-amber-300':''}`}><div className="flex flex-wrap justify-between gap-2"><div><div className="flex items-center gap-2"><strong>{task.title}</strong><span className="rounded-full bg-neutral-100 px-2 py-1 text-xs">{time}</span></div><p className="mt-1 text-sm text-neutral-500">{[task.device_name,task.device_location,task.role_name].filter(Boolean).join(' · ')}</p></div><span className="text-sm">{task.status==='completed'?'✓ Erledigt':task.status==='deviation'?'⚠ Abweichung':'Offen'}</span></div>
+ {!done&&<div className="mt-4 space-y-3">{(type==='temperature'||type==='number')&&<label className="block text-sm">Messwert {task.unit&&`(${task.unit})`}<input type="number" step="0.01" className={field} value={value.numeric_value??''} onChange={e=>setValue('numeric_value',e.target.value)}/>{(task.min_value!==null||task.max_value!==null)&&<span className="mt-1 block text-xs text-neutral-500">Soll: {task.min_value??'–'} bis {task.max_value??'–'} {task.unit}</span>}</label>}{(type==='checkbox'||type==='yes_no')&&<div className="flex gap-2"><button type="button" onClick={()=>setValue('boolean_value',true)} className={`rounded-lg border px-4 py-2 text-sm ${value.boolean_value===true?'bg-neutral-900 text-white':''}`}>Ja / erledigt</button><button type="button" onClick={()=>setValue('boolean_value',false)} className={`rounded-lg border px-4 py-2 text-sm ${value.boolean_value===false?'bg-amber-100':''}`}>Nein / Abweichung</button></div>}{type==='text'&&<textarea className={field} value={value.text_value??''} onChange={e=>setValue('text_value',e.target.value)}/>}<textarea className={field} placeholder="Korrekturmaßnahme bei Abweichung (z. B. Ware umgelagert, Gerät geprüft)" value={value.corrective_action??''} onChange={e=>setValue('corrective_action',e.target.value)}/><button disabled={busy} onClick={onComplete} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50">Kontrolle abschließen</button></div>}
+ </article>;
 }
