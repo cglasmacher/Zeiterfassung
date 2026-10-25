@@ -14,6 +14,7 @@ import {
     BookOpenCheck,
     ClipboardCheck,
     Armchair,
+    CalendarCheck,
 } from "lucide-react";
 
 export const navigation = [
@@ -21,7 +22,9 @@ export const navigation = [
         { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
         { route: "info.admin", label: "Infosystem", icon: Monitor },
         { route: "haccp.dashboard", label: "HACCP", icon: ClipboardCheck },
+        { route: "reservations.book", label: "Reservierungen", icon: CalendarCheck },
         { route: "reservations.floor-plan", label: "Tischplan-Builder", icon: Armchair },
+        { route: "reservations.management", label: "Reservierungsregeln", icon: Settings2 },
     ]},
     { label: "Kasse & Abrechnung", items: [
         { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
