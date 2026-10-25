@@ -45,6 +45,7 @@ export const navigation = [
 const haccpNavigation = [
     { route: "haccp.dashboard", label: "Heute" },
     { route: "haccp.operations", label: "Kontrollen & Reinigung" },
+    { route: "haccp.checklists", label: "Checklisten" },
     { route: "haccp.compliance", label: "Abweichungen & Wartungen" },
     { route: "haccp.documentation", label: "Dokumentation" },
     { route: "haccp.management", label: "Verwaltung" },

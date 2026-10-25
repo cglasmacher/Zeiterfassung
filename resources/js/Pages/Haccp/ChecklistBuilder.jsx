@@ -1,0 +1,8 @@
+import React from 'react';
+
+export default function ChecklistBuilder({items=[],setItems}){
+ const add=()=>setItems([...items,{id:`item_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,label:'',required:true}]);
+ const update=(index,patch)=>setItems(items.map((item,i)=>i===index?{...item,...patch}:item));
+ const remove=index=>setItems(items.filter((_,i)=>i!==index));
+ return <div className="space-y-3 rounded-lg border bg-neutral-50 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium">Prüfpunkte</p><p className="text-xs text-neutral-500">Jeder Punkt wird später einzeln mit i.O. / nicht i.O. bewertet.</p></div><button type="button" onClick={add} className="rounded-lg border bg-white px-3 py-2 text-xs font-medium">+ Prüfpunkt</button></div>{items.length===0&&<p className="rounded-lg bg-white p-3 text-sm text-neutral-500">Noch keine Prüfpunkte angelegt.</p>}{items.map((item,index)=><div key={item.id} className="rounded-lg border bg-white p-3"><div className="flex gap-2"><label className="flex-1 text-sm">Bezeichnung<input className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" value={item.label||''} onChange={e=>update(index,{label:e.target.value})} placeholder={`Prüfpunkt ${index+1}`}/></label><button type="button" onClick={()=>remove(index)} className="self-end rounded-lg border px-3 py-2 text-xs text-red-700">Entfernen</button></div><label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={item.required!==false} onChange={e=>update(index,{required:e.target.checked})}/>Pflichtfeld</label></div>)}</div>;
+}
