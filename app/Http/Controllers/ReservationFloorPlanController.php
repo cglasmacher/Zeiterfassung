@@ -30,6 +30,7 @@ class ReservationFloorPlanController extends Controller
         $data = $request->validate(['name' => ['required', 'string', 'max:80', 'not_regex:/^\s*$/u'], 'template' => ['sometimes', Rule::in(['empty', 'restaurant', 'bar'])]]);
 
         return DB::transaction(function () use ($data) {
+            app(\App\Services\Reservations\ReservationService::class)->lock();
             $room = ReservationRoom::create(['id' => (string) Str::uuid(), 'name' => trim($data['name']), 'width' => 1200, 'height' => 800, 'elements' => []]);
             $template = $data['template'] ?? 'empty';
             $names = match ($template) {
@@ -84,6 +85,7 @@ class ReservationFloorPlanController extends Controller
         ]);
 
         return DB::transaction(function () use ($room, $data) {
+            app(\App\Services\Reservations\ReservationService::class)->lock();
             $locked = ReservationRoom::whereKey($room->id)->lockForUpdate()->firstOrFail();
             abort_if($locked->revision !== (int) $data['revision'], 409, 'Der Raum wurde zwischenzeitlich geändert. Bitte Änderungen sichern und den gespeicherten Stand neu laden.');
             $names = [];
@@ -113,6 +115,21 @@ class ReservationFloorPlanController extends Controller
             $objectIds = array_merge($ids, array_column($data['elements'], 'id'));
             if (count($objectIds) !== count(array_unique($objectIds))) {
                 throw ValidationException::withMessages(['elements' => 'Objektkennungen müssen eindeutig sein.']);
+            }
+            $currentTables = $locked->tables()->get();
+            $incoming = collect($data['tables'])->keyBy('id');
+            $protectedIds = $currentTables->filter(fn ($table) => ! $incoming->has($table->id) || $incoming[$table->id]['capacity'] < $table->capacity)->pluck('id')->all();
+            if ($protectedIds) {
+                $used = \App\Models\ReservationBooking::whereIn('status', \App\Models\ReservationBooking::ACTIVE)
+                    ->where(fn ($q) => $q->where('ends_at', '>', \App\Services\Reservations\ReservationService::stamp(now()))->orWhere('status', 'seated'))
+                    ->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $protectedIds))->exists();
+                if ($used) {
+                    throw ValidationException::withMessages(['tables' => 'Mindestens ein betroffener Tisch ist für eine aktuelle oder zukünftige Buchung eingeplant. Bitte zuerst die Buchung umsetzen.']);
+                }
+            }
+            $removed = $currentTables->pluck('id')->diff($ids)->all();
+            if ($removed && \App\Models\ReservationCombination::all()->contains(fn ($c) => count(array_intersect($removed, $c->table_ids)) > 0)) {
+                throw ValidationException::withMessages(['tables' => 'Ein zu entfernender Tisch gehört zu einer Tischkombination. Bitte zuerst die Kombination in der Reservierungsverwaltung entfernen.']);
             }
             // Soft deletion preserves table identity for future reservation references.
             $locked->tables()->whereNotIn('id', $ids)->delete();

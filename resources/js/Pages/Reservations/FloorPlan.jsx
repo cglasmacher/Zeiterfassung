@@ -173,7 +173,7 @@ export default function FloorPlan() {
                 <button className="fp-button" disabled={busy} onClick={() => updateObject({ rotation:(chosen.rotation+45)%360 })}><RotateCw size={15}/>Um 45° drehen</button>
                 <button className="fp-button" disabled={busy} onClick={duplicate}><Copy size={15}/>Duplizieren</button><button className="fp-button fp-delete" disabled={busy} onClick={remove}><Trash2 size={15}/>Entfernen</button>
             </>}
-        </aside></div><p className="fp-hint">Dieser Builder gestaltet Räume und Tischstammdaten. Live-Belegung, Reservierungsregeln und Tischkombinationen folgen im Reservierungsmodul.</p>
+        </aside></div><p className="fp-hint">Dieser Builder gestaltet Räume und Tischstammdaten. Die Belegung findet ihr unter „Reservierungen“, Kombinationen und Aufenthaltsdauer unter „Reservierungsregeln“.</p>
         </>}
     </div></TimeTrackingLayout>;
 }
