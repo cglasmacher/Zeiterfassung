@@ -16,48 +16,51 @@ import {
 } from "lucide-react";
 
 export const navigation = [
-    {
-        label: "Betrieb",
-        items: [
-            { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
-            { route: "info.admin", label: "Infosystem", icon: Monitor },
-            { route: "haccp.dashboard", label: "HACCP", icon: ClipboardCheck },
-        ],
-    },
-    {
-        label: "Kasse & Abrechnung",
-        items: [
-            { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
-            { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
-            { route: "cash.vouchers", label: "Gutscheinverkauf", icon: Ticket },
-        ],
-    },
-    {
-        label: "Buchhaltung",
-        items: [
-            { route: "accounting.documents", label: "Eingangsbelege", icon: BookOpenCheck },
-        ],
-    },
-    {
-        label: "Team & Planung",
-        items: [
-            { route: "timetracking.planner", label: "Dienstplan", icon: CalendarRange },
-            { route: "timetracking.daily", label: "Tagesübersicht", icon: Clock3 },
-            { route: "timetracking.monthly", label: "Monatsübersicht", icon: CalendarDays },
-            { route: "timetracking.manual", label: "Zeiten erfassen", icon: Timer },
-            { route: "timetracking.manipulation", label: "Zeitkorrekturen", icon: FilePenLine },
-        ],
-    },
-    {
-        label: "Verwaltung",
-        items: [
-            { route: "timetracking.exports", label: "Lohnexport", icon: Download },
-            { route: "timetracking.settings", label: "Einstellungen", icon: Settings2 },
-        ],
-    },
+    { label: "Betrieb", items: [
+        { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
+        { route: "info.admin", label: "Infosystem", icon: Monitor },
+        { route: "haccp.dashboard", label: "HACCP", icon: ClipboardCheck },
+    ]},
+    { label: "Kasse & Abrechnung", items: [
+        { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
+        { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
+        { route: "cash.vouchers", label: "Gutscheinverkauf", icon: Ticket },
+    ]},
+    { label: "Buchhaltung", items: [
+        { route: "accounting.documents", label: "Eingangsbelege", icon: BookOpenCheck },
+    ]},
+    { label: "Team & Planung", items: [
+        { route: "timetracking.planner", label: "Dienstplan", icon: CalendarRange },
+        { route: "timetracking.daily", label: "Tagesübersicht", icon: Clock3 },
+        { route: "timetracking.monthly", label: "Monatsübersicht", icon: CalendarDays },
+        { route: "timetracking.manual", label: "Zeiten erfassen", icon: Timer },
+        { route: "timetracking.manipulation", label: "Zeitkorrekturen", icon: FilePenLine },
+    ]},
+    { label: "Verwaltung", items: [
+        { route: "timetracking.exports", label: "Lohnexport", icon: Download },
+        { route: "timetracking.settings", label: "Einstellungen", icon: Settings2 },
+    ]},
+];
+
+const haccpNavigation = [
+    { route: "haccp.dashboard", label: "Heute" },
+    { route: "haccp.operations", label: "Kontrollen & Reinigung" },
+    { route: "haccp.compliance", label: "Abweichungen & Wartungen" },
+    { route: "haccp.documentation", label: "Dokumentation" },
+    { route: "haccp.management", label: "Verwaltung" },
 ];
 
 export const currentNavigation = (pathname) => {
+    const haccpItem = haccpNavigation.find(
+        (item) => new URL(route(item.route), window.location.origin).pathname === pathname,
+    );
+    if (haccpItem) return {
+        ...haccpItem,
+        group: "HACCP",
+        sectionRoute: "haccp.dashboard",
+        backRoute: haccpItem.route === "haccp.dashboard" ? null : "haccp.dashboard",
+    };
+
     for (const group of navigation) {
         const item = group.items.find((item) => new URL(route(item.route), window.location.origin).pathname === pathname);
         if (item) return { ...item, group: group.label };
