@@ -24,6 +24,7 @@ class ReservationBookTest extends TestCase
             'database/migrations/2026_10_25_220000_create_reservation_floor_plans.php',
             'database/migrations/2026_10_25_230000_create_reservation_book.php',
             'database/migrations/2026_10_25_235000_add_resmio_reservation_sync.php',
+            'database/migrations/2026_10_25_235500_add_local_reservation_table_assignment.php',
         ]];
     }
 
@@ -142,15 +143,16 @@ class ReservationBookTest extends TestCase
         $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$id]]))->assertCreated();
     }
 
-    public function test_overdue_seated_guests_keep_their_table_until_freed(): void
+    public function test_seated_bookings_only_block_their_actual_time_interval(): void
     {
         $room = $this->room();
         $id = $room['tables'][0]['id'];
-        $r = $this->postJson('/api/reservations/bookings', $this->booking(['time' => '10:00', 'table_ids' => [$id]]))->assertCreated()->json();
+        $r = $this->postJson('/api/reservations/bookings', $this->booking(['time' => '10:00', 'duration_minutes' => 60, 'table_ids' => [$id]]))->assertCreated()->json();
         $this->putJson('/api/reservations/bookings/'.$r['id'], ['version' => 1, 'status' => 'seated'])->assertOk();
-        $this->postJson('/api/reservations/bookings', $this->booking(['time' => '18:00', 'table_ids' => [$id]]))->assertUnprocessable();
-        $this->putJson('/api/reservations/bookings/'.$r['id'], ['version' => 2, 'status' => 'finished'])->assertOk();
+        $this->postJson('/api/reservations/bookings', $this->booking(['time' => '10:30', 'table_ids' => [$id]]))->assertUnprocessable();
+        $this->postJson('/api/reservations/bookings', $this->booking(['time' => '11:00', 'duration_minutes' => 60, 'table_ids' => [$id]]))->assertCreated();
         $this->postJson('/api/reservations/bookings', $this->booking(['time' => '18:00', 'table_ids' => [$id]]))->assertCreated();
+        $this->getJson('/api/reservations/book?date=2026-10-28')->assertOk()->assertJsonCount(0, 'bookings');
     }
 
     public function test_sperrungen_reject_existing_bookings_and_block_new_allocations(): void

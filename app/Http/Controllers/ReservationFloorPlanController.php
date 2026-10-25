@@ -121,7 +121,7 @@ class ReservationFloorPlanController extends Controller
             $protectedIds = $currentTables->filter(fn ($table) => ! $incoming->has($table->id) || $incoming[$table->id]['capacity'] < $table->capacity)->pluck('id')->all();
             if ($protectedIds) {
                 $used = \App\Models\ReservationBooking::whereIn('status', \App\Models\ReservationBooking::ACTIVE)
-                    ->where(fn ($q) => $q->where('ends_at', '>', \App\Services\Reservations\ReservationService::stamp(now()))->orWhere('status', 'seated'))
+                    ->where('ends_at', '>', \App\Services\Reservations\ReservationService::stamp(now()))
                     ->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $protectedIds))->exists();
                 if ($used) {
                     throw ValidationException::withMessages(['tables' => 'Mindestens ein betroffener Tisch ist für eine aktuelle oder zukünftige Buchung eingeplant. Bitte zuerst die Buchung umsetzen.']);
