@@ -43,7 +43,7 @@ Aufruf unter **Betrieb → Reservierungen** (`/reservierungen`). Administratoren
 - Wartelisteneinträge halten keine Kapazität frei. „Übernehmen“ prüft erneut und macht daraus entweder eine bestätigte Reservierung oder einen jetzt platzierten Walk-in. Ein Wartelisteneintrag kann nicht durch eine reine Statusänderung platziert werden.
 - Status: unbestätigt, bestätigt, angekommen, platziert, abgeschlossen, storniert, No-Show. Unbestätigte Buchungen halten bereits einen Tisch frei. Abgeschlossene/stornierte/No-Show-Buchungen blockieren keinen Platz.
 - „Tisch freigeben“ beendet die Belegung vorzeitig. Die Verfügbarkeit und die Tischübersicht prüfen für alle aktiven Status einschließlich „platziert“ ausschließlich den gespeicherten Zeitraum von Beginn bis Ende. Eine Buchung bis 20:00 erlaubt eine Folgebuchung ab 20:00. Ein überfälliger Status blockiert weder spätere Uhrzeiten noch nachfolgende Tage unbegrenzt; bei längerem Aufenthalt muss die Aufenthaltsdauer angepasst werden.
-- Tischübersicht mit Raum-/Zeitwahl auf Grundlage des Builders: frei, reserviert, platziert oder gesperrt. Bei Kombinationen ist die Gesamtgästezahl mit „ges.“ markiert. Buchungen lassen sich durch Anklicken bearbeiten.
+- Tischübersicht mit Raum-/Zeitwahl auf Grundlage des Builders: frei (grün), unbestätigt (gelb), reserviert (blau), angekommen (orange), platziert (rot) oder gesperrt (grau). Die Tischfarbe gilt für den ausgewählten Zeitpunkt; bei überlappenden Importen hat eine platzierte Buchung Vorrang. Neben jedem Tisch stehen ausschließlich die Start-/Enduhrzeiten der Tagesbuchungen, chronologisch und nach Status eingefärbt; abgeschlossene Zeiten bleiben grau sichtbar, stornierte Buchungen, No-Shows und Wartelisteneinträge werden weggelassen. Mehrere Buchungen und Buchungen über Mitternacht werden berücksichtigt. Bei Kombinationen stehen die Zeiten an jedem beteiligten Tisch, die Gesamtgästezahl ist mit „ges.“ markiert. Tisch oder Zeitmarkierung anklicken zum Bearbeiten. Die Zeitmarkierungen bleiben horizontal, meiden Tischflächen einschließlich Drehung und andere Zeitlisten; bei engem Grundriss wird die Zeichenfläche erweitert und bleibt scrollbar.
 - Einmalige Sperren für einen frei wählbaren Zeitraum: gesamtes Restaurant, Raum oder einzelne Tische. Bestehende aktive Buchungen werden nicht verdrängt; vor der Sperre müssen sie umgesetzt/storniert werden. Wartelisteneinträge bleiben möglich.
 - Bearbeitung erfolgt mit Buchungsversion. Ein veralteter Dialog kann eine zwischenzeitliche Änderung nicht überschreiben. Buchungsänderungen werden mit Bearbeiter protokolliert.
 
@@ -131,7 +131,7 @@ Die öffentliche Online-Buchung und Gästemails werden durch diesen Ausbau noch 
 
 ```bash
 php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest'
-node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs
+node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs tests/Workflow/reservation-plan.test.mjs
 npm run build
 ```
 

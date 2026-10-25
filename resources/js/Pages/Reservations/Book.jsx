@@ -5,6 +5,7 @@ import { Plus, Users, Hourglass, RefreshCw, ChevronLeft, ChevronRight, Lock, X, 
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import Field from '@/Components/Reservations/Field';
 import { api, statusLabels, kindLabels, activeStatuses, localParts, clock, shiftDay, durationFor, defaultForm, sameTables, tableState, tableLabel, errorText } from './reservationUi';
+import { planColors, planTimeLayout } from './planReservations';
 import './reservationBook.css';
 
 const empty = {rooms:[],bookings:[],blocks:[],combinations:[],settings:{configuration:{}},can_manage:false};
@@ -133,12 +134,23 @@ function BlockDialog({date,data,close,done}) {
 
 function ServicePlan({data,date,open}) {
     const [roomId,setRoomId]=useState(''),[time,setTime]=useState(localParts().time);const room=data.rooms.find(r=>r.id===roomId)||data.rooms[0];
-    return <section className="rb-card"><div className="rb-actions"><Field label="Raum"><select value={room?.id||''} onChange={e=>setRoomId(e.target.value)}>{data.rooms.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></Field><Field label="Zeitpunkt"><input type="time" value={time} onChange={e=>setTime(e.target.value)}/></Field><button className="rb-btn" onClick={()=>setTime(localParts().time)}>Jetzt</button></div><p className="rb-hint">Grün: frei · Blau: reserviert · Orange: platziert · Grau: gesperrt. Buchung anklicken zum Bearbeiten.</p>
-        {room?<div className="rb-plan-scroll"><svg role="group" aria-label="Tischbelegung" viewBox={`0 0 ${room.width} ${room.height}`} className="rb-plan">
+    const layout=room?planTimeLayout(room,data.bookings,date):null;
+    const activate=(e,booking)=>{if(['Enter',' '].includes(e.key)){e.preventDefault();open(booking);}};
+    return <section className="rb-card"><div className="rb-actions"><Field label="Raum"><select value={room?.id||''} onChange={e=>setRoomId(e.target.value)}>{data.rooms.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></Field><Field label="Zeitpunkt"><input type="time" value={time} onChange={e=>setTime(e.target.value)}/></Field><button className="rb-btn" onClick={()=>setTime(localParts().time)}>Jetzt</button></div>
+        <div className="rb-plan-legend">{[['free','Frei'],['unconfirmed','Unbestätigt'],['confirmed','Reserviert'],['arrived','Angekommen'],['seated','Platziert'],['finished','Abgeschlossen'],['blocked','Gesperrt']].map(([key,label])=><span key={key}><i style={{background:planColors[key].fill,borderColor:planColors[key].stroke}}/>{label}</span>)}</div>
+        <p className="rb-hint">Tischfarben gelten für den gewählten Zeitpunkt. Daneben stehen alle Reservierungszeiten des Tages, farbig nach Status. Uhrzeit anklicken zum Bearbeiten.</p>
+        {room?<div className="rb-plan-scroll"><svg role="group" aria-label="Tischbelegung" viewBox={`0 0 ${layout.width} ${layout.height}`} style={{minWidth:layout.width}} className="rb-plan">
             {(room.elements||[]).map(o=><g key={o.id} transform={`translate(${o.x} ${o.y}) rotate(${o.rotation})`}><rect x={-o.width/2} y={-o.height/2} width={o.width} height={o.height} rx={4} fill={o.type==='text'?'transparent':'#deded3'}/>{o.type!=='wall'&&<text textAnchor="middle" dominantBaseline="central" fontSize={14}>{o.label}</text>}</g>)}
-            {room.tables.map(t=>{const {booking,block}=tableState(t,data.bookings,data.blocks,date,time);const fill=booking?(booking.status==='seated'?'#f3d6a9':'#c5dbef'):block?'#d8d9d5':'#dae8cd';return <g key={t.id} role={booking?'button':undefined} tabIndex={booking?0:undefined} aria-label={`Tisch ${t.name}: ${booking?.guest_name||block?.reason||'frei'}`} onClick={()=>booking&&open(booking)} onKeyDown={e=>{if(booking&&['Enter',' '].includes(e.key)){e.preventDefault();open(booking);}}} style={{cursor:booking?'pointer':'default'}} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation})`}>
-                {t.shape==='rectangle'?<rect x={-t.width/2} y={-t.height/2} width={t.width} height={t.height} rx={6} fill={fill} stroke="#94a28b"/>:<ellipse rx={t.shape==='round'?Math.min(t.width,t.height)/2:t.width/2} ry={t.shape==='round'?Math.min(t.width,t.height)/2:t.height/2} fill={fill} stroke="#94a28b"/>}
-                <g transform={`rotate(${-t.rotation})`}><text textAnchor="middle" y={-3} fontSize={17} fontWeight={650}>{t.name}</text><text textAnchor="middle" y={16} fontSize={10}>{booking?`${booking.party_size} ${booking.tables.length>1?'ges.':'Gäste'}`:block?'Gesperrt':`${t.capacity} Plätze`}</text></g><title>{booking?`${booking.guest_name||'Gäste'} · ${clock(booking.starts_at)}–${clock(booking.ends_at)}`:block?.reason||'Frei'}</title>
-            </g>;})}</svg></div>:<p>Noch keine Räume angelegt.</p>}
+            {layout.labels.map(l=><line key={l.table.id} x1={l.table.x} y1={l.table.y} x2={l.x>l.table.x?l.x:l.x+l.width} y2={Math.max(l.y+8,Math.min(l.table.y,l.y+l.height-8))} stroke="#aebaa2" strokeWidth={1} pointerEvents="none"/>)}
+            {room.tables.map(t=>{const {booking,block}=tableState(t,data.bookings,data.blocks,date,time);const color=booking?planColors[booking.status]:block?planColors.blocked:planColors.free;return <g key={t.id} data-table-id={t.id} data-state={booking?.status||(block?'blocked':'free')} role={booking?'button':undefined} tabIndex={booking?0:undefined} aria-label={`Tisch ${t.name}: ${booking?statusLabels[booking.status]:block?'gesperrt':'frei'}`} onClick={()=>booking&&open(booking)} onKeyDown={e=>booking&&activate(e,booking)} style={{cursor:booking?'pointer':'default'}} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation})`}>
+                {t.shape==='rectangle'?<rect x={-t.width/2} y={-t.height/2} width={t.width} height={t.height} rx={6} fill={color.fill} stroke={color.stroke} strokeWidth={2}/>:<ellipse rx={t.shape==='round'?Math.min(t.width,t.height)/2:t.width/2} ry={t.shape==='round'?Math.min(t.width,t.height)/2:t.height/2} fill={color.fill} stroke={color.stroke} strokeWidth={2}/>}
+                <g fill={color.text} transform={`rotate(${-t.rotation})`}><text textAnchor="middle" y={-3} fontSize={17} fontWeight={650}>{t.name}</text><text textAnchor="middle" y={16} fontSize={10}>{booking?`${booking.party_size} ${booking.tables.length>1?'ges.':'Gäste'}`:block?'Gesperrt':`${t.capacity} Plätze`}</text></g><title>{booking?`${statusLabels[booking.status]} · ${clock(booking.starts_at)}–${clock(booking.ends_at)}`:block?.reason||'Frei'}</title>
+            </g>;})}
+            {layout.labels.map(l=><g key={l.table.id} data-time-table={l.table.id} transform={`translate(${l.x} ${l.y})`}><rect width={l.width} height={l.height} rx={7} fill="#fff" stroke="#dce3d5"/>
+                {l.reservations.map((b,i)=>{const color=planColors[b.status],current=tableState(l.table,[b],[],date,time).booking;return <g key={b.id} role="button" tabIndex={0} aria-label={`Tisch ${l.table.name}, ${clock(b.starts_at)} bis ${clock(b.ends_at)}, ${statusLabels[b.status]}`} onClick={()=>open(b)} onKeyDown={e=>activate(e,b)} className="rb-plan-time" transform={`translate(4 ${4+i*22})`}>
+                    <rect width={l.width-8} height={20} rx={4} fill={color.fill} stroke={color.stroke} strokeWidth={current?2:0.8}/><text x={(l.width-8)/2} y={10} textAnchor="middle" dominantBaseline="central" fill={color.text} fontSize={12} fontWeight={current?700:500}>{clock(b.starts_at)}–{clock(b.ends_at)}</text><title>{statusLabels[b.status]}</title>
+                </g>;})}
+            </g>)}
+        </svg></div>:<p>Noch keine Räume angelegt.</p>}
     </section>;
 }
