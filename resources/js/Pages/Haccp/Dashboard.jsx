@@ -16,7 +16,7 @@ export default function HaccpDashboard(){
   <section className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Stat label="Offen" value={stats.open}/><Stat label="Überfällig" value={stats.overdue} alert={stats.overdue>0}/><Stat label="Abweichungen" value={stats.deviations} alert={stats.deviations>0}/><Stat label="Erledigt" value={stats.done}/></section>
   {(error||success)&&<div className={`sticky top-2 z-20 rounded-xl border p-3 text-sm shadow-sm ${error?'border-red-200 bg-red-50 text-red-800':'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{error||success}</div>}
   <section className="space-y-3">{ordered.length===0?<Empty/>:ordered.map(task=><Task key={task.id} task={task} value={values[task.id]||{}} setValue={(k,v)=>set(task.id,k,v)} onComplete={()=>complete(task)} busy={busy===task.id}/>)}</section>
-  <nav className="grid grid-cols-2 gap-2 sm:grid-cols-5"><Nav href="/haccp/kontrollen">Weitere Kontrollen</Nav><Nav href="/haccp/abweichungen-wartungen">Abweichungen</Nav><Nav href="/haccp/dokumentation">Dokumentation</Nav><Nav href="/haccp/verwaltung">Verwaltung</Nav><Nav href="/haccp/qr-etiketten">QR-Etiketten</Nav></nav>
+  <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Nav href="/haccp/kontrollen">Weitere Kontrollen</Nav><Nav href="/haccp/abweichungen-wartungen">Abweichungen</Nav><Nav href="/haccp/dokumentation">Dokumentation</Nav><Nav href="/haccp/verwaltung">Verwaltung</Nav></nav>
  </main></TimeTrackingLayout>;
 }
 function Task({task,value,setValue,onComplete,busy}){

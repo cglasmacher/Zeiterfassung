@@ -24,6 +24,7 @@
     },
     "dependencies": {
         "dayjs": "^1.11.19",
-        "lucide-react": "^0.468.0"
+        "lucide-react": "^0.468.0",
+        "qrcode": "^1.5.4"
     }
 }
