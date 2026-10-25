@@ -34,6 +34,7 @@ class ReservationBookController extends Controller
         return response()->json([
             'date' => $data['date'], 'server_now' => CarbonImmutable::now('Europe/Berlin')->toIso8601String(),
             'can_manage' => $request->user()->access_role === 'admin',
+            'resmio' => $this->resmioState(),
             'settings' => $this->service->settings(),
             'rooms' => ReservationRoom::with('tables')->orderBy('created_at')->orderBy('id')->get(),
             'combinations' => ReservationCombination::orderBy('name')->get(),
@@ -61,6 +62,7 @@ class ReservationBookController extends Controller
             'table_ids' => ['sometimes', 'array', 'max:20'], 'table_ids.*' => ['uuid', 'distinct', Rule::exists('reservation_tables', 'id')],
             'room_id' => ['nullable', 'uuid', Rule::exists('reservation_rooms', 'id')],
             'version' => [$update ? 'required' : 'sometimes', 'integer', 'min:1'],
+            'reset_resmio_status' => ['sometimes', 'boolean'],
         ]);
     }
 
@@ -284,6 +286,56 @@ class ReservationBookController extends Controller
             $block->delete();
 
             return response()->noContent();
+        });
+    }
+
+    public function resmioState(): array
+    {
+        $s = \App\Models\InfoIntegration::settings();
+
+        return ['enabled' => $s->enabled, 'facility' => $s->facility, 'last_success_at' => $s->last_success_at?->toIso8601String(), 'last_error' => $s->last_error];
+    }
+
+    public function syncResmio(Request $request, \App\Services\Info\ResmioSync $sync)
+    {
+        $this->access($request, true);
+        try {
+            return response()->json(['count' => $sync->run()]);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => \App\Exceptions\ResmioSyncException::messageFor($e)], 502);
+        }
+    }
+
+    public function resmioResources(Request $request)
+    {
+        $this->access($request, true);
+
+        return response()->json(DB::table('reservation_resmio_resources')->where('facility', \App\Models\InfoIntegration::settings()->facility)->orderBy('name')->get());
+    }
+
+    public function mapResmioResource(Request $request, int $resource)
+    {
+        $this->access($request, true);
+        $data = $request->validate(['table_id' => ['present', 'nullable', 'uuid', Rule::exists('reservation_tables', 'id')->whereNull('deleted_at')], 'revision' => ['required', 'integer', 'min:1']]);
+
+        return DB::transaction(function () use ($resource, $data) {
+            $this->service->lock();
+            $row = DB::table('reservation_resmio_resources')->where('id', $resource)->where('facility', \App\Models\InfoIntegration::settings()->facility)->firstOrFail();
+            abort_if((int) $row->revision !== (int) $data['revision'], 409, 'Diese Tischzuordnung wurde bereits geändert. Bitte die Zuordnungen neu laden.');
+            DB::table('reservation_resmio_resources')->where('id', $row->id)->update(['table_id' => $data['table_id'] ?? null, 'mapping_mode' => 'manual', 'revision' => $row->revision + 1]);
+            $affected = ReservationBooking::where('resmio_facility', $row->facility)->whereIn('status', array_merge(ReservationBooking::ACTIVE, ['waiting']))->get();
+            foreach ($affected as $booking) {
+                if (! in_array($row->external_id, $booking->resmio_data['facility_resources'] ?? [], true)) {
+                    continue;
+                }
+                $missing = $booking->resmio_missing;
+                app(\App\Services\Reservations\ResmioBookingImport::class)->one($row->facility, $booking->resmio_data);
+                if ($missing) {
+                    $booking->fresh()->update(['resmio_missing' => true]);
+                }
+            }
+
+            return response()->json(['saved' => true]);
         });
     }
 }

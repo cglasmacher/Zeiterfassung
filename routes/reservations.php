@@ -13,6 +13,9 @@ Route::get('/reservierungen/verwaltung', function (Request $request) {
 })->name('reservations.management');
 Route::prefix('api/reservations')->controller(ReservationBookController::class)->group(function () {
     Route::get('/book', 'index');
+    Route::post('/resmio/sync', 'syncResmio')->middleware('throttle:6,1');
+    Route::get('/resmio/resources', 'resmioResources');
+    Route::put('/resmio/resources/{resource}', 'mapResmioResource')->whereNumber('resource');
     Route::get('/availability', 'availability');
     Route::post('/bookings', 'store');
     Route::put('/bookings/{booking}', 'update');

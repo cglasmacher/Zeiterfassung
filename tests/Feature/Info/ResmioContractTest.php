@@ -13,7 +13,9 @@ use Tests\TestCase;
 
 class ResmioContractTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Support\ResmioTestDatabase {
+        \Tests\Support\ResmioTestDatabase::migrateFreshUsing insteadof RefreshDatabase;
+    }
 
     public function test_documented_headers_endpoints_filters_fields_resources_and_statuses(): void
     {
@@ -29,7 +31,7 @@ class ResmioContractTest extends TestCase
             $path = parse_url($r->url(), PHP_URL_PATH);
             if ($path === '/v1/facility/hemingway-hilden/bookings') {
                 $this->assertSame('2026-10-23T22:00:00Z', $r['date__gte']);
-                $this->assertSame('2026-11-08T23:00:00Z', $r['date__lt']);
+                $this->assertSame(now()->timezone('Europe/Berlin')->addDays(366)->startOfDay()->utc()->toIso8601ZuluString(), $r['date__lt']);
                 $this->assertArrayNotHasKey('date__lte', $r->data());
                 if (($r['offset'] ?? 0) === 0) {
                     return Http::response(['objects' => [

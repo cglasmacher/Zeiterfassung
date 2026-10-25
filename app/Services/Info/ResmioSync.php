@@ -5,6 +5,9 @@ namespace App\Services\Info;
 use App\Exceptions\ResmioSyncException;
 use App\Models\InfoIntegration;
 use App\Models\InfoReservation;
+use App\Services\Reservations\ReservationService;
+use App\Services\Reservations\ResmioBookingData;
+use App\Services\Reservations\ResmioBookingImport;
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
@@ -34,8 +37,8 @@ class ResmioSync
                     throw new ResmioSyncException('Bitte den reinen resmio-API-Key ohne Leerzeichen oder Header-Bezeichnung neu speichern.');
                 }
                 $started = microtime(true);
-                $from = now()->timezone('Europe/Berlin')->subDay()->startOfDay()->utc();
-                $until = now()->timezone('Europe/Berlin')->addDays(15)->startOfDay()->utc();
+                $from = CarbonImmutable::now('Europe/Berlin')->subDay()->startOfDay()->utc();
+                $until = CarbonImmutable::now('Europe/Berlin')->addDays(max(1, min(730, (int) config('infosystem.resmio_sync_days', 366))))->startOfDay()->utc();
                 $path = '/facility/'.rawurlencode($s->facility);
                 $bookings = $this->collection($base.$path.'/bookings', $key, [
                     'date__gte' => $from->toIso8601ZuluString(),
@@ -50,22 +53,51 @@ class ResmioSync
                     }
                     $tables[(string) $resource['id']] = $resource['name'];
                 }
+                $tagCatalog = [];
+                $customerTagCatalog = [];
+                if (collect($bookings)->contains(fn ($b) => ! empty($b['tags']))) {
+                    $tagCatalog = ResmioBookingData::catalog($this->collection($base.$path.'/booking_tags', $key, ['limit' => 100], $started), $s->facility, 'booking_tags');
+                }
+                if (collect($bookings)->contains(fn ($b) => ! empty($b['customer_tags']))) {
+                    $customerTagCatalog = ResmioBookingData::catalog($this->collection($base.$path.'/customer_tags', $key, ['limit' => 100], $started), $s->facility, 'customer_tags');
+                }
                 $rows = [];
+                $bookRows = [];
+                $seenBookings = [];
                 foreach ($bookings as $booking) {
                     if (! is_array($booking)) {
                         throw new ResmioSyncException('Unerwartetes resmio-Buchungsformat.');
                     }
+                    $normalized = app(ResmioBookingData::class)->normalize($booking, $s->facility, $tagCatalog, $customerTagCatalog);
+                    if (isset($seenBookings[$normalized['id']])) {
+                        throw new ResmioSyncException('Doppelte Buchungskennung in der resmio-Antwort. Bitte erneut abgleichen.');
+                    }
+                    $seenBookings[$normalized['id']] = true;
+                    $bookRows[] = $normalized;
                     $rows[] = $this->normalize($booking, $s->facility, $tables);
                 }
-                DB::transaction(function () use ($rows, $s, $from, $until) {
+                DB::transaction(function () use ($rows, $bookRows, $resources, $s, $from, $until) {
                     $current = InfoIntegration::whereKey($s->id)->lockForUpdate()->first();
-                    if (! $current->enabled || $current->facility !== $s->facility) {
+                    if (! $current->enabled || $current->facility !== $s->facility || $current->authorization !== $s->authorization) {
                         throw new ResmioSyncException('Integration während Abgleich geändert.');
                     }
+                    app(ReservationService::class)->lock();
+                    $import = app(ResmioBookingImport::class);
+                    $import->resources($s->facility, ResmioBookingData::catalog($resources, $s->facility, 'resources'));
+                    $import->apply($s->facility, $bookRows, $from, $until);
+                    $bookingsById = collect($bookRows)->keyBy('id');
                     foreach ($rows as $row) {
+                        if (DB::table('reservation_resmio_deletions')->where('facility', $s->facility)->where('external_id', $row['external_id'])->exists()) {
+                            continue;
+                        }
+                        $incoming = $bookingsById->get($row['external_id']);
+                        $source = \App\Models\ReservationBooking::where('resmio_facility', $s->facility)->where('resmio_id', $row['external_id'])->first();
+                        if (! empty($incoming['updated']) && $source?->resmio_updated_at && CarbonImmutable::parse($incoming['updated'])->lt($source->resmio_updated_at)) {
+                            continue;
+                        }
                         $existing = InfoReservation::where('external_id', $row['external_id'])->first();
                         // A deletion webhook wins over an in-flight API response.
-                        if ($existing?->status === 'deleted') {
+                        if ($existing?->status === 'deleted' && $existing->facility === $s->facility) {
                             continue;
                         }
                         InfoReservation::updateOrCreate(['external_id' => $row['external_id']], $row);
@@ -95,7 +127,7 @@ class ResmioSync
         $seen = [];
         $objects = [];
         for ($page = 0; $url; $page++) {
-            if ($page >= 100 || microtime(true) - $started > 150) {
+            if ($page >= 1000 || microtime(true) - $started > 150) {
                 throw new ResmioSyncException('resmio-Paginierung oder maximale Laufzeit überschritten.');
             }
             $uri = new Uri($url);
@@ -149,7 +181,7 @@ class ResmioSync
         $status = match ($status) {
             'noshow' => 'no_show', 'canceled' => 'cancelled', default => $status
         };
-        if ((int) $row['num'] === 0 && ! in_array($status, ['cancelled', 'no_show', 'deleted'], true)) {
+        if ((int) $row['num'] === 0 && ! in_array($status, ['cancelled', 'no_show', 'deleted', 'finished'], true)) {
             throw new ResmioSyncException('Eine aktive resmio-Buchung enthält keine Gästeanzahl.');
         }
         if (isset($row['facility']) && $row['facility'] !== '/v1/facility/'.$facility) {

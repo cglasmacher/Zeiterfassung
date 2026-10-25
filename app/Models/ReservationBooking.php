@@ -17,7 +17,7 @@ class ReservationBooking extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['starts_at' => ReservationDateTime::class, 'ends_at' => ReservationDateTime::class, 'party_size' => 'integer', 'version' => 'integer'];
+    protected $casts = ['starts_at' => ReservationDateTime::class, 'ends_at' => ReservationDateTime::class, 'party_size' => 'integer', 'version' => 'integer', 'resmio_updated_at' => ReservationDateTime::class, 'resmio_synced_at' => ReservationDateTime::class, 'resmio_tags' => 'array', 'customer_tags' => 'array', 'resmio_tables' => 'array', 'resmio_data' => 'array', 'resmio_issues' => 'array', 'resmio_unassigned' => 'boolean', 'resmio_missing' => 'boolean'];
 
     public function tables()
     {
