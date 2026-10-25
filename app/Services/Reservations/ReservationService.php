@@ -62,15 +62,12 @@ class ReservationService
         return ReservationBooking::whereIn('status', ReservationBooking::ACTIVE)
             ->when($except, fn ($q) => $q->where('id', '!=', $except))
             ->where('starts_at', '<', self::stamp($end))
-            ->where(function ($q) use ($start) {
-                $q->where('ends_at', '>', self::stamp($start))
-                    ->orWhere(fn ($q) => $q->where('status', 'seated')->where('ends_at', '<=', self::stamp(now())));
-            });
+            ->where('ends_at', '>', self::stamp($start));
     }
 
-    public function candidates(CarbonImmutable $start, CarbonImmutable $end, int $size, ?string $roomId = null, ?string $except = null): array
+    public function candidates(CarbonImmutable $start, CarbonImmutable $end, int $size, ?string $roomId = null, ?string $except = null, bool $resolveImported = false): array
     {
-        if ($this->occupied($start, $end, $except)->where('source', 'resmio')->where('resmio_unassigned', true)->exists()) {
+        if (! $resolveImported && $this->occupied($start, $end, $except)->where('source', 'resmio')->where('resmio_unassigned', true)->exists()) {
             return [];
         }
         $tables = ReservationTable::query()->when($roomId, fn ($q) => $q->where('room_id', $roomId))->get()->keyBy('id');
@@ -99,6 +96,59 @@ class ReservationService
         usort($options, fn ($a, $b) => [$a['capacity'], count($a['table_ids']), $a['name'], $a['id']] <=> [$b['capacity'], count($b['table_ids']), $b['name'], $b['id']]);
 
         return $options;
+    }
+
+    public const ALLOCATION_ISSUES = [
+        'Tischüberschneidung mit einer anderen Buchung – bitte prüfen.',
+        'Resmio-Buchung liegt in einer lokalen Tisch- oder Raumsperre.',
+        'Resmio-Gruppengröße überschreitet die lokal hinterlegte Tischkapazität.',
+    ];
+
+    public function allocationIssues(CarbonImmutable $start, CarbonImmutable $end, array $ids, int $size, ?string $except = null): array
+    {
+        if (! $ids) {
+            return [];
+        }
+        $issues = [];
+        if ($this->occupied($start, $end, $except)->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $ids))->exists()) {
+            $issues[] = self::ALLOCATION_ISSUES[0];
+        }
+        $tables = ReservationTable::whereIn('id', $ids)->get();
+        $rooms = $tables->pluck('room_id')->all();
+        $blocks = ReservationBlock::where('starts_at', '<', self::stamp($end))->where('ends_at', '>', self::stamp($start))->get();
+        if ($blocks->contains(fn ($b) => $b->table_ids ? count(array_intersect($ids, $b->table_ids)) > 0 : (! $b->room_id || in_array($b->room_id, $rooms, true)))) {
+            $issues[] = self::ALLOCATION_ISSUES[1];
+        }
+        if ($tables->sum('capacity') < $size) {
+            $allowed = ReservationCombination::where('capacity', '>=', $size)->get()->contains(function ($c) use ($ids) {
+                $a = $c->table_ids;
+                $b = $ids;
+                sort($a);
+                sort($b);
+
+                return $a === $b;
+            });
+            if (! $allowed) {
+                $issues[] = self::ALLOCATION_ISSUES[2];
+            }
+        }
+
+        return $issues;
+    }
+
+    public function withCurrentIssues(ReservationBooking $booking): ReservationBooking
+    {
+        if ($booking->source !== 'resmio') {
+            return $booking;
+        }
+        $issues = array_values(array_filter($booking->resmio_issues ?? [], fn ($issue) => ! in_array($issue, self::ALLOCATION_ISSUES, true)
+            && ! ($booking->resmio_local_table_ids !== null && (str_starts_with($issue, 'Tisch nicht zugeordnet:') || $issue === 'Resmio hat noch keinen Tisch zugeordnet.'))));
+        if (in_array($booking->status, ReservationBooking::ACTIVE, true)) {
+            $issues = array_merge($issues, $this->allocationIssues($booking->starts_at, $booking->ends_at, $booking->tables->pluck('id')->all(), $booking->party_size, $booking->id));
+        }
+        $booking->resmio_issues = array_values(array_unique($issues));
+
+        return $booking;
     }
 
     public function checkHours(CarbonImmutable $start): void
@@ -205,11 +255,37 @@ class ReservationService
 
     private function importedLocal(ReservationBooking $booking, array $data, int $userId): ReservationBooking
     {
-        if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status'])) {
-            throw ValidationException::withMessages(['source' => 'Buchungsdaten dieser Reservierung werden in Resmio gepflegt. Hier sind eigene Notizen und lokale Serviceaktionen möglich.']);
+        if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status', 'table_ids', 'reset_resmio_tables'])) {
+            throw ValidationException::withMessages(['source' => 'Buchungsdaten dieser Reservierung werden in Resmio gepflegt. Hier sind eigene Notizen, lokale Tischzuordnungen und Serviceaktionen möglich.']);
         }
         if (array_key_exists('notes', $data)) {
             $booking->notes = $data['notes'];
+        }
+        if (array_key_exists('table_ids', $data) || ! empty($data['reset_resmio_tables'])) {
+            if (! in_array($booking->status, ReservationBooking::ACTIVE, true) || $booking->kind === 'waitlist') {
+                throw ValidationException::withMessages(['table_ids' => 'Tische können nur für eine aktive Reservierung oder einen Walk-in geändert werden.']);
+            }
+            if (! empty($data['reset_resmio_tables']) && array_key_exists('table_ids', $data)) {
+                throw ValidationException::withMessages(['table_ids' => 'Bitte entweder einen lokalen Tisch wählen oder die Resmio-Zuordnung übernehmen.']);
+            }
+            $ids = ! empty($data['reset_resmio_tables'])
+                ? array_column($booking->resmio_tables ?? [], 'table_id') : $data['table_ids'];
+            $valid = $ids && ! in_array(null, $ids, true) && collect($this->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, true))
+                ->contains(function ($option) use ($ids) {
+                    $a = $option['table_ids'];
+                    $b = $ids;
+                    sort($a);
+                    sort($b);
+
+                    return $a === $b;
+                });
+            if (! $valid) {
+                throw ValidationException::withMessages(['table_ids' => 'Für den Reservierungszeitraum ist diese Tischauswahl nicht frei, zu klein oder keine erlaubte Kombination.']);
+            }
+            $booking->resmio_local_table_ids = ! empty($data['reset_resmio_tables']) ? null : $ids;
+            $booking->tables()->sync($ids);
+            $booking->load('tables');
+            $booking->resmio_unassigned = false;
         }
         if (! empty($data['reset_resmio_status'])) {
             $booking->resmio_local_status = null;
@@ -244,10 +320,11 @@ class ReservationService
             $booking->status = $data['status'];
             $booking->resmio_local_status = $data['status'];
         }
-        $booking->resmio_unassigned = in_array($booking->status, ReservationBooking::ACTIVE, true) && ($booking->tables->isEmpty() || $booking->tables->count() !== count($booking->resmio_tables ?? []));
+        $booking->resmio_unassigned = in_array($booking->status, ReservationBooking::ACTIVE, true) && ($booking->tables->isEmpty() || $booking->tables->count() !== count($booking->resmio_local_table_ids ?? $booking->resmio_tables ?? []));
+        $this->withCurrentIssues($booking);
         $booking->version++;
         $booking->save();
-        DB::table('reservation_events')->insert(['booking_id' => $booking->id, 'user_id' => $userId, 'action' => 'updated', 'details' => json_encode(['local_service_status' => $booking->resmio_local_status, 'local_notes_changed' => array_key_exists('notes', $data)]), 'created_at' => now()]);
+        DB::table('reservation_events')->insert(['booking_id' => $booking->id, 'user_id' => $userId, 'action' => 'updated', 'details' => json_encode(['local_service_status' => $booking->resmio_local_status, 'local_notes_changed' => array_key_exists('notes', $data), 'local_table_ids' => $booking->resmio_local_table_ids]), 'created_at' => now()]);
 
         return $booking->fresh()->load('tables');
     }

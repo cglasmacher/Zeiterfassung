@@ -14,11 +14,12 @@ export function defaultForm(kind, date, config, booking = null) {
     const now=localParts(), start=booking ? localParts(booking.starts_at) : {date:kind==='walkin'?now.date:date,time:now.time};
     return {kind:booking?.kind || kind,date:start.date,time:start.time,party_size:booking?.party_size || 2,duration_minutes:booking ? Math.round((new Date(booking.ends_at)-new Date(booking.starts_at))/60000) : durationFor(2,config),guest_name:booking?.guest_name || '',phone:booking?.phone || '',email:booking?.email || '',notes:booking?.notes || '',source:booking?.source || (kind==='walkin'?'walkin':'phone'),room_id:booking?.tables?.[0]?.room_id || '',table_ids:booking?.tables?.map(t=>t.id) || [],version:booking?.version,status:booking?.status};
 }
+export function tableLabel(tables = []) { return tables.length ? `Tisch ${[...tables].sort((a,b)=>a.name.localeCompare(b.name,'de',{numeric:true})).map(t=>t.name).join(', ')}` : 'Kein Tisch'; }
 export const sameTables = (a,b) => [...a].sort().join(',') === [...b].sort().join(',');
 export function tableState(table, bookings, blocks, date, time, now = new Date()) {
     const matches = value => {const p=localParts(value);return `${p.date} ${p.time}`;};
-    const at=`${date} ${time}`, nowParts=localParts(now), viewingAtOrAfterNow=at>=`${nowParts.date} ${nowParts.time}`;
-    const booking = bookings.find(b=>activeStatuses.includes(b.status) && b.tables.some(t=>t.id===table.id) && matches(b.starts_at)<=at && (matches(b.ends_at)>at || (viewingAtOrAfterNow && b.status==='seated' && new Date(b.ends_at)<=now)));
+    const at=`${date} ${time}`;
+    const booking = bookings.find(b=>activeStatuses.includes(b.status) && b.tables.some(t=>t.id===table.id) && matches(b.starts_at)<=at && matches(b.ends_at)>at);
     const block = blocks.find(b=>matches(b.starts_at)<=at && matches(b.ends_at)>at && (b.table_ids?.length ? b.table_ids.includes(table.id) : !b.room_id || b.room_id===table.room_id));
     return {booking,block};
 }

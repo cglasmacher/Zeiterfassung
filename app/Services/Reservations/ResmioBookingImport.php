@@ -81,6 +81,10 @@ class ResmioBookingImport
             $localStatus = null;
         }
         $status = $localStatus ?? $remoteStatus;
+        $localTableIds = $booking?->resmio_local_table_ids;
+        if ($booking && ($booking->starts_at->ne($start) || $booking->party_size !== $snapshot['num'])) {
+            $localTableIds = null;
+        }
         $mapped = [];
         $externalTables = [];
         foreach ($snapshot['facility_resources'] ?? [] as $id) {
@@ -88,40 +92,22 @@ class ResmioBookingImport
             $table = $mapping?->table_id ? ReservationTable::find($mapping->table_id) : null;
             if ($table) {
                 $mapped[] = $table->id;
-            } else {
+            } elseif ($localTableIds === null) {
                 $issues[] = 'Tisch nicht zugeordnet: '.($mapping?->name ?? '#'.$id);
             }
             $externalTables[] = ['id' => $id, 'name' => $mapping?->name ?? '#'.$id, 'table_id' => $table?->id];
         }
+        if ($localTableIds !== null) {
+            $mapped = ReservationTable::whereIn('id', $localTableIds)->pluck('id')->all();
+        }
         $mapped = array_values(array_unique($mapped));
         $active = in_array($status, ReservationBooking::ACTIVE, true);
-        $unassigned = $active && (! $externalTables || count($mapped) !== count($externalTables));
-        if ($active && ! $externalTables) {
+        $unassigned = $active && (! $mapped || count($mapped) !== count($localTableIds ?? $externalTables));
+        if ($active && ! $externalTables && $localTableIds === null) {
             $issues[] = 'Resmio hat noch keinen Tisch zugeordnet.';
         }
-        if ($active && $mapped) {
-            $overlap = app(ReservationService::class)->occupied($start, $start->addMinutes($duration), $booking?->id)->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $mapped))->exists();
-            if ($overlap) {
-                $issues[] = 'Tischüberschneidung mit einer anderen Buchung – bitte prüfen.';
-            }
-            $blocks = \App\Models\ReservationBlock::where('starts_at', '<', ReservationService::stamp($start->addMinutes($duration)))->where('ends_at', '>', ReservationService::stamp($start))->get();
-            $rooms = ReservationTable::whereIn('id', $mapped)->pluck('room_id')->all();
-            if ($blocks->contains(fn ($b) => $b->table_ids ? count(array_intersect($mapped, $b->table_ids)) > 0 : (! $b->room_id || in_array($b->room_id, $rooms, true)))) {
-                $issues[] = 'Resmio-Buchung liegt in einer lokalen Tisch- oder Raumsperre.';
-            }
-        }
-        if ($active && $mapped && ReservationTable::whereIn('id', $mapped)->sum('capacity') < $snapshot['num']) {
-            $allowed = \App\Models\ReservationCombination::where('capacity', '>=', $snapshot['num'])->get()->contains(function ($c) use ($mapped) {
-                $a = $c->table_ids;
-                $b = $mapped;
-                sort($a);
-                sort($b);
-
-                return $a === $b;
-            });
-            if (! $allowed) {
-                $issues[] = 'Resmio-Gruppengröße überschreitet die lokal hinterlegte Tischkapazität.';
-            }
+        if ($active) {
+            $issues = array_merge($issues, app(ReservationService::class)->allocationIssues($start, $start->addMinutes($duration), $mapped, $snapshot['num'], $booking?->id));
         }
         $booking ??= new ReservationBooking(['id' => (string) Str::uuid()]);
         $booking->fill([
@@ -132,7 +118,7 @@ class ResmioBookingImport
             'resmio_updated_at' => empty($snapshot['updated']) ? null : CarbonImmutable::parse($snapshot['updated']),
             'resmio_notes' => $snapshot['notes'] ?? null, 'guest_comment' => $snapshot['comment'] ?? null, 'customer_notes' => $snapshot['customer_notes'] ?? null,
             'resmio_tags' => $snapshot['tags'] ?? [], 'customer_tags' => $snapshot['customer_tags'] ?? [], 'resmio_tables' => $externalTables,
-            'resmio_data' => $snapshot, 'resmio_issues' => array_values(array_unique($issues)), 'resmio_unassigned' => $unassigned, 'resmio_missing' => false,
+            'resmio_local_table_ids' => $localTableIds, 'resmio_data' => $snapshot, 'resmio_issues' => array_values(array_unique($issues)), 'resmio_unassigned' => $unassigned, 'resmio_missing' => false,
         ]);
         $oldIds = $before ? collect($before['tables'])->pluck('id')->sort()->values()->all() : [];
         $newIds = $mapped;

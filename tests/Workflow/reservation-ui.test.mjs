@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { localParts, shiftDay, durationFor, defaultForm, tableState, sameTables } from '../../resources/js/Pages/Reservations/reservationUi.js';
+import { localParts, shiftDay, durationFor, defaultForm, tableState, sameTables, tableLabel } from '../../resources/js/Pages/Reservations/reservationUi.js';
 
 test('Berlin date and time are independent of device timezone including DST',()=>{
     assert.deepEqual(localParts('2026-10-25T23:30:00Z'),{date:'2026-10-26',time:'00:30'});
@@ -13,13 +13,15 @@ test('group duration chooses highest applicable threshold and edited bookings ke
     const form=defaultForm('reservation','2026-10-26',config,{kind:'reservation',starts_at:'2026-10-26T11:00:00Z',ends_at:'2026-10-26T12:00:00Z',tables:[]});
     assert.equal(form.time,'12:00');assert.equal(form.duration_minutes,60);
 });
-test('occupancy observes interval boundaries and overrun remains visible until released',()=>{
+test('occupancy observes exact intervals even for seated guests',()=>{
     const table={id:'a',room_id:'r'},booking={id:'b',status:'confirmed',starts_at:'2026-10-26T11:00:00Z',ends_at:'2026-10-26T12:00:00Z',tables:[table]};
     const now=new Date('2026-10-26T11:00:00Z');
     assert.equal(tableState(table,[booking],[],'2026-10-26','12:30',now).booking.id,'b');
     assert.equal(tableState(table,[booking],[],'2026-10-26','13:00',now).booking,undefined);
     booking.status='seated';
-    assert.equal(tableState(table,[booking],[],'2026-10-27','18:00',new Date('2026-10-26T14:00:00Z')).booking.id,'b');
+    assert.equal(tableState(table,[booking],[],'2026-10-27','18:00',new Date('2026-10-26T14:00:00Z')).booking,undefined);
+    assert.equal(tableState(table,[booking],[],'2026-10-26','12:30',new Date('2026-10-26T14:00:00Z')).booking.id,'b');
+    assert.equal(tableState(table,[booking],[],'2026-10-26','13:00',new Date('2026-10-26T14:00:00Z')).booking,undefined);
     booking.status='finished';
     assert.equal(tableState(table,[booking],[],'2026-10-27','18:00',new Date('2026-10-26T14:00:00Z')).booking,undefined);
 });
@@ -27,4 +29,10 @@ test('table sets ignore order and a room block does not affect another room',()=
     assert.ok(sameTables(['b','a'],['a','b']));assert.ok(!sameTables(['a'],['a','b']));
     const block={room_id:'x',table_ids:null,starts_at:'2026-10-26T10:00:00Z',ends_at:'2026-10-26T20:00:00Z'};
     assert.equal(tableState({id:'a',room_id:'r'},[],[block],'2026-10-26','12:00').block,undefined);
+});
+
+test('table labels list single and combined tables without rooms or source IDs',()=>{
+    assert.equal(tableLabel([{name:'2',room_id:'restaurant'}]),'Tisch 2');
+    assert.equal(tableLabel([{name:'12'},{name:'5'},{name:'3'},{name:'2'}]),'Tisch 2, 3, 5, 12');
+    assert.equal(tableLabel([]),'Kein Tisch');
 });

@@ -40,9 +40,8 @@ class ReservationBookController extends Controller
             'combinations' => ReservationCombination::orderBy('name')->get(),
             'bookings' => ReservationBooking::with('tables')->where(function ($q) use ($start, $end) {
                 $q->where(fn ($q) => $q->where('starts_at', '>=', ReservationService::stamp($start))->where('starts_at', '<', ReservationService::stamp($end)))
-                    ->orWhere(fn ($q) => $q->whereIn('status', ReservationBooking::ACTIVE)->where('starts_at', '<', ReservationService::stamp($end))->where('ends_at', '>', ReservationService::stamp($start)))
-                    ->orWhere(fn ($q) => $q->where('status', 'seated')->where('ends_at', '<=', ReservationService::stamp(now()))->where('starts_at', '<', ReservationService::stamp($end)));
-            })->orderBy('starts_at')->orderBy('id')->get(),
+                    ->orWhere(fn ($q) => $q->whereIn('status', ReservationBooking::ACTIVE)->where('starts_at', '<', ReservationService::stamp($end))->where('ends_at', '>', ReservationService::stamp($start)));
+            })->orderBy('starts_at')->orderBy('id')->get()->map(fn ($booking) => $this->service->withCurrentIssues($booking)),
             'blocks' => ReservationBlock::where('starts_at', '<', ReservationService::stamp($end))->where('ends_at', '>', ReservationService::stamp($start))->orderBy('starts_at')->get(),
         ]);
     }
@@ -63,6 +62,7 @@ class ReservationBookController extends Controller
             'room_id' => ['nullable', 'uuid', Rule::exists('reservation_rooms', 'id')],
             'version' => [$update ? 'required' : 'sometimes', 'integer', 'min:1'],
             'reset_resmio_status' => ['sometimes', 'boolean'],
+            'reset_resmio_tables' => ['sometimes', 'boolean'],
         ]);
     }
 
@@ -112,6 +112,13 @@ class ReservationBookController extends Controller
         }
 
         return response()->json(['options' => $this->service->candidates($start, $start->addMinutes($data['duration_minutes']), $data['party_size'], $data['room_id'] ?? null, $data['except'] ?? null)]);
+    }
+
+    public function tableOptions(Request $request, ReservationBooking $booking)
+    {
+        $this->access($request);
+
+        return response()->json(['options' => $this->service->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, $booking->source === 'resmio')]);
     }
 
     public function events(Request $request, ReservationBooking $booking)
@@ -196,7 +203,7 @@ class ReservationBookController extends Controller
         return DB::transaction(function () use ($combination) {
             $this->service->lock();
             $used = ReservationBooking::with('tables')->whereIn('status', ReservationBooking::ACTIVE)
-                ->where(fn ($q) => $q->where('ends_at', '>', ReservationService::stamp(now()))->orWhere('status', 'seated'))
+                ->where('ends_at', '>', ReservationService::stamp(now()))
                 ->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $combination->table_ids))->get()
                 ->contains(function ($booking) use ($combination) {
                     $ids = $booking->tables->pluck('id')->all();

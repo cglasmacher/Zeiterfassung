@@ -21,6 +21,7 @@ Route::prefix('api/reservations')->controller(ReservationBookController::class)-
     Route::put('/bookings/{booking}', 'update');
     Route::post('/bookings/{booking}/promote', 'promote');
     Route::get('/bookings/{booking}/events', 'events');
+    Route::get('/bookings/{booking}/table-options', 'tableOptions');
     Route::put('/settings', 'settings');
     Route::post('/combinations', 'storeCombination');
     Route::post('/combinations/import', 'importCombinations');

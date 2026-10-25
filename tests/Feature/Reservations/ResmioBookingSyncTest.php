@@ -101,6 +101,108 @@ class ResmioBookingSyncTest extends TestCase
         $this->assertDatabaseCount('reservation_events', 1);
     }
 
+    public function test_local_table_assignment_is_editable_persists_after_sync_and_can_be_reset(): void
+    {
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $table = collect($this->room['tables'])->firstWhere('name', '2')['id'];
+        $options = $this->getJson('/api/reservations/bookings/'.$b->id.'/table-options')->assertOk()->json('options');
+        $this->assertTrue(collect($options)->contains(fn ($o) => $o['table_ids'] === [$table]));
+        $edited = $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$table], 'notes' => 'Lokal umgesetzt'])->assertOk()->json();
+        $this->assertSame([$table], $edited['resmio_local_table_ids']);
+        $this->assertSame('2', $edited['tables'][0]['name']);
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $this->assertSame('2', $b->tables->first()->name);
+        $this->assertSame('Lokal umgesetzt', $b->notes);
+        $this->assertSame('1', $b->resmio_tables[0]['name']);
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'reset_resmio_tables' => true])->assertOk()->assertJsonPath('tables.0.name', '1')->assertJsonPath('resmio_local_table_ids', null);
+    }
+
+    public function test_imported_table_changes_check_actual_times_and_conflicts_disappear_immediately(): void
+    {
+        $this->rows = [$this->row(['status' => 'seated']), $this->row(['id' => 101, 'date' => '2026-10-26T19:45:00Z'])];
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $book = $this->getJson('/api/reservations/book?date=2026-10-26')->assertOk()->json('bookings');
+        $overlap = \App\Services\Reservations\ReservationService::ALLOCATION_ISSUES[0];
+        $this->assertNotContains($overlap, collect($book)->firstWhere('resmio_id', '100')['resmio_issues']);
+        $this->assertNotContains($overlap, collect($book)->firstWhere('resmio_id', '101')['resmio_issues']);
+        $this->rows[] = $this->row(['id' => 102, 'date' => '2026-10-26T19:30:00Z']);
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $book = $this->getJson('/api/reservations/book?date=2026-10-26')->assertOk()->json('bookings');
+        $this->assertContains($overlap, collect($book)->firstWhere('resmio_id', '100')['resmio_issues']);
+        $table = collect($this->room['tables'])->firstWhere('name', '2')['id'];
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$table]])->assertOk();
+        // Changing the other booking's table refreshes the remaining card's conflict without a Resmio poll.
+        $book = $this->getJson('/api/reservations/book?date=2026-10-26')->assertOk()->json('bookings');
+        $this->assertNotContains($overlap, collect($book)->firstWhere('resmio_id', '100')['resmio_issues']);
+        $other = ReservationBooking::where('resmio_id', '101')->firstOrFail();
+        $this->putJson('/api/reservations/bookings/'.$other->id, ['version' => $other->version, 'table_ids' => [$table]])->assertOk();
+        $third = ReservationBooking::where('resmio_id', '102')->firstOrFail();
+        $this->putJson('/api/reservations/bookings/'.$third->id, ['version' => $third->version, 'table_ids' => [$table]])->assertUnprocessable();
+        $this->getJson('/api/reservations/book?date=2026-10-28')->assertOk()->assertJsonCount(0, 'bookings');
+    }
+
+    public function test_local_assignment_resolves_unmapped_source_and_reschedule_resets_override(): void
+    {
+        $this->resources = [['id' => 41, 'name' => 'Unbekannt']];
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $table = $this->room['tables'][0]['id'];
+        $edited = $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$table]])->assertOk()->json();
+        $this->assertFalse($edited['resmio_unassigned']);
+        $this->assertSame([], $edited['resmio_issues']);
+        app(ResmioSync::class)->run();
+        $this->assertFalse($this->imported()->resmio_unassigned);
+        $this->assertSame([$table], $this->imported()->resmio_local_table_ids);
+        $this->rows = [$this->row(['date' => '2026-10-26T20:00:00Z', 'updated' => '2026-10-26T11:00:00Z'])];
+        app(ResmioSync::class)->run();
+        $this->assertNull($this->imported()->resmio_local_table_ids);
+        $this->assertTrue($this->imported()->resmio_unassigned);
+    }
+
+    public function test_multiple_unmapped_imports_can_be_resolved_without_allowing_duplicate_occupancy(): void
+    {
+        $this->resources = [['id' => 41, 'name' => 'Unbekannt']];
+        $this->rows = [$this->row(), $this->row(['id' => 101])];
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $tables = collect($this->room['tables']);
+        $one = $tables->firstWhere('name', '1')['id'];
+        $two = $tables->firstWhere('name', '2')['id'];
+        $this->assertNotEmpty($this->getJson('/api/reservations/bookings/'.$b->id.'/table-options')->assertOk()->json('options'));
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$one]])->assertOk();
+        $other = ReservationBooking::where('resmio_id', '101')->firstOrFail();
+        $this->putJson('/api/reservations/bookings/'.$other->id, ['version' => $other->version, 'table_ids' => [$one], 'notes' => 'Should rollback'])->assertUnprocessable();
+        $this->assertNull($other->fresh()->notes);
+        $this->putJson('/api/reservations/bookings/'.$other->id, ['version' => $other->version, 'table_ids' => [$two]])->assertOk();
+        $this->putJson('/api/reservations/bookings/'.$other->id, ['version' => $other->version, 'table_ids' => [$one]])->assertConflict();
+        app(ResmioSync::class)->run();
+        $this->assertSame([$one], $this->imported()->resmio_local_table_ids);
+        $this->assertSame([$two], $other->fresh()->resmio_local_table_ids);
+    }
+
+    public function test_imported_combination_selection_honours_custom_capacity_and_local_blocks(): void
+    {
+        app(ResmioSync::class)->run();
+        $tables = collect($this->room['tables']);
+        $ids = [$tables->firstWhere('name', '2')['id'], $tables->firstWhere('name', '3')['id']];
+        $this->postJson('/api/reservations/combinations', ['room_id' => $this->room['id'], 'name' => 'Tisch 2, 3', 'capacity' => 5, 'table_ids' => $ids])->assertCreated();
+        $this->rows = [$this->row(['num' => 5])];
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$ids[0]]])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => $ids])->assertOk()->assertJsonCount(2, 'tables');
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $this->assertEqualsCanonicalizing($ids, $b->tables->pluck('id')->all());
+        $blocked = $tables->firstWhere('name', '4')['id'];
+        $this->postJson('/api/reservations/blocks', ['reason' => 'Sperre', 'room_id' => $this->room['id'], 'table_ids' => [$blocked], 'start_date' => '2026-10-26', 'start_time' => '19:00', 'end_date' => '2026-10-26', 'end_time' => '20:45'])->assertCreated();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$blocked]])->assertUnprocessable();
+    }
+
     public function test_remote_changes_clear_removed_tags_but_keep_local_notes_and_service_status(): void
     {
         app(ResmioSync::class)->run();

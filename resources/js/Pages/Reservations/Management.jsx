@@ -4,7 +4,7 @@ import axios from 'axios';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { api, localParts, errorText } from './reservationUi';
-import { Field } from './Book';
+import Field from '@/Components/Reservations/Field';
 import './reservationBook.css';
 
 const weekdays=[[1,'Mo'],[2,'Di'],[3,'Mi'],[4,'Do'],[5,'Fr'],[6,'Sa'],[0,'So']];
