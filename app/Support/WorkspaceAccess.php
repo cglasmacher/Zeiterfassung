@@ -10,6 +10,8 @@ class WorkspaceAccess
     private const PAGES = [
         'dashboard' => 'admin',
         'info.admin' => 'info',
+        'haccp.dashboard' => 'haccp',
+        'haccp.management' => 'haccp',
         'cash.handovers' => 'cash',
         'cash.days' => 'cash',
         'cash.vouchers' => 'vouchers',
@@ -28,47 +30,63 @@ class WorkspaceAccess
         if ($module === 'info') {
             return $user->access_role === 'admin' && $user->is_info_admin;
         }
+
         if ($user->access_role === 'admin') {
             return true;
         }
+
         if ($user->access_role === 'planner') {
             return $module === 'planner';
         }
 
-        return $user->access_role === 'operations' && in_array($module, ['cash', 'vouchers', 'planner'], true);
+        return $user->access_role === 'operations'
+            && in_array($module, ['cash', 'vouchers', 'planner', 'haccp'], true);
     }
 
     public static function navigation(User $user): array
     {
-        return array_keys(array_filter(self::PAGES, fn ($module) => self::can($user, $module)));
+        return array_keys(array_filter(
+            self::PAGES,
+            fn($module) => self::can($user, $module)
+        ));
     }
 
     public static function allows(User $user, Request $request): bool
     {
         $name = $request->route()?->getName();
+
         if (isset(self::PAGES[$name])) {
             return self::can($user, self::PAGES[$name]);
         }
+
         if ($request->routeIs('profile.*', 'logout', 'password.*', 'verification.*')) {
             return true;
         }
+
         if ($user->access_role === 'admin') {
             return true;
         }
+
         if ($request->is('api/infosystem', 'api/infosystem/*')) {
             return self::can($user, 'info');
         }
+
+        if ($request->is('api/haccp', 'api/haccp/*')) {
+            return self::can($user, 'haccp');
+        }
+
         if ($request->is('api/cash/vouchers', 'api/cash/vouchers/*')) {
             return self::can($user, 'vouchers');
         }
+
         if ($request->is('api/cash/*', 'timetracking/handovers', 'timetracking/cash-days')) {
             return self::can($user, 'cash');
         }
-        if ($request->is('api/shifts', 'api/shifts/*', 'api/planner/open-shifts', 'api/planner/open-shifts/*', 'timetracking/planner', 'time-tracking/shift-planner')) {
+
+        if ($request->is('api/shifts', 'api/shifts/*', 'timetracking/planner', 'time-tracking/shift-planner')) {
             return self::can($user, 'planner');
         }
 
-        // New administration endpoints remain closed until explicitly granted.
         return false;
     }
 }

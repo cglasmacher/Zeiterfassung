@@ -1,132 +1,27 @@
 <?php
 
-use App\Http\Controllers\DailyOverviewController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\EmployeeController;
-use App\Http\Controllers\LexwareExportController;
-use App\Http\Controllers\ManualTimeEntryController;
-use App\Http\Controllers\PlannerShiftApplicationController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\ShiftController;
-use App\Http\Controllers\ShiftTypeController;
-use App\Http\Controllers\SummaryController;
-use App\Http\Controllers\TimeEntryManipulationController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DailyOverviewController; use App\Http\Controllers\DashboardController; use App\Http\Controllers\DepartmentController; use App\Http\Controllers\EmployeeController; use App\Http\Controllers\LexwareExportController; use App\Http\Controllers\ManualTimeEntryController; use App\Http\Controllers\SettingsController; use App\Http\Controllers\ShiftController; use App\Http\Controllers\ShiftTypeController; use App\Http\Controllers\SummaryController; use App\Http\Controllers\TimeEntryManipulationController; use Illuminate\Support\Facades\Route;
+Route::prefix('shifts')->group(function(){Route::get('/',[ShiftController::class,'index']);Route::post('/',[ShiftController::class,'store']);Route::put('/{id}',[ShiftController::class,'update']);Route::delete('/{id}',[ShiftController::class,'destroy']);Route::post('/copy-week',[ShiftController::class,'copyWeek']);Route::post('/save-template',[ShiftController::class,'saveTemplate']);Route::get('/templates',[ShiftController::class,'getTemplates']);Route::post('/templates/{id}/load',[ShiftController::class,'loadTemplate']);Route::delete('/templates/{id}',[ShiftController::class,'deleteTemplate']);Route::post('/export-pdf',[ShiftController::class,'exportPDF']);});
+Route::prefix('summary')->group(function(){Route::get('/daily/{employeeId}/{date}',[SummaryController::class,'daily']);Route::get('/monthly/{employeeId}/{year}/{month}',[SummaryController::class,'monthly']);});
+Route::prefix('employees')->group(function(){Route::get('/',[EmployeeController::class,'index']);Route::post('/',[EmployeeController::class,'store']);Route::put('/{id}',[EmployeeController::class,'update']);Route::delete('/{id}',[EmployeeController::class,'destroy']);});
+Route::prefix('departments')->group(function(){Route::get('/',[DepartmentController::class,'index']);Route::post('/',[DepartmentController::class,'store']);Route::put('/{id}',[DepartmentController::class,'update']);Route::delete('/{id}',[DepartmentController::class,'destroy']);});
+Route::prefix('shift-types')->group(function(){Route::get('/',[ShiftTypeController::class,'index']);Route::post('/',[ShiftTypeController::class,'store']);Route::put('/{id}',[ShiftTypeController::class,'update']);Route::delete('/{id}',[ShiftTypeController::class,'destroy']);});
+Route::prefix('manual-time')->group(function(){Route::post('/clock-in',[ManualTimeEntryController::class,'clockIn']);Route::post('/clock-out',[ManualTimeEntryController::class,'clockOut']);Route::get('/open-entries',[ManualTimeEntryController::class,'getOpenEntries']);Route::get('/today-entries',[ManualTimeEntryController::class,'getTodayEntries']);});
+Route::prefix('time-manipulation')->group(function(){Route::get('/month-entries',[TimeEntryManipulationController::class,'getMonthEntries']);Route::put('/entries/{id}',[TimeEntryManipulationController::class,'updateEntry']);Route::post('/entries/{id}/split',[TimeEntryManipulationController::class,'splitEntry']);Route::delete('/entries/{id}',[TimeEntryManipulationController::class,'deleteEntry']);Route::get('/entries/{id}/audit',[TimeEntryManipulationController::class,'getAuditLog']);});
+Route::prefix('lexware-export')->group(function(){Route::post('/preview',[LexwareExportController::class,'preview']);Route::post('/export',[LexwareExportController::class,'export']);});
+Route::prefix('daily-overview')->group(function(){Route::get('/',[DailyOverviewController::class,'index']);Route::post('/entries/{id}/mark-paid',[DailyOverviewController::class,'markAsPaid']);Route::post('/entries/{id}/unmark-paid',[DailyOverviewController::class,'unmarkAsPaid']);Route::post('/shift-end-report',[DailyOverviewController::class,'generateShiftEndReport']);Route::post('/recalculate-wages',[DailyOverviewController::class,'recalculateWages']);});
+Route::get('/dashboard',[DashboardController::class,'index'])->name('dashboard.data'); Route::get('/summary/monthly',[SummaryController::class,'monthOverview']); Route::prefix('settings')->group(function(){Route::get('/',[SettingsController::class,'index']);Route::post('/',[SettingsController::class,'update']);});
+Route::prefix('cash')->controller(\App\Http\Controllers\CashAccountingController::class)->group(function(){Route::get('/days','index');Route::post('/days','store');Route::get('/days/{id}','show')->whereNumber('id');Route::post('/days/{id}/handovers','handover')->whereNumber('id');Route::put('/days/{id}','save')->whereNumber('id');Route::post('/days/{id}/finalize','finalize')->whereNumber('id');Route::get('/days/{id}/pdf','pdf')->whereNumber('id');Route::post('/days/{id}/deliver','deliver')->whereNumber('id');Route::post('/vectron/sync','vectronSync');Route::get('/vectron/summary','vectronSummary');});
+Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportController::class)->group(function(){Route::get('/','index');Route::get('/{id}/pdf','pdf')->whereNumber('id')->name('cash.z-reports.pdf');Route::patch('/{id}/assignment','assign')->whereNumber('id');}); Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherController::class)->group(function(){Route::get('/','index');Route::get('/{id}','show')->whereNumber('id');Route::post('/batches/{id}/register','register')->whereNumber('id');Route::post('/redeem','redeem');});
+Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewController::class)->group(function(){Route::get('/documents','index');Route::post('/documents','store');Route::get('/documents/{id}','show')->whereNumber('id');Route::get('/documents/{id}/pdf','pdf')->whereNumber('id');Route::patch('/documents/{documentId}/lines/{lineId}','updateLine')->whereNumber(['documentId','lineId']);Route::post('/documents/{id}/approve','approve')->whereNumber('id');});
+Route::prefix('haccp')->controller(\App\Http\Controllers\HaccpController::class)->group(function(){Route::get('/','overview');Route::get('/today','today');Route::get('/qr/{token}','deviceByQr')->where('token','[A-Za-z0-9]{40}');Route::post('/tasks/{id}/complete','completeTask')->whereNumber('id');Route::post('/roles','storeRole');Route::put('/roles/{id}','updateRole')->whereNumber('id');Route::put('/roles/{id}/users','assignRole')->whereNumber('id');Route::post('/devices','storeDevice');Route::put('/devices/{id}','updateDevice')->whereNumber('id');Route::post('/templates','storeTemplate');Route::put('/templates/{id}','updateTemplate')->whereNumber('id');});
+Route::prefix('haccp/extended')->controller(\App\Http\Controllers\HaccpExtendedController::class)->group(function(){Route::get('/','index');Route::post('/device-types','storeDeviceType');Route::put('/device-types/{id}','updateDeviceType')->whereNumber('id');Route::post('/goods-receipts','goodsReceipt');Route::post('/retention-samples','retentionSample');Route::post('/food-samples/{id}/complete','completeFoodSample')->whereNumber('id');Route::post('/cleaning-plans','storeCleaningPlan');Route::put('/cleaning-plans/{id}','updateCleaningPlan')->whereNumber('id');Route::post('/cleaning-records/{id}/complete','completeCleaning')->whereNumber('id');});
+Route::prefix('haccp/compliance')->controller(\App\Http\Controllers\HaccpComplianceController::class)->group(function(){Route::get('/','index');Route::post('/deviations/{id}/resolve','resolveDeviation')->whereNumber('id');Route::post('/maintenance-plans','storeMaintenancePlan');Route::put('/maintenance-plans/{id}','updateMaintenancePlan')->whereNumber('id');Route::post('/maintenance-plans/{id}/complete','completeMaintenance')->whereNumber('id');});
+Route::prefix('haccp/documentation')->controller(\App\Http\Controllers\HaccpDocumentationController::class)->group(function(){Route::get('/{year}/{month}','preview')->whereNumber(['year','month']);Route::get('/{year}/{month}/pdf','pdf')->whereNumber(['year','month']);Route::post('/{year}/{month}/close','close')->whereNumber(['year','month']);});
+Route::prefix('haccp/settings')->controller(\App\Http\Controllers\HaccpSettingsController::class)->group(function(){Route::get('/','show');Route::put('/','update');});
 
-Route::prefix('shifts')->group(function () {
-    Route::get('/', [ShiftController::class, 'index']);
-    Route::post('/', [ShiftController::class, 'store']);
-    Route::put('/{id}', [ShiftController::class, 'update']);
-    Route::delete('/{id}', [ShiftController::class, 'destroy']);
-    Route::post('/copy-week', [ShiftController::class, 'copyWeek']);
-    Route::post('/save-template', [ShiftController::class, 'saveTemplate']);
-    Route::get('/templates', [ShiftController::class, 'getTemplates']);
-    Route::post('/templates/{id}/load', [ShiftController::class, 'loadTemplate']);
-    Route::delete('/templates/{id}', [ShiftController::class, 'deleteTemplate']);
-    Route::post('/export-pdf', [ShiftController::class, 'exportPDF']);
-});
-
-Route::prefix('planner/open-shifts')->controller(PlannerShiftApplicationController::class)->group(function () {
-    Route::get('/', 'index');
-    Route::post('/', 'store');
-    Route::put('/{shift}', 'update');
-    Route::post('/{shift}/applications/{application}/approve', 'approve');
-});
-
-Route::prefix('summary')->group(function () {
-    Route::get('/daily/{employeeId}/{date}', [SummaryController::class, 'daily']);
-    Route::get('/monthly/{employeeId}/{year}/{month}', [SummaryController::class, 'monthly']);
-});
-
-Route::prefix('employees')->group(function () {
-    Route::get('/', [EmployeeController::class, 'index']);
-    Route::post('/', [EmployeeController::class, 'store']);
-    Route::put('/{id}', [EmployeeController::class, 'update']);
-    Route::delete('/{id}', [EmployeeController::class, 'destroy']);
-});
-
-Route::prefix('departments')->group(function () {
-    Route::get('/', [DepartmentController::class, 'index']);
-    Route::post('/', [DepartmentController::class, 'store']);
-    Route::put('/{id}', [DepartmentController::class, 'update']);
-    Route::delete('/{id}', [DepartmentController::class, 'destroy']);
-});
-
-Route::prefix('shift-types')->group(function () {
-    Route::get('/', [ShiftTypeController::class, 'index']);
-    Route::post('/', [ShiftTypeController::class, 'store']);
-    Route::put('/{id}', [ShiftTypeController::class, 'update']);
-    Route::delete('/{id}', [ShiftTypeController::class, 'destroy']);
-});
-
-Route::prefix('manual-time')->group(function () {
-    Route::post('/clock-in', [ManualTimeEntryController::class, 'clockIn']);
-    Route::post('/clock-out', [ManualTimeEntryController::class, 'clockOut']);
-    Route::get('/open-entries', [ManualTimeEntryController::class, 'getOpenEntries']);
-    Route::get('/today-entries', [ManualTimeEntryController::class, 'getTodayEntries']);
-});
-
-Route::prefix('time-manipulation')->group(function () {
-    Route::get('/month-entries', [TimeEntryManipulationController::class, 'getMonthEntries']);
-    Route::put('/entries/{id}', [TimeEntryManipulationController::class, 'updateEntry']);
-    Route::post('/entries/{id}/split', [TimeEntryManipulationController::class, 'splitEntry']);
-    Route::delete('/entries/{id}', [TimeEntryManipulationController::class, 'deleteEntry']);
-    Route::get('/entries/{id}/audit', [TimeEntryManipulationController::class, 'getAuditLog']);
-});
-
-Route::prefix('lexware-export')->group(function () {
-    Route::post('/preview', [LexwareExportController::class, 'preview']);
-    Route::post('/export', [LexwareExportController::class, 'export']);
-});
-
-Route::prefix('daily-overview')->group(function () {
-    Route::get('/', [DailyOverviewController::class, 'index']);
-    Route::post('/entries/{id}/mark-paid', [DailyOverviewController::class, 'markAsPaid']);
-    Route::post('/entries/{id}/unmark-paid', [DailyOverviewController::class, 'unmarkAsPaid']);
-    Route::post('/shift-end-report', [DailyOverviewController::class, 'generateShiftEndReport']);
-    Route::post('/recalculate-wages', [DailyOverviewController::class, 'recalculateWages']);
-});
-
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.data');
-Route::get('/summary/monthly', [SummaryController::class, 'monthOverview']);
-
-Route::prefix('settings')->group(function () {
-    Route::get('/', [SettingsController::class, 'index']);
-    Route::post('/', [SettingsController::class, 'update']);
-});
-
-Route::prefix('cash')->controller(\App\Http\Controllers\CashAccountingController::class)->group(function () {
-    Route::get('/days', 'index');
-    Route::post('/days', 'store');
-    Route::get('/days/{id}', 'show')->whereNumber('id');
-    Route::post('/days/{id}/handovers', 'handover')->whereNumber('id');
-    Route::put('/days/{id}', 'save')->whereNumber('id');
-    Route::post('/days/{id}/finalize', 'finalize')->whereNumber('id');
-    Route::get('/days/{id}/pdf', 'pdf')->whereNumber('id');
-    Route::post('/days/{id}/deliver', 'deliver')->whereNumber('id');
-    Route::post('/vectron/sync', 'vectronSync');
-    Route::get('/vectron/summary', 'vectronSummary');
-});
-
-Route::prefix('cash/z-reports')->controller(\App\Http\Controllers\ZReportController::class)->group(function () {
-    Route::get('/', 'index');
-    Route::get('/{id}/pdf', 'pdf')->whereNumber('id')->name('cash.z-reports.pdf');
-    Route::patch('/{id}/assignment', 'assign')->whereNumber('id');
-});
-
-Route::prefix('cash/vouchers')->controller(\App\Http\Controllers\CashVoucherController::class)->group(function () {
-    Route::get('/', 'index');
-    Route::get('/{id}', 'show')->whereNumber('id');
-    Route::post('/batches/{id}/register', 'register')->whereNumber('id');
-    Route::post('/redeem', 'redeem');
-});
-
-Route::prefix('accounting')->controller(\App\Http\Controllers\AccountingReviewController::class)->group(function () {
-    Route::get('/documents', 'index');
-    Route::post('/documents', 'store');
-    Route::get('/documents/{id}', 'show')->whereNumber('id');
-    Route::get('/documents/{id}/pdf', 'pdf')->whereNumber('id');
-    Route::patch('/documents/{documentId}/lines/{lineId}', 'updateLine')->whereNumber(['documentId', 'lineId']);
-    Route::post('/documents/{id}/approve', 'approve')->whereNumber('id');
+Route::prefix('planner/open-shifts')->controller(\App\Http\Controllers\ShiftController::class)->group(function () {
+    Route::get('/', 'openShifts');
+    Route::put('/{id}', 'updateOpenShift')->whereNumber('id');
+    Route::post('/applications/{application}/approve', 'approveApplication')->whereNumber('application');
 });
