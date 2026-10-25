@@ -18,6 +18,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/haccp/qr/{token}',fn(string $token)=>Inertia::render('Haccp/DeviceQr',['qrToken'=>$token]))->where('token','[A-Za-z0-9]{40}')->name('haccp.device-qr');
     Route::get('/haccp/qr-etiketten',fn()=>Inertia::render('Haccp/QrLabels'))->name('haccp.qr-labels');
     Route::get('/haccp/kontrollen',fn()=>Inertia::render('Haccp/Operations'))->name('haccp.operations');
+    Route::get('/haccp/checklisten',fn()=>Inertia::render('Haccp/Checklists'))->name('haccp.checklists');
     Route::get('/haccp/abweichungen-wartungen',fn()=>Inertia::render('Haccp/Compliance'))->name('haccp.compliance');
     Route::get('/haccp/dokumentation',fn()=>Inertia::render('Haccp/Documentation'))->name('haccp.documentation');
     Route::get('/haccp/verwaltung',fn()=>Inertia::render('Haccp/Management'))->name('haccp.management');
