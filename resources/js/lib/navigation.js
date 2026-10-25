@@ -48,6 +48,7 @@ const haccpNavigation = [
     { route: "haccp.compliance", label: "Abweichungen & Wartungen" },
     { route: "haccp.documentation", label: "Dokumentation" },
     { route: "haccp.management", label: "Verwaltung" },
+    { route: "haccp.qr-labels", label: "QR-Etiketten" },
 ];
 
 export const currentNavigation = (pathname) => {
