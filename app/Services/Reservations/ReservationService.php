@@ -67,21 +67,8 @@ class ReservationService
 
     public function candidates(CarbonImmutable $start, CarbonImmutable $end, int $size, ?string $roomId = null, ?string $except = null, bool $resolveImported = false): array
     {
-        if (! $resolveImported && $this->occupied($start, $end, $except)->where('source', 'resmio')->where('resmio_unassigned', true)->exists()) {
-            return [];
-        }
-        $tables = ReservationTable::query()->when($roomId, fn ($q) => $q->where('room_id', $roomId))->get()->keyBy('id');
-        $occupied = $this->occupied($start, $end, $except)->with('tables')->get()->flatMap(fn ($b) => $b->tables->pluck('id'))->all();
-        $blocks = ReservationBlock::where('starts_at', '<', self::stamp($end))->where('ends_at', '>', self::stamp($start))->get();
-        $free = $tables->filter(function ($table) use ($occupied, $blocks) {
-            if (in_array($table->id, $occupied, true)) {
-                return false;
-            }
-
-            return ! $blocks->contains(fn ($block) => $block->table_ids
-                ? in_array($table->id, $block->table_ids, true)
-                : (! $block->room_id || $block->room_id === $table->room_id));
-        });
+        $inventory = $this->tableInventory($start, $end, $except, $resolveImported);
+        $free = collect($inventory)->filter(fn ($t) => $t['available'] && (! $roomId || $t['room_id'] === $roomId))->map(fn ($t) => (object) $t)->keyBy('id');
         $options = [];
         foreach ($free as $table) {
             if ($table->capacity >= $size) {
@@ -96,6 +83,54 @@ class ReservationService
         usort($options, fn ($a, $b) => [$a['capacity'], count($a['table_ids']), $a['name'], $a['id']] <=> [$b['capacity'], count($b['table_ids']), $b['name'], $b['id']]);
 
         return $options;
+    }
+
+    public function tableInventory(CarbonImmutable $start, CarbonImmutable $end, ?string $except = null, bool $resolveImported = false): array
+    {
+        $occupied = $this->occupied($start, $end, $except)->with('tables')->get();
+        $uncertain = ! $resolveImported && $occupied->contains(fn ($b) => $b->source === 'resmio' && $b->resmio_unassigned);
+        $blocks = ReservationBlock::where('starts_at', '<', self::stamp($end))->where('ends_at', '>', self::stamp($start))->get();
+
+        return ReservationTable::orderBy('name')->get()->map(function ($table) use ($occupied, $uncertain, $blocks) {
+            $conflicts = $occupied->filter(fn ($b) => $b->tables->contains('id', $table->id));
+            $blocked = $blocks->first(fn ($b) => $b->table_ids ? in_array($table->id, $b->table_ids, true) : (! $b->room_id || $b->room_id === $table->room_id));
+            $reason = $blocked ? 'Gesperrt: '.$blocked->reason : ($conflicts->isNotEmpty() ? 'Belegt '.$conflicts->map(fn ($b) => $b->starts_at->format('H:i').'–'.$b->ends_at->format('H:i'))->unique()->implode(', ') : ($uncertain ? 'Ungeklärte Resmio-Belegung' : null));
+
+            return ['id' => $table->id, 'room_id' => $table->room_id, 'name' => $table->name, 'capacity' => (int) $table->capacity, 'available' => $reason === null, 'reason' => $reason];
+        })->all();
+    }
+
+    public function selectionCapacity(array $ids): int
+    {
+        $capacity = ReservationTable::whereIn('id', $ids)->sum('capacity');
+        $combo = ReservationCombination::all()->first(function ($c) use ($ids) {
+            $a = $c->table_ids;
+            $b = $ids;
+            sort($a);
+            sort($b);
+
+            return $a === $b;
+        });
+
+        return (int) ($combo?->capacity ?? $capacity);
+    }
+
+    public function validateTableSelection(array $ids, CarbonImmutable $start, CarbonImmutable $end, int $size, ?string $except = null, bool $resolveImported = false, ?string $roomId = null): array
+    {
+        $tables = ReservationTable::whereIn('id', $ids)->get();
+        $available = collect($this->tableInventory($start, $end, $except, $resolveImported))->where('available', true)->pluck('id')->all();
+        if (! $ids || $tables->count() !== count($ids) || count(array_diff($ids, $available)) > 0) {
+            throw ValidationException::withMessages(['table_ids' => 'Mindestens ein ausgewählter Tisch ist für diesen Zeitraum belegt, gesperrt oder nicht mehr verfügbar.']);
+        }
+        if ($tables->pluck('room_id')->unique()->count() !== 1 || ($roomId && $tables->first()->room_id !== $roomId)) {
+            throw ValidationException::withMessages(['table_ids' => 'Bitte Tische innerhalb desselben Raumes auswählen.']);
+        }
+        $capacity = $this->selectionCapacity($ids);
+        if ($capacity < $size) {
+            throw ValidationException::withMessages(['table_ids' => ($size - $capacity).' weitere Plätze benötigt. Bitte einen weiteren Tisch auswählen.']);
+        }
+
+        return $ids;
     }
 
     public const ALLOCATION_ISSUES = [
@@ -223,25 +258,15 @@ class ReservationService
                 $ids = [];
             }
             if ($active) {
-                $options = $this->candidates($start, $end, $size, $data['room_id'] ?? null, $booking?->id);
-                $selected = null;
                 if ($ids) {
-                    sort($ids);
-                    foreach ($options as $option) {
-                        $optionIds = $option['table_ids'];
-                        sort($optionIds);
-                        if ($optionIds === $ids) {
-                            $selected = $option;
-                            break;
-                        }
-                    }
+                    $ids = $this->validateTableSelection($ids, $start, $end, $size, $booking?->id, false, $data['room_id'] ?? null);
                 } else {
-                    $selected = $options[0] ?? null;
+                    $selected = $this->candidates($start, $end, $size, $data['room_id'] ?? null, $booking?->id)[0] ?? null;
+                    if (! $selected) {
+                        throw ValidationException::withMessages(['table_ids' => 'Für die gesamte Aufenthaltsdauer ist kein passender freier Tisch oder keine erlaubte Kombination verfügbar.']);
+                    }
+                    $ids = $selected['table_ids'];
                 }
-                if (! $selected) {
-                    throw ValidationException::withMessages(['table_ids' => 'Für die gesamte Aufenthaltsdauer ist kein passender freier Tisch oder keine erlaubte Kombination verfügbar.']);
-                }
-                $ids = $selected['table_ids'];
             }
             $booking ??= new ReservationBooking(['id' => (string) Str::uuid()]);
             $booking->fill($values)->save();
@@ -270,18 +295,7 @@ class ReservationService
             }
             $ids = ! empty($data['reset_resmio_tables'])
                 ? array_column($booking->resmio_tables ?? [], 'table_id') : $data['table_ids'];
-            $valid = $ids && ! in_array(null, $ids, true) && collect($this->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, true))
-                ->contains(function ($option) use ($ids) {
-                    $a = $option['table_ids'];
-                    $b = $ids;
-                    sort($a);
-                    sort($b);
-
-                    return $a === $b;
-                });
-            if (! $valid) {
-                throw ValidationException::withMessages(['table_ids' => 'Für den Reservierungszeitraum ist diese Tischauswahl nicht frei, zu klein oder keine erlaubte Kombination.']);
-            }
+            $ids = $this->validateTableSelection($ids, $booking->starts_at, $booking->ends_at, $booking->party_size, $booking->id, true);
             $booking->resmio_local_table_ids = ! empty($data['reset_resmio_tables']) ? null : $ids;
             $booking->tables()->sync($ids);
             $booking->load('tables');

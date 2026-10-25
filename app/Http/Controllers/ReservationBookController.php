@@ -107,18 +107,18 @@ class ReservationBookController extends Controller
                 $start = $existing->starts_at;
             }
         }
-        if ($data['kind'] === 'reservation') {
+        if ($data['kind'] === 'reservation' && (empty($data['except']) || ! ReservationBooking::find($data['except'])?->starts_at->eq($start))) {
             $this->service->checkHours($start);
         }
 
-        return response()->json(['options' => $this->service->candidates($start, $start->addMinutes($data['duration_minutes']), $data['party_size'], $data['room_id'] ?? null, $data['except'] ?? null)]);
+        return response()->json(['options' => $this->service->candidates($start, $start->addMinutes((int) $data['duration_minutes']), $data['party_size'], $data['room_id'] ?? null, $data['except'] ?? null), 'tables' => $this->service->tableInventory($start, $start->addMinutes((int) $data['duration_minutes']), $data['except'] ?? null)]);
     }
 
     public function tableOptions(Request $request, ReservationBooking $booking)
     {
         $this->access($request);
 
-        return response()->json(['options' => $this->service->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, $booking->source === 'resmio')]);
+        return response()->json(['options' => $this->service->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, $booking->source === 'resmio'), 'tables' => $this->service->tableInventory($booking->starts_at, $booking->ends_at, $booking->id, $booking->source === 'resmio')]);
     }
 
     public function events(Request $request, ReservationBooking $booking)
