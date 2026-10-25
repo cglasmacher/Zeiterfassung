@@ -15,6 +15,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dienstplan',fn()=>Inertia::render('TimeTracking/ShiftPlanner'))->name('timetracking.planner');
     Route::prefix('kasse')->group(function(){Route::get('/uebergaben',fn()=>Inertia::render('TimeTracking/Cash/Accounting',['mode'=>'handover']))->name('cash.handovers');Route::get('/tagesabschluss',fn()=>Inertia::render('TimeTracking/Cash/Accounting',['mode'=>'day']))->name('cash.days');Route::get('/gutscheinverkauf',fn()=>Inertia::render('TimeTracking/Cash/Vouchers'))->name('cash.vouchers');});
     Route::get('/haccp',fn()=>Inertia::render('Haccp/Dashboard'))->name('haccp.dashboard');
+    Route::get('/haccp/qr/{token}',fn(string $token)=>Inertia::render('Haccp/DeviceQr',['qrToken'=>$token]))->where('token','[A-Za-z0-9]{40}')->name('haccp.device-qr');
     Route::get('/haccp/kontrollen',fn()=>Inertia::render('Haccp/Operations'))->name('haccp.operations');
     Route::get('/haccp/abweichungen-wartungen',fn()=>Inertia::render('Haccp/Compliance'))->name('haccp.compliance');
     Route::get('/haccp/dokumentation',fn()=>Inertia::render('Haccp/Documentation'))->name('haccp.documentation');
