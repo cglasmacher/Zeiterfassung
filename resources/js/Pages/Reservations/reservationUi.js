@@ -19,7 +19,7 @@ export const sameTables = (a,b) => [...a].sort().join(',') === [...b].sort().joi
 export function tableState(table, bookings, blocks, date, time, now = new Date()) {
     const matches = value => {const p=localParts(value);return `${p.date} ${p.time}`;};
     const at=`${date} ${time}`;
-    const booking = bookings.find(b=>activeStatuses.includes(b.status) && b.tables.some(t=>t.id===table.id) && matches(b.starts_at)<=at && matches(b.ends_at)>at);
+    const booking = bookings.filter(b=>activeStatuses.includes(b.status) && b.tables.some(t=>t.id===table.id) && matches(b.starts_at)<=at && matches(b.ends_at)>at).sort((a,b)=>(a.status==='seated'?-1:0)-(b.status==='seated'?-1:0)||new Date(a.starts_at)-new Date(b.starts_at))[0];
     const block = blocks.find(b=>matches(b.starts_at)<=at && matches(b.ends_at)>at && (b.table_ids?.length ? b.table_ids.includes(table.id) : !b.room_id || b.room_id===table.room_id));
     return {booking,block};
 }
