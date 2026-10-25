@@ -13,6 +13,7 @@ import {
     Ticket,
     BookOpenCheck,
     ClipboardCheck,
+    Armchair,
 } from "lucide-react";
 
 export const navigation = [
@@ -20,6 +21,7 @@ export const navigation = [
         { route: "dashboard", label: "Übersicht", icon: LayoutDashboard },
         { route: "info.admin", label: "Infosystem", icon: Monitor },
         { route: "haccp.dashboard", label: "HACCP", icon: ClipboardCheck },
+        { route: "reservations.floor-plan", label: "Tischplan-Builder", icon: Armchair },
     ]},
     { label: "Kasse & Abrechnung", items: [
         { route: "cash.handovers", label: "Schichtübergabe", icon: Wallet },
@@ -83,3 +85,4 @@ export const mobileNavigation = [
     { route: "cash.days", label: "Abrechnung", icon: ReceiptText },
     { route: "cash.vouchers", label: "Gutscheine", icon: Ticket },
 ];
+

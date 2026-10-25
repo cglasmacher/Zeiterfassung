@@ -10,6 +10,15 @@ Route::domain(config('infosystem.stream_host'))->get('/', fn () => redirect('/di
 require __DIR__.'/infosystem.php';
 Route::get('/', fn (Request $request) => redirect()->route($request->user() ? $request->user()->landingRoute() : 'login'))->name('home');
 Route::middleware('auth')->group(function () {
+    Route::get('/reservierungen/tischplan', function (Request $request) {
+        abort_unless($request->user()?->access_role === 'admin', 403);
+        return Inertia::render('Reservations/FloorPlan');
+    })->name('reservations.floor-plan');
+    Route::prefix('api/reservations/floor-plan')->controller(\App\Http\Controllers\ReservationFloorPlanController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/rooms', 'store');
+        Route::put('/rooms/{room}', 'update');
+    });
     Route::get('/dashboard',[DashboardController::class,'show'])->name('dashboard');
     Route::prefix('team')->group(function(){Route::get('/zeiten',fn()=>Inertia::render('TimeTracking/DailyOverview'))->name('timetracking.daily');Route::get('/monat',fn()=>Inertia::render('TimeTracking/MonthlyOverview'))->name('timetracking.monthly');Route::get('/erfassung',fn()=>Inertia::render('TimeTracking/ManualTimeEntry'))->name('timetracking.manual');Route::get('/korrekturen',fn()=>Inertia::render('TimeTracking/TimeManipulation'))->name('timetracking.manipulation');});
     Route::get('/dienstplan',fn()=>Inertia::render('TimeTracking/ShiftPlanner'))->name('timetracking.planner');
@@ -31,3 +40,4 @@ Route::middleware('auth')->group(function () {
     Route::prefix('api')->group(base_path('routes/admin-api.php'));
 });
 require __DIR__.'/auth.php';
+
