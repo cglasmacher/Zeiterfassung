@@ -48,6 +48,7 @@ const haccpNavigation = [
     { route: "haccp.checklists", label: "Checklisten" },
     { route: "haccp.compliance", label: "Abweichungen & Wartungen" },
     { route: "haccp.documentation", label: "Dokumentation" },
+    { route: "haccp.corrections", label: "Korrekturen & Nachträge" },
     { route: "haccp.management", label: "Verwaltung" },
     { route: "haccp.qr-labels", label: "QR-Etiketten" },
 ];
