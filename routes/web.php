@@ -21,6 +21,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/haccp/checklisten',fn()=>Inertia::render('Haccp/Checklists'))->name('haccp.checklists');
     Route::get('/haccp/abweichungen-wartungen',fn()=>Inertia::render('Haccp/Compliance'))->name('haccp.compliance');
     Route::get('/haccp/dokumentation',fn()=>Inertia::render('Haccp/Documentation'))->name('haccp.documentation');
+    Route::get('/haccp/korrekturen',fn()=>Inertia::render('Haccp/Corrections'))->name('haccp.corrections');
     Route::get('/haccp/verwaltung',fn()=>Inertia::render('Haccp/Management'))->name('haccp.management');
     Route::get('/buchhaltung/belege',fn()=>Inertia::render('Accounting/Documents'))->name('accounting.documents');
     Route::get('/exporte/lohn',fn()=>Inertia::render('TimeTracking/Exports'))->name('timetracking.exports');
