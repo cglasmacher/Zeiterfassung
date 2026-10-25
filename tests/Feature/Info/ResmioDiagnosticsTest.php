@@ -10,7 +10,9 @@ use Tests\TestCase;
 
 class ResmioDiagnosticsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Support\ResmioTestDatabase {
+        \Tests\Support\ResmioTestDatabase::migrateFreshUsing insteadof RefreshDatabase;
+    }
 
     public function test_http_error_is_actionable_without_exposing_remote_body_or_token(): void
     {

@@ -70,6 +70,9 @@ class ReservationService
 
     public function candidates(CarbonImmutable $start, CarbonImmutable $end, int $size, ?string $roomId = null, ?string $except = null): array
     {
+        if ($this->occupied($start, $end, $except)->where('source', 'resmio')->where('resmio_unassigned', true)->exists()) {
+            return [];
+        }
         $tables = ReservationTable::query()->when($roomId, fn ($q) => $q->where('room_id', $roomId))->get()->keyBy('id');
         $occupied = $this->occupied($start, $end, $except)->with('tables')->get()->flatMap(fn ($b) => $b->tables->pluck('id'))->all();
         $blocks = ReservationBlock::where('starts_at', '<', self::stamp($end))->where('ends_at', '>', self::stamp($start))->get();
@@ -113,6 +116,13 @@ class ReservationService
             if ($booking) {
                 $booking = ReservationBooking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
                 abort_if($booking->version !== (int) ($data['version'] ?? 0), 409, 'Diese Buchung wurde bereits geändert. Bitte die Tagesübersicht neu laden.');
+                if ($booking->source === 'resmio') {
+                    if ($promote) {
+                        throw ValidationException::withMessages(['status' => 'Resmio-Wartelisteneinträge bitte in Resmio übernehmen.']);
+                    }
+
+                    return $this->importedLocal($booking->load('tables'), $data, $userId);
+                }
             }
             $before = $booking?->load('tables')->toArray();
             $kind = $booking?->kind ?? $data['kind'];
@@ -191,5 +201,54 @@ class ReservationService
 
             return $result;
         });
+    }
+
+    private function importedLocal(ReservationBooking $booking, array $data, int $userId): ReservationBooking
+    {
+        if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status'])) {
+            throw ValidationException::withMessages(['source' => 'Buchungsdaten dieser Reservierung werden in Resmio gepflegt. Hier sind eigene Notizen und lokale Serviceaktionen möglich.']);
+        }
+        if (array_key_exists('notes', $data)) {
+            $booking->notes = $data['notes'];
+        }
+        if (! empty($data['reset_resmio_status'])) {
+            $booking->resmio_local_status = null;
+            $booking->status = match ($booking->resmio_status) {
+                'waiting','unconfirmed','confirmed','arrived','seated','finished' => $booking->resmio_status,
+                'noshow','no_show' => 'noshow', 'cancelled','canceled','deleted','removed' => 'cancelled', default => 'unconfirmed',
+            };
+        } elseif (isset($data['status'])) {
+            if ($booking->resmio_status === 'waiting') {
+                throw ValidationException::withMessages(['status' => 'Wartelistenübernahme bitte in Resmio durchführen.']);
+            }
+            if (! in_array($data['status'], ['arrived', 'seated', 'finished'], true)) {
+                throw ValidationException::withMessages(['status' => 'Bestätigung, Stornierung und No-Show bitte in Resmio ändern.']);
+            }
+            if (in_array($booking->resmio_status, ['cancelled', 'canceled', 'deleted', 'removed', 'noshow', 'no_show', 'finished'], true)) {
+                throw ValidationException::withMessages(['status' => 'Diese Buchung wurde bereits in Resmio beendet.']);
+            }
+            if ($data['status'] === 'seated') {
+                if ($booking->resmio_unassigned || $booking->tables->isEmpty()) {
+                    throw ValidationException::withMessages(['status' => 'Bitte zuerst alle Resmio-Tische zuordnen und erneut synchronisieren.']);
+                }
+                $ids = $booking->tables->pluck('id')->all();
+                if ($this->occupied($booking->starts_at, $booking->ends_at, $booking->id)->whereHas('tables', fn ($q) => $q->whereIn('reservation_tables.id', $ids))->exists()) {
+                    throw ValidationException::withMessages(['status' => 'Ein zugeordneter Tisch überschneidet sich mit einer anderen Buchung.']);
+                }
+                $rooms = $booking->tables->pluck('room_id')->all();
+                $blocks = ReservationBlock::where('starts_at', '<', self::stamp($booking->ends_at))->where('ends_at', '>', self::stamp($booking->starts_at))->get();
+                if ($blocks->contains(fn ($b) => $b->table_ids ? count(array_intersect($ids, $b->table_ids)) > 0 : (! $b->room_id || in_array($b->room_id, $rooms, true)))) {
+                    throw ValidationException::withMessages(['status' => 'Der zugeordnete Tisch ist lokal gesperrt. Bitte zuerst die Sperre prüfen.']);
+                }
+            }
+            $booking->status = $data['status'];
+            $booking->resmio_local_status = $data['status'];
+        }
+        $booking->resmio_unassigned = in_array($booking->status, ReservationBooking::ACTIVE, true) && ($booking->tables->isEmpty() || $booking->tables->count() !== count($booking->resmio_tables ?? []));
+        $booking->version++;
+        $booking->save();
+        DB::table('reservation_events')->insert(['booking_id' => $booking->id, 'user_id' => $userId, 'action' => 'updated', 'details' => json_encode(['local_service_status' => $booking->resmio_local_status, 'local_notes_changed' => array_key_exists('notes', $data)]), 'created_at' => now()]);
+
+        return $booking->fresh()->load('tables');
     }
 }

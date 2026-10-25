@@ -61,6 +61,44 @@ Alle kapazitätsrelevanten Änderungen verwenden innerhalb einer Datenbanktransa
 
 Buchungs- und Sperrzeiten werden explizit in UTC gespeichert und in Europe/Berlin angezeigt; dies hängt nicht von der Browser-Zeitzone ab. Nicht existierende Uhrzeiten beim Wechsel auf Sommerzeit werden abgelehnt. Die doppelte Stunde bei der Rückstellung wird nach der PHP-Zeitzonenauflösung verarbeitet; eine separate Auswahl des ersten/zweiten Auftretens ist noch nicht vorgesehen.
 
+## Resmio-Abgleich in das Reservierungsbuch
+
+Der vorhandene, verschlüsselt gespeicherte API-Zugang aus dem Infosystem wird wiederverwendet. Die Übernahme erfolgt ausschließlich **von Resmio nach Hemingway**; es werden keine Buchungen, Notizen, Tags oder Statusänderungen an Resmio gesendet. Der bestehende TV-Abgleich bleibt erhalten.
+
+### Inbetriebnahme
+
+Nach Merge und Deployment die Migrationen und den Frontend-Build wie oben ausführen. Anschließend als Administrator im Reservierungsbuch **Resmio synchronisieren** wählen oder auf dem Server starten:
+
+```bash
+php artisan info:sync-resmio
+```
+
+Der vorhandene Scheduler führt denselben Abgleich alle fünf Minuten aus. Dafür muss Laravel `schedule:run` wie bisher jede Minute laufen. Webhooks lösen zusätzlich einen Job aus; für deren unmittelbare Verarbeitung muss der bestehende Queue-Worker laufen. Nach Deployment lang laufende Worker mit `php artisan queue:restart` neu starten.
+
+Standardfenster: gestern 00:00 bis zum Beginn des Tages 366 Tage in der Zukunft, jeweils Europe/Berlin. Optional lässt sich `RESMIO_SYNC_DAYS` auf 1–730 Tage setzen (danach Konfigurationscache erneuern). Es erfolgt kein vollständiger historischer Import. Die API wird paginiert gelesen; ein Fehler bei Buchungen, Tischen oder benötigten Tag-Verzeichnissen bricht die Übernahme vor der Datenänderung ab.
+
+### Übernommene Angaben
+
+- Dauerhafte Zuordnung über Facility und Resmio-Buchungs-ID; wiederholter Abgleich erzeugt keine Duplikate. Manuell angelegte Buchungen werden nicht anhand von Name oder E-Mail zusammengeführt.
+- Datum, Personen, Aufenthaltsdauer, Kontakt, Status, Walk-in-Kennung, Quelle und Referenz; bei fehlender Aufenthaltsdauer gelten die lokalen Dauerregeln.
+- Buchungsnotizen, Gastkommentare und dauerhafte Gästenotizen als getrennte Angaben.
+- Reservierungs-Tags und Gäste-Tags mit aufgelösten Namen sowie zusätzliche Reservierungsformular-Angaben. Nicht benötigte Geheimnisse aus der API-Antwort werden nicht gespeichert.
+- Tischzuordnung einschließlich mehrerer Tische. Liefert der Buchungs-Endpunkt den Status `waiting`, wird dieser als Wartelisteneintrag übernommen; ein gesonderter Resmio-Wartelisten-Endpunkt wird nicht abgefragt.
+
+### Tischzuordnung und Konflikte
+
+Unter **Reservierungsregeln → Resmio-Tischzuordnung** können Resmio-Tische einem vorhandenen lokalen Tisch zugewiesen werden. Beim ersten Einlesen erfolgt eine automatische Zuordnung nur, wenn der getrimmte Tischname (ohne Beachtung der Groß-/Kleinschreibung) im gesamten lokalen System eindeutig ist. Manuelle Zuordnungen bleiben bestehen und aktualisieren die betroffenen importierten Buchungen unmittelbar.
+
+Aktive importierte Buchungen ohne vollständige Zuordnung blockieren für ihren Zeitraum vorsichtshalber alle lokalen Tischoptionen. Nach einer Zuordnung wird diese globale Sperre durch die tatsächliche Tischbelegung ersetzt. Überlappungen mit vorhandenen Buchungen, lokalen Sperren oder zu geringer Tischkapazität werden sichtbar markiert; die Quellbuchung wird dabei übernommen und nicht stillschweigend verdrängt. Diese Hinweise und die Tischzuordnung vor dem lokalen Weiterbuchen prüfen.
+
+### Lokale Ergänzungen und Änderungen in Resmio
+
+Die Stammdaten importierter Buchungen werden in Resmio gepflegt. In Hemingway können eigene interne Notizen und die lokalen Serviceaktionen „angekommen“, „platziert“ und „Tisch freigeben“ ergänzt werden. Sie bleiben beim nächsten Abgleich erhalten; der Resmio-Status bleibt separat sichtbar. „Wieder Resmio-Status übernehmen“ entfernt den lokalen Status. Eine Terminverschiebung oder ein abschließender Quellstatus hebt den lokalen Status ebenfalls auf.
+
+Neuere Quellstände ersetzen Resmio-Angaben; ältere anhand von `updated` erkennbare Antworten werden ignoriert. Fehlende optionale API-Felder löschen bereits übernommene Angaben nicht, ausdrücklich leere Tag-Listen dagegen schon. Fehlt eine aktive Buchung in einer vollständigen Antwort, bleibt ihre letzte bekannte Belegung bestehen und sie erhält einen Prüfhinweis. Erst ein Quellstatus oder authentifizierter Lösch-Webhook gibt diese Belegung frei. Lösch-Webhooks hinterlassen eine dauerhafte Kennung, damit alte Antworten die Buchung auch nach der TV-Bereinigung nicht wiederbeleben.
+
+Der letzte Abgleich und sichere Fehlermeldungen stehen im Reservierungsbuch. Administratoren können den Abgleich und die Tischzuordnung bedienen; `operations` kann die importierten Angaben lesen und lokale Serviceaktionen ausführen.
+
 ## Vereinbarte weitere Entwicklung
 
 Zielumfang: funktionale Orientierung an Resmio Ultimate samt Add-ons; die Funktionen der iPad-App werden in die Gesamtlösung integriert. Builder und interner Reservierungskern sind umgesetzt. Der weitere Ultimate-Umfang bleibt als Ziel bestehen.
@@ -73,7 +111,7 @@ Geplante Bausteine:
 4. Anzahlungen, No-Show-Abwicklung, Automatisierungen, Auswertungen und bestehende Dienstplan-/TV-Anbindung.
 5. Marketing, Feedback, Erweiterung bestehender Gutscheine/Tickets sowie weitere vereinbarte Module. Externe Buchungskanäle, SMS, Telefonassistent und Zahlungsdienste benötigen eigene Integrationen.
 
-Die öffentliche Online-Buchung, Gästemails, Resmio-Import/Umschaltung und Küchen-TV werden durch diesen Ausbau noch nicht aktiviert. Der interne Reservierungskern läuft zunächst getrennt von den bisherigen Resmio-Buchungen. Vor einem produktiven Parallelbetrieb müssen bestehende Reservierungen vollständig übernommen werden; die internen Buchungen kennen Resmio-Belegungen derzeit nicht.
+Die öffentliche Online-Buchung und Gästemails werden durch diesen Ausbau noch nicht aktiviert. Bestehende Resmio-Buchungen können mit dem unten beschriebenen Abgleich übernommen werden. Neue lokale Buchungen werden nicht an Resmio übertragen; Resmio kennt deren Belegung daher nicht. Ein öffentlicher Parallelbetrieb beider Buchungssysteme benötigt weiterhin eine gesonderte Umschaltung oder gemeinsame Verfügbarkeitsprüfung.
 
 ### Aus den Screenshots übernommene Werte
 
@@ -90,7 +128,7 @@ Die öffentliche Online-Buchung, Gästemails, Resmio-Import/Umschaltung und Küc
 ### Prüfung
 
 ```bash
-php artisan test --filter='ReservationBookTest|FloorPlanTest'
+php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest'
 node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs
 npm run build
 ```

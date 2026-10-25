@@ -7,6 +7,7 @@ use App\Jobs\SyncInfoReservations;
 use App\Models\InfoIntegration;
 use App\Models\InfoReservation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ResmioWebhookController extends Controller
 {
@@ -21,12 +22,19 @@ class ResmioWebhookController extends Controller
         $action = strtoupper($data['action']);
         abort_unless(in_array($action, ['BOOKING_CREATED', 'BOOKING_UPDATED', 'BOOKING_DELETED']), 422);
         if ($action === 'BOOKING_DELETED') {
-            $reservation = InfoReservation::firstOrNew(['external_id' => (string) $data['id']]);
-            if (! $reservation->exists) {
-                $reservation->fill(['facility' => $s->facility, 'starts_at' => now(), 'people' => 0]);
-            }
-            $reservation->status = 'deleted';
-            $reservation->save();
+            DB::transaction(function () use ($s, $data) {
+                $current = InfoIntegration::whereKey($s->id)->lockForUpdate()->firstOrFail();
+                abort_unless($current->enabled && $current->facility === $s->facility, 409);
+                app(\App\Services\Reservations\ReservationService::class)->lock();
+                app(\App\Services\Reservations\ResmioBookingImport::class)->deleted($s->facility, (string) $data['id']);
+                $reservation = InfoReservation::firstOrNew(['external_id' => (string) $data['id']]);
+                if (! $reservation->exists) {
+                    $reservation->fill(['facility' => $s->facility, 'starts_at' => now(), 'people' => 0]);
+                }
+                $reservation->status = 'deleted';
+                $reservation->facility = $s->facility;
+                $reservation->save();
+            });
         }
         SyncInfoReservations::dispatch();
 

@@ -23,6 +23,7 @@ class FloorPlanTest extends TestCase
             'database/migrations/2026_10_21_110000_add_workspace_access.php',
             'database/migrations/2026_10_25_220000_create_reservation_floor_plans.php',
             'database/migrations/2026_10_25_230000_create_reservation_book.php',
+            'database/migrations/2026_10_25_235000_add_resmio_reservation_sync.php',
         ]];
     }
 
