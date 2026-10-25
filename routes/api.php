@@ -39,6 +39,11 @@ Route::prefix('app/v1')->group(function () {
             Route::get('/announcements', 'announcements');
             Route::get('/events', 'events');
         });
+
+        Route::prefix('haccp')->controller(\App\Http\Controllers\App\MobileHaccpController::class)->group(function () {
+            Route::get('/today', 'today');
+            Route::post('/tasks/{id}/complete', 'complete')->whereNumber('id')->middleware('throttle:30,1');
+        });
     });
 });
 
