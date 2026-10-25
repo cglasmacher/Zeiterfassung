@@ -19,6 +19,11 @@ class Shift extends Model
         'end_time',
         'planned_hours',
         'status',
+        'is_open_for_applications',
+    ];
+
+    protected $casts = [
+        'is_open_for_applications' => 'boolean',
     ];
 
     /** Beziehungen */
@@ -40,6 +45,11 @@ class Shift extends Model
     public function timeEntries()
     {
         return $this->hasMany(TimeEntry::class);
+    }
+
+    public function applications()
+    {
+        return $this->hasMany(ShiftApplication::class);
     }
 
     /** Automatische geplante Stundenberechnung (Fallback auf Schichttyp) */

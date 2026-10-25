@@ -14,7 +14,9 @@ class AuthorizeWorkspace
             abort_unless(WorkspaceAccess::allows($request->user(), $request), 403, 'Für diesen Bereich fehlt die Berechtigung.');
         }
         $response = $next($request);
-        if ($request->user()?->access_role === 'operations' && $request->is('api/shifts', 'api/shifts/*') && $response instanceof \Illuminate\Http\JsonResponse) {
+        if (in_array($request->user()?->access_role, ['operations', 'planner'], true)
+            && $request->is('api/shifts', 'api/shifts/*', 'api/planner/open-shifts', 'api/planner/open-shifts/*')
+            && $response instanceof \Illuminate\Http\JsonResponse) {
             $response->setData($this->planningData($response->getData(true)));
         }
 

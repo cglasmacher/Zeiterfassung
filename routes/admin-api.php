@@ -19,3 +19,9 @@ Route::prefix('haccp/extended')->controller(\App\Http\Controllers\HaccpExtendedC
 Route::prefix('haccp/compliance')->controller(\App\Http\Controllers\HaccpComplianceController::class)->group(function(){Route::get('/','index');Route::post('/deviations/{id}/resolve','resolveDeviation')->whereNumber('id');Route::post('/maintenance-plans','storeMaintenancePlan');Route::put('/maintenance-plans/{id}','updateMaintenancePlan')->whereNumber('id');Route::post('/maintenance-plans/{id}/complete','completeMaintenance')->whereNumber('id');});
 Route::prefix('haccp/documentation')->controller(\App\Http\Controllers\HaccpDocumentationController::class)->group(function(){Route::get('/{year}/{month}','preview')->whereNumber(['year','month']);Route::get('/{year}/{month}/pdf','pdf')->whereNumber(['year','month']);Route::post('/{year}/{month}/close','close')->whereNumber(['year','month']);});
 Route::prefix('haccp/settings')->controller(\App\Http\Controllers\HaccpSettingsController::class)->group(function(){Route::get('/','show');Route::put('/','update');});
+
+Route::prefix('planner/open-shifts')->controller(\App\Http\Controllers\ShiftController::class)->group(function () {
+    Route::get('/', 'openShifts');
+    Route::put('/{id}', 'updateOpenShift')->whereNumber('id');
+    Route::post('/applications/{application}/approve', 'approveApplication')->whereNumber('application');
+});
