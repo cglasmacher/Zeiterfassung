@@ -51,6 +51,44 @@ class ReservationBookTest extends TestCase
         return array_replace(['reason' => 'Geschlossene Gesellschaft', 'start_date' => '2026-10-26', 'start_time' => '12:00', 'end_date' => '2026-10-26', 'end_time' => '14:00'], $extra);
     }
 
+    public function test_table_inventory_includes_small_free_tables_and_explains_time_specific_occupancy(): void
+    {
+        $room = $this->room();
+        $ids = collect($room['tables'])->keyBy('name');
+        $b = $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$ids['1']['id']]]))->assertCreated()->json();
+        $this->postJson('/api/reservations/blocks', $this->block(['room_id' => $room['id'], 'table_ids' => [$ids['2']['id']]]))->assertCreated();
+        $query = '/api/reservations/availability?'.http_build_query(['kind' => 'reservation', 'date' => '2026-10-26', 'time' => '12:00', 'party_size' => 15, 'duration_minutes' => 60]);
+        $tables = collect($this->getJson($query)->assertOk()->json('tables'))->keyBy('id');
+        $this->assertFalse($tables[$ids['1']['id']]['available']);
+        $this->assertStringContainsString('12:00–13:00', $tables[$ids['1']['id']]['reason']);
+        $this->assertFalse($tables[$ids['2']['id']]['available']);
+        $this->assertStringContainsString('Gesperrt', $tables[$ids['2']['id']]['reason']);
+        $this->assertTrue($tables[$ids['3']['id']]['available']);
+        $own = collect($this->getJson('/api/reservations/bookings/'.$b['id'].'/table-options')->assertOk()->json('tables'))->keyBy('id');
+        $this->assertTrue($own[$ids['1']['id']]['available']);
+        $later = collect($this->getJson(str_replace('time=12%3A00', 'time=14%3A00', $query))->assertOk()->json('tables'))->keyBy('id');
+        $this->assertTrue($later[$ids['1']['id']]['available']);
+        $this->assertTrue($later[$ids['2']['id']]['available']);
+    }
+
+    public function test_manual_multi_table_selection_uses_total_seats_and_rechecks_all_members_on_save(): void
+    {
+        $room = $this->room();
+        $tables = collect($room['tables'])->keyBy('name');
+        $ids = collect(['11', '12', '13', '14', '15', '16'])->map(fn ($name) => $tables[$name]['id'])->all();
+        $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 15, 'table_ids' => $ids]))->assertUnprocessable()->assertJsonValidationErrors('table_ids');
+        $this->assertDatabaseCount('reservation_bookings', 0);
+        $ids[] = $tables['17']['id'];
+        $ids[] = $tables['1']['id'];
+        $b = $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 15, 'table_ids' => $ids]))->assertCreated()->assertJsonCount(8, 'tables')->json();
+        $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$tables['16']['id']]]))->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 1, 'table_ids' => $ids])->assertOk();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 1, 'table_ids' => $ids])->assertConflict();
+        $other = $this->room();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 2, 'table_ids' => array_merge($ids, [$other['tables'][0]['id']])])->assertUnprocessable();
+        $this->assertCount(8, ReservationBooking::find($b['id'])->tables);
+    }
+
     public function test_operations_can_run_service_but_cannot_change_settings_or_builder(): void
     {
         $this->get('/reservierungen')->assertOk();

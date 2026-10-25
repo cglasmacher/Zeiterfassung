@@ -203,6 +203,18 @@ class ResmioBookingSyncTest extends TestCase
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$blocked]])->assertUnprocessable();
     }
 
+    public function test_imported_large_group_accepts_manual_table_tiles_without_predefined_combination_and_keeps_them_on_sync(): void
+    {
+        $this->rows = [$this->row(['num' => 15])];
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $ids = collect($this->room['tables'])->take(8)->pluck('id')->all();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => array_slice($ids, 0, 6)])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => $ids])->assertOk()->assertJsonCount(8, 'tables');
+        app(ResmioSync::class)->run();
+        $this->assertEqualsCanonicalizing($ids, $this->imported()->tables->pluck('id')->all());
+    }
+
     public function test_remote_changes_clear_removed_tags_but_keep_local_notes_and_service_status(): void
     {
         app(ResmioSync::class)->run();
