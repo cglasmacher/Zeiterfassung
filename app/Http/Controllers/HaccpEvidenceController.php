@@ -5,16 +5,17 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class HaccpEvidenceController extends Controller
 {
     private const SOURCES = [
+        'task' => 'haccp_tasks',
         'task_result' => 'haccp_task_results',
         'goods_receipt' => 'haccp_goods_receipts',
         'food_sample' => 'haccp_food_samples',
         'retention_sample' => 'haccp_retention_samples',
         'cleaning_record' => 'haccp_cleaning_records',
+        'maintenance_plan' => 'haccp_maintenance_plans',
         'maintenance_record' => 'haccp_maintenance_records',
         'deviation' => 'haccp_deviations',
     ];
@@ -33,7 +34,7 @@ class HaccpEvidenceController extends Controller
     {
         $this->source($type, $id);
         $data = $request->validate([
-            'photo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp,heic,heif', 'max:12288'],
+            'photo' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif', 'max:12288'],
             'captured_at' => ['nullable', 'date'],
         ]);
         $file = $data['photo'];
