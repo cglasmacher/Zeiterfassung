@@ -192,7 +192,7 @@ class ReservationService
         }
     }
 
-    public function write(array $data, int $userId, ?ReservationBooking $booking = null, bool $promote = false): ReservationBooking
+    public function write(array $data, ?int $userId, ?ReservationBooking $booking = null, bool $promote = false): ReservationBooking
     {
         return DB::transaction(function () use ($data, $userId, $booking, $promote) {
             $this->lock();

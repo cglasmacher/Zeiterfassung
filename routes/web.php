@@ -8,6 +8,7 @@ use Inertia\Inertia;
 
 Route::domain(config('infosystem.stream_host'))->get('/', fn () => redirect('/display/kitchen'));
 require __DIR__.'/infosystem.php';
+Route::get('/reservieren', [\App\Http\Controllers\ReservationWidgetController::class, 'show'])->name('reservations.widget');
 Route::get('/', fn (Request $request) => redirect()->route($request->user() ? $request->user()->landingRoute() : 'login'))->name('home');
 Route::middleware('auth')->group(function () {
     require __DIR__.'/reservations.php';

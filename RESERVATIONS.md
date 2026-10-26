@@ -102,6 +102,54 @@ Reservierungskarten zeigen Tische als „Tisch 2“ bzw. „Tisch 2, 3, 5“ ohn
 
 Der letzte Abgleich und sichere Fehlermeldungen stehen im Reservierungsbuch. Administratoren können den Abgleich und die Tischzuordnung bedienen; `operations` kann die importierten Angaben lesen und lokale Serviceaktionen ausführen.
 
+## Reservierungswidget für die Homepage
+
+Öffentliche Seite: `/reservieren` auf der Dienstplan-Domain. Sie läuft ohne Anmeldung in einem eigenen Dokument, damit Styles der Homepage und des Portals getrennt bleiben. Die öffentliche API liefert ausschließlich Zeitstatus sowie Raumname/-kennung; keine Gastlisten, Kontakte, internen Notizen, Tischkennungen oder Layouts. Der Aufruf ist auf der Küchen-TV-Domain weiterhin gesperrt.
+
+### Einrichtung und Codeschnipsel
+
+Nach Merge/Pull:
+
+```bash
+php artisan migrate --force
+npm run build
+php artisan optimize:clear
+php artisan queue:restart
+```
+
+Unter **Reservierungsregeln → Reservierungswidget für die Homepage** die Online-Regeln prüfen, die eigene Datenschutzhinweis-URL eintragen und Online-Reservierungen aktivieren. Nach der Migration ist die öffentliche Buchung zunächst ausgeschaltet. Verfügbar sind Gruppengrenzen, Vorlauf, Buchungshorizont, Raumauswahl, Warteliste sowie automatische/manuelle/größenabhängige Bestätigung. Die internen Öffnungstage, erste/letzte Startzeit, Intervalle und gruppenabhängige Aufenthaltsdauer gelten auch online. Die Online-Regeln liegen getrennt von den internen Regeln und besitzen eine eigene Revision, verwenden beim Speichern aber dieselbe Buchungssperre.
+
+Der Abschnitt erzeugt einen direkt kopierbaren iframe-Schnipsel. `APP_URL` muss auf die öffentliche Dienstplan-Adresse zeigen. Maximalbreite und Höhe können vor dem Kopieren eingestellt oder anschließend im HTML angepasst werden. Beispiel für einen WordPress-Block „Individuelles HTML“:
+
+```html
+<iframe
+  src="https://dienstplan.hemingway-hilden.de/reservieren"
+  title="Tisch reservieren im Hemingway"
+  style="display:block;margin:0 auto;width:100%;max-width:520px;height:760px;border:0;border-radius:18px;"
+  loading="lazy">
+</iframe>
+```
+
+Die Breite bleibt responsiv. Bei kleiner Höhe lassen sich Zeiten bzw. Formularinhalt innerhalb des Widgets scrollen. Standardmäßig dürfen `https://hemingway-hilden.de`, `https://www.hemingway-hilden.de` und die eigene Portal-Domain das Widget einbetten. Weitere HTTPS-Ursprünge können in `RESERVATION_WIDGET_ORIGINS` kommasepariert ohne Pfad oder abschließenden Slash eingetragen werden; danach Konfigurationscache erneuern. Falls Plesk zusätzliche globale `X-Frame-Options`-/CSP-Header setzt, dürfen sie die Homepage-Einbettung von `/reservieren` nicht blockieren. Die Einbettungsfreigabe gilt nur für diese öffentliche Seite, nicht für interne Verwaltungsseiten.
+
+Den bisherigen öffentlichen Resmio-Schnipsel durch dieses Widget ersetzen. Buchungen entstehen nur im lokalen Reservierungsbuch und werden nicht an Resmio zurückgesendet. Importierte Resmio-Belegungen entsprechen dem letzten erfolgreichen Abgleich; andere weiterhin aktive öffentliche Resmio-Kanäle kennen die neuen lokalen Buchungen nicht. Für den Übergang die Resmio-Daten vollständig abgleichen, den Importhorizont mindestens so groß wie den Online-Horizont halten und keine unabhängigen öffentlichen Buchungssysteme auf dieselben Plätze anbieten.
+
+### Gastablauf und Verfügbarkeit
+
+1. Gästezahl, Datum und optional Raum wählen. Freie Uhrzeiten sind direkt auswählbar; eine Sanduhr kennzeichnet Wartelistenzeiten. Geschlossene Wochentage, Vorlauf, Horizont und explizite Restaurant-/gewählte Raumsperren werden berücksichtigt.
+2. Name, Telefonnummer, E-Mail und optional Wünsche eingeben; Datenschutzhinweise bestätigen. Es werden keine Tischnummern oder manuellen Überbelegungen öffentlich angeboten.
+3. Die Rückmeldung unterscheidet **Tisch reserviert**, **Anfrage eingegangen** und **Auf der Warteliste** und zeigt eine Buchungsnummer. Warteliste und manuelle Anfrage werden ausdrücklich nicht als bestätigte Reservierung bezeichnet. Die Bestätigung erscheint im Widget; E-Mails werden in diesem Baustein noch nicht versendet.
+
+Die Zeitübersicht verwendet einen beschränkten Tagesschnappschuss. Beim Absenden werden Regeln, Uhrzeit und gesamte Aufenthaltsdauer unter der gemeinsamen Datenbanksperre erneut geprüft und ein freier Einzeltisch oder eine hinterlegte Kombination automatisch zugeordnet. Manuelle Zusatzstühle umgehen die Online-Kapazität nicht. Bei zwischenzeitlich geänderter Verfügbarkeit erhält der Gast HTTP 409 mit verständlicher Rückmeldung und kann die Zeiten neu wählen; seine Kontaktdaten bleiben im Formular erhalten.
+
+Ein Wartelisteneintrag ist nur zu einer tatsächlich als Warteliste angebotenen Zeit möglich und hält keine Tische frei. Der Raumwunsch bleibt für die spätere interne Übernahme erhalten. Neue Buchungen tragen die Quelle „Website“; Gastwünsche stehen separat als Gastkommentar im Buchungsdatensatz und sind in der kompakten Liste aufklappbar. Lokale Bearbeitung und Wartelistenübernahme funktionieren wie bei internen Einträgen.
+
+### Wiederholungen und Zugriff
+
+Jeder Absendeversuch besitzt einen zufälligen Anfrageschlüssel. Ein identischer erneuter POST liefert dieselbe Buchung zurück; eine geänderte Nutzlast mit demselben bereits verwendeten Schlüssel wird zurückgewiesen. Der eindeutige Datenbankindex und die gemeinsame Transaktion verhindern doppelte Einträge. Schlüssel und Nutzlasthash werden nicht in Buchungs-JSON-Antworten veröffentlicht.
+
+Die öffentlichen Endpunkte sind `GET /api/public/reservations/slots` und `POST /api/public/reservations/book`. Sie benötigen keine Drittanbieter-Cookies oder Portal-Anmeldung. Getrennte IP-Limits begrenzen die Zeitenabfrage auf 60/min und das Absenden auf 6/min; zusätzliche Felder wie clientseitiger Status, Tischwahl, Aufenthaltsdauer oder Quelle werden nicht übernommen. Ein Honeypot, Kontakt-/Datumsvalidierung und serverseitige Regeln ergänzen die Begrenzung. Die Zustimmung wird mit Zeitpunkt und dem zu diesem Zeitpunkt geltenden Datenschutzlink gespeichert; es wird kein Marketingeinverständnis angefordert.
+
 ## Vereinbarte weitere Entwicklung
 
 Zielumfang: funktionale Orientierung an Resmio Ultimate samt Add-ons; die Funktionen der iPad-App werden in die Gesamtlösung integriert. Builder und interner Reservierungskern sind umgesetzt. Der weitere Ultimate-Umfang bleibt als Ziel bestehen.
@@ -110,15 +158,15 @@ Geplante Bausteine:
 
 1. Ausbau der Regeln um Ausnahmen/Feiertage, wiederkehrende Sperren und weitere Kapazitätsgrenzen.
 2. Wochen-/Agenda-/Zeitstrahlansicht, Serienreservierungen und weitere Komfortfunktionen für den vorhandenen Tagesbetrieb.
-3. Online-Widget, Gastverwaltung, Bestätigungen, Erinnerungen, Nachrichten und Stornierungen.
+3. Ausbau der Gastverwaltung, E-Mail-Bestätigungen, Erinnerungen, Nachrichten und Gast-Stornierungen. Das einbettbare Online-Widget ist umgesetzt.
 4. Anzahlungen, No-Show-Abwicklung, Automatisierungen, Auswertungen und bestehende Dienstplan-/TV-Anbindung.
 5. Marketing, Feedback, Erweiterung bestehender Gutscheine/Tickets sowie weitere vereinbarte Module. Externe Buchungskanäle, SMS, Telefonassistent und Zahlungsdienste benötigen eigene Integrationen.
 
-Die öffentliche Online-Buchung und Gästemails werden durch diesen Ausbau noch nicht aktiviert. Bestehende Resmio-Buchungen können mit dem unten beschriebenen Abgleich übernommen werden. Neue lokale Buchungen werden nicht an Resmio übertragen; Resmio kennt deren Belegung daher nicht. Ein öffentlicher Parallelbetrieb beider Buchungssysteme benötigt weiterhin eine gesonderte Umschaltung oder gemeinsame Verfügbarkeitsprüfung.
+Die öffentliche Online-Buchung kann mit dem oben beschriebenen Widget freigeschaltet werden; Gästemails sind noch nicht aktiviert. Bestehende Resmio-Buchungen können mit dem beschriebenen Abgleich übernommen werden. Neue lokale Buchungen werden nicht an Resmio übertragen; Resmio kennt deren Belegung daher nicht. Ein öffentlicher Parallelbetrieb beider Buchungssysteme benötigt weiterhin eine gesonderte Umschaltung oder gemeinsame Verfügbarkeitsprüfung.
 
 ### Aus den Screenshots übernommene Werte
 
-- Noch für Online-Ausbau vorgesehen: automatische Bestätigung bis 8 Personen; online 1–8 Personen. Interne Reservierungen werden jetzt bestätigt angelegt.
+- Online einstellbar: automatische Bestätigung bis 8 Personen; online 1–8 Personen. Die Widget-Konfiguration startet mit automatischer Bestätigung aller erlaubten Gruppen und kann auf die Größenregel umgestellt werden. Interne Reservierungen werden bestätigt angelegt.
 - Mo und Mi–So 10:00–20:00; 30-Minuten-Intervall, insgesamt 30 Minuten Vorlauf, 365 Tage Buchungshorizont.
 - Aufenthaltsdauer: Standard 90, ab 2 Personen 105, ab 4 Personen 135, ab 6 Personen 150 Minuten.
 - Name und Telefon bei manuellen Buchungen verpflichtend; E-Mail optional.
@@ -131,7 +179,7 @@ Die öffentliche Online-Buchung und Gästemails werden durch diesen Ausbau noch 
 ### Prüfung
 
 ```bash
-php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest'
+php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest|ReservationWidgetTest'
 node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs tests/Workflow/reservation-plan.test.mjs tests/Workflow/table-selection.test.mjs
 npm run build
 ```
