@@ -21,7 +21,22 @@ class ReservationMailController extends Controller
                 'sent_at' => $row->sent_at, 'created_at' => $row->created_at, 'last_error' => $row->last_error];
         });
 
-        return response()->json(['enabled' => (bool) config('reservation_mail.enabled'), 'configured' => $mail->configured(), 'counts' => $counts, 'recent' => $recent]);
+        return response()->json(['enabled' => (bool) config('reservation_mail.enabled'), 'configured' => $mail->configured(), 'settings' => app(\App\Services\Reservations\ReservationReminderService::class)->settings(), 'counts' => $counts, 'recent' => $recent]);
+    }
+
+    public function settings(Request $request, \App\Services\Reservations\ReservationService $service)
+    {
+        abort_unless($request->user()?->access_role === 'admin', 403);
+        $data = $request->validate(['reminders_enabled' => ['required', 'boolean'], 'reminder_hours' => ['required', 'integer', 'between:1,168'], 'revision' => ['required', 'integer', 'min:1']]);
+
+        return DB::transaction(function () use ($data, $service) {
+            $service->lock();
+            $current = DB::table('reservation_mail_settings')->where('id', 1)->firstOrFail();
+            abort_unless((int) $current->revision === (int) $data['revision'], 409, 'Die Erinnerungseinstellungen wurden geändert. Bitte neu laden.');
+            DB::table('reservation_mail_settings')->where('id', 1)->update(['reminders_enabled' => (bool) $data['reminders_enabled'], 'reminder_hours' => (int) $data['reminder_hours'], 'revision' => $current->revision + 1]);
+
+            return response()->json(app(\App\Services\Reservations\ReservationReminderService::class)->settings());
+        });
     }
 
     public function retry(Request $request, string $id)

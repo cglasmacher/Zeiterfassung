@@ -9,12 +9,13 @@ use Illuminate\Mail\Mailables\Headers;
 
 class ReservationGuestMail extends Mailable
 {
-    public function __construct(public array $details, public string $type, public ?string $deliveryId = null) {}
+    public function __construct(public array $details, public string $type, public ?string $deliveryId = null, public ?string $cancelUrl = null) {}
 
     public static function heading(string $type): string
     {
         return match ($type) {
             'confirmed' => 'Deine Reservierung ist bestätigt',
+            'reminder' => 'Erinnerung an deine Reservierung',
             'requested' => 'Deine Reservierungsanfrage ist eingegangen',
             'waiting' => 'Dein Wartelisteneintrag ist eingegangen',
             'waiting_updated' => 'Dein Wartelisteneintrag wurde geändert',
@@ -44,7 +45,7 @@ class ReservationGuestMail extends Mailable
     public function content(): Content
     {
         return new Content(view: 'mail.reservations.guest', text: 'mail.reservations.guest-text', with: [
-            'heading' => self::heading($this->type), 'details' => $this->details, 'type' => $this->type,
+            'cancel_url' => $this->cancelUrl, 'heading' => self::heading($this->type), 'details' => $this->details, 'type' => $this->type,
         ]);
     }
 }
