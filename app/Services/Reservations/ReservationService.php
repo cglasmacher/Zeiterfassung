@@ -125,10 +125,8 @@ class ReservationService
         if ($tables->pluck('room_id')->unique()->count() !== 1 || ($roomId && $tables->first()->room_id !== $roomId)) {
             throw ValidationException::withMessages(['table_ids' => 'Bitte Tische innerhalb desselben Raumes auswählen.']);
         }
-        $capacity = $this->selectionCapacity($ids);
-        if ($capacity < $size) {
-            throw ValidationException::withMessages(['table_ids' => ($size - $capacity).' weitere Plätze benötigt. Bitte einen weiteren Tisch auswählen.']);
-        }
+        // Manual selections may use extra chairs; capacity is advisory.
+        // Automatic allocation still requires the configured number of seats.
 
         return $ids;
     }
