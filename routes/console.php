@@ -36,3 +36,17 @@ Artisan::command('info:admin {email} {--revoke}', function () {
     $user->forceFill(['is_info_admin' => ! $this->option('revoke')])->save();
     $this->info('Infosystem-Berechtigung aktualisiert.');
 });
+
+
+Artisan::command('reservations:send-mails {--limit=25}', function (\App\Services\Reservations\ReservationMailService $mail) {
+    if (! $mail->ready()) {
+        $this->warn('Reservierungsmails sind deaktiviert oder ein echter Mailtransport/Absender fehlt.');
+        return 1;
+    }
+    $counts = $mail->sendDue(max(1, min(100, (int) $this->option('limit'))));
+    $this->info('Gesendet: '.$counts['sent'].'; Wiederholung: '.$counts['retry'].'; fehlgeschlagen: '.$counts['failed'].'; überholt: '.$counts['skipped']);
+    return $counts['failed'] ? 1 : 0;
+})->purpose('Fällige Reservierungsmails aus dem dauerhaften Mailausgang versenden');
+
+Schedule::command('reservations:send-mails')->everyMinute()->withoutOverlapping(10)
+    ->when(fn () => config('reservation_mail.enabled'));

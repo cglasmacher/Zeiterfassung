@@ -212,7 +212,7 @@ class ReservationService
             }
             $before = $booking?->load('tables')->toArray();
             $kind = $booking?->kind ?? $data['kind'];
-            $status = $data['status'] ?? ($kind === 'waitlist' ? 'waiting' : ($kind === 'walkin' ? 'seated' : 'confirmed'));
+            $status = $data['status'] ?? $booking?->status ?? ($kind === 'waitlist' ? 'waiting' : ($kind === 'walkin' ? 'seated' : 'confirmed'));
             if ($promote) {
                 abort_unless($booking?->status === 'waiting', 422, 'Nur wartende Einträge können übernommen werden.');
                 $kind = $data['kind'] ?? 'reservation';
@@ -274,6 +274,8 @@ class ReservationService
             $booking->tables()->sync($ids);
             $result = $booking->fresh()->load('tables');
             DB::table('reservation_events')->insert(['booking_id' => $result->id, 'user_id' => $userId, 'action' => $promote ? 'promoted' : ($before ? 'updated' : 'created'), 'details' => json_encode(['before' => $before, 'after' => $result->toArray()]), 'created_at' => now()]);
+
+            app(ReservationMailService::class)->record($result, $before);
 
             return $result;
         });
