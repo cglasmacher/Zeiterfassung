@@ -30,14 +30,16 @@ test('sender filter ignores unexpected senders and non-PDF emails', () => {
     assert.equal(run('PDF-Anhaenge', {$input: {all: () => items}}).length, 0);
 });
 
-test('PDF extraction failure still sends the right original for manual assignment', () => {
+test('PDF extraction failure retains the original but never authorizes upload', () => {
     const original = {json: {platform_url: 'https://platform.example.test', message_id: 'mail-1'}, binary: {data: {data: 'original-pdf'}}};
     const result = run('Original und Metadaten', {$json: {error: 'PDF has no text'}, $: () => ({item: original})});
     assert.equal(result.json.extracted_text, '');
+    assert.equal(result.json.z_report_verified, false);
     assert.equal(result.binary.data.data, 'original-pdf');
     assert.equal(result.json.message_id, 'mail-1');
     const withText = run('Original und Metadaten', {$json: {text: 'Finanzbericht <Z1>'}, $: () => ({item: original})});
     assert.equal(withText.json.extracted_text, 'Finanzbericht <Z1>');
+    assert.equal(withText.json.z_report_verified, false);
 });
 
 test('workflow is inactive, credential-free, and uploads multipart PDFs with retries', () => {
