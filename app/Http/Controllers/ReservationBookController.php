@@ -56,7 +56,7 @@ class ReservationBookController extends Controller
             'duration_minutes' => ['sometimes', 'integer', 'between:15,720'],
             'guest_name' => ['nullable', 'string', 'max:120'], 'phone' => ['nullable', 'string', 'max:60'],
             'email' => ['nullable', 'email:rfc', 'max:200'], 'notes' => ['nullable', 'string', 'max:2000'],
-            'source' => ['sometimes', Rule::in(['phone', 'email', 'manual', 'walkin'])],
+            'source' => ['sometimes', Rule::in(['phone', 'email', 'manual', 'walkin', 'widget'])],
             'status' => ['sometimes', Rule::in(ReservationBooking::STATUSES)],
             'table_ids' => ['sometimes', 'array', 'max:20'], 'table_ids.*' => ['uuid', 'distinct', Rule::exists('reservation_tables', 'id')],
             'room_id' => ['nullable', 'uuid', Rule::exists('reservation_rooms', 'id')],

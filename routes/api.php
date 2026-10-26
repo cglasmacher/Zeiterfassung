@@ -25,3 +25,8 @@ Route::prefix('integrations/cash-documents')
     });
 
 Route::post('/integrations/resmio/webhook', \App\Http\Controllers\Info\ResmioWebhookController::class)->middleware('throttle:120,1');
+
+Route::prefix('public/reservations')->controller(\App\Http\Controllers\ReservationWidgetController::class)->group(function () {
+    Route::get('/slots', 'slots')->middleware('throttle:60,1,public-reservation-slots');
+    Route::post('/book', 'submit')->middleware('throttle:6,1,public-reservation-book');
+});

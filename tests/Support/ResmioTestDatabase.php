@@ -18,6 +18,7 @@ trait ResmioTestDatabase
             'database/migrations/2026_10_25_230000_create_reservation_book.php',
             'database/migrations/2026_10_25_235000_add_resmio_reservation_sync.php',
             'database/migrations/2026_10_25_235500_add_local_reservation_table_assignment.php',
+            'database/migrations/2026_10_26_140000_create_reservation_widget.php',
         ]];
     }
 }
