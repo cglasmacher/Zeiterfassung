@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { localParts, shiftDay, durationFor, defaultForm, tableState, sameTables, tableLabel } from '../../resources/js/Pages/Reservations/reservationUi.js';
+import { localParts, shiftDay, durationFor, defaultForm, tableState, sameTables, tableLabel, reservationStatuses, statusLabels, editableStatuses } from '../../resources/js/Pages/Reservations/reservationUi.js';
 
 test('Berlin date and time are independent of device timezone including DST',()=>{
     assert.deepEqual(localParts('2026-10-25T23:30:00Z'),{date:'2026-10-26',time:'00:30'});
@@ -35,4 +35,11 @@ test('table labels list single and combined tables without rooms or source IDs',
     assert.equal(tableLabel([{name:'2',room_id:'restaurant'}]),'Tisch 2');
     assert.equal(tableLabel([{name:'12'},{name:'5'},{name:'3'},{name:'2'}]),'Tisch 2, 3, 5, 12');
     assert.equal(tableLabel([]),'Kein Tisch');
+});
+
+test('reservation menus expose six statuses and a single arrival state',()=>{
+    assert.deepEqual(reservationStatuses.map(s=>statusLabels[s]),['Angefragt','Bestätigt','Eingetroffen','Fertig','Storno','No-Show']);
+    assert.equal(statusLabels.arrived,'Eingetroffen');
+    assert.deepEqual(editableStatuses({status:'confirmed',kind:'reservation',source:'resmio',resmio_status:'confirmed'}),reservationStatuses);
+    assert.deepEqual(editableStatuses({status:'waiting',kind:'waitlist'}),[]);
 });

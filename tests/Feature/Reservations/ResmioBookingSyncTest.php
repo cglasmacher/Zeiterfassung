@@ -219,6 +219,36 @@ class ResmioBookingSyncTest extends TestCase
         $this->assertEqualsCanonicalizing($ids, $this->imported()->tables->pluck('id')->all());
     }
 
+    public function test_six_local_statuses_on_imported_bookings_survive_sync_and_legacy_arrival_is_merged(): void
+    {
+        app(ResmioSync::class)->run();
+        foreach (['unconfirmed', 'confirmed', 'seated', 'finished', 'cancelled', 'noshow'] as $status) {
+            $b = $this->imported();
+            $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'status' => $status])->assertOk()->assertJsonPath('status', $status);
+            app(ResmioSync::class)->run();
+            $this->assertSame($status, $this->imported()->status);
+        }
+        $this->rows = [$this->row(['status' => 'arrived', 'updated' => '2026-10-26T11:00:00Z'])];
+        $b = $this->imported();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'reset_resmio_status' => true])->assertOk();
+        app(ResmioSync::class)->run();
+        $this->assertSame('seated', $this->imported()->status);
+        $this->assertSame('arrived', $this->imported()->resmio_status);
+    }
+
+    public function test_resetting_a_local_cancellation_cannot_reactivate_a_conflicting_table(): void
+    {
+        app(ResmioSync::class)->run();
+        $b = $this->imported();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'status' => 'cancelled'])->assertOk();
+        $table = $b->tables->first()->id;
+        $this->postJson('/api/reservations/bookings', ['kind' => 'reservation', 'date' => '2026-10-26', 'time' => '19:00', 'party_size' => 2, 'duration_minutes' => 60, 'guest_name' => 'Nachbelegung', 'phone' => '12345', 'table_ids' => [$table]])->assertCreated();
+        $b = $this->imported();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'reset_resmio_status' => true])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'status' => 'confirmed'])->assertUnprocessable();
+        $this->assertSame('cancelled', $this->imported()->status);
+    }
+
     public function test_remote_changes_clear_removed_tags_but_keep_local_notes_and_service_status(): void
     {
         app(ResmioSync::class)->run();
@@ -304,11 +334,11 @@ class ResmioBookingSyncTest extends TestCase
         $b = $this->imported();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => 1, 'guest_name' => 'Do not overwrite'])->assertUnprocessable();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => 1, 'notes' => 'Eigene Notiz'])->assertOk();
-        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => 2, 'status' => 'cancelled'])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => 2, 'guest_name' => 'Do not overwrite'])->assertUnprocessable();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => 2, 'status' => 'arrived'])->assertOk();
         app(ResmioSync::class)->run();
         $b = $this->imported();
-        $this->assertSame('arrived', $b->status);
+        $this->assertSame('seated', $b->status);
         $this->assertSame('Eigene Notiz', $b->notes);
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'reset_resmio_status' => true])->assertOk()->assertJsonPath('status', 'confirmed');
     }

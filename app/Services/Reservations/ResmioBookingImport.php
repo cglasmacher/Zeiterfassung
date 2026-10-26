@@ -60,7 +60,8 @@ class ResmioBookingImport
         $snapshot = array_replace($booking?->resmio_data ?? [], $row);
         $rawStatus = strtolower((string) ($snapshot['status'] ?? 'confirmed'));
         $remoteStatus = match ($rawStatus) {
-            'unconfirmed', 'confirmed', 'arrived', 'seated', 'finished', 'cancelled', 'waiting' => $rawStatus,
+            'unconfirmed', 'confirmed', 'seated', 'finished', 'cancelled', 'waiting' => $rawStatus,
+            'arrived' => 'seated',
             'noshow', 'no_show' => 'noshow', 'canceled', 'deleted', 'removed' => 'cancelled',
             default => 'unconfirmed',
         };
