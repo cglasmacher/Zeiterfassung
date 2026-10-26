@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import TimeTrackingLayout from '@/Layouts/TimeTrackingLayout';
 import { api, localParts, errorText } from './reservationUi';
 import Field from '@/Components/Reservations/Field';
+import MailOutbox from '@/Components/Reservations/MailOutbox';
 import WidgetSettings from '@/Components/Reservations/WidgetSettings';
 import './reservationBook.css';
 
@@ -31,7 +32,7 @@ export default function Management() {
         <div className="rb-checks">{data.rooms.find(r=>r.id===combo.room_id)?.tables.map(t=><label key={t.id}><input type="checkbox" checked={combo.table_ids.includes(t.id)} onChange={e=>setCombo({...combo,table_ids:e.target.checked?[...combo.table_ids,t.id]:combo.table_ids.filter(id=>id!==t.id)})}/>Tisch {t.name}</label>)}</div><div className="rb-grid"><Field label="Bezeichnung"><input required maxLength={100} value={combo.name} onChange={e=>setCombo({...combo,name:e.target.value})}/></Field><Field label="Gemeinsame Plätze"><input required type="number" min={1} max={100} value={combo.capacity} onChange={e=>setCombo({...combo,capacity:Number(e.target.value)})}/></Field></div></fieldset><footer><button className="rb-btn rb-primary" disabled={busy||combo.table_ids.length<2}>Kombination hinzufügen</button></footer></form>
         <button className="rb-btn" disabled={busy||!combo.room_id} onClick={()=>{if(!window.confirm('Die elf Hemingway-Kombinationen für den gewählten Raum übernehmen? Vorhandene Kombinationen bleiben bestehen.'))return;action(async()=>{const r=await axios.post(`${api}/combinations/import`,{room_id:combo.room_id});return `${r.data.created} Kombinationen angelegt; ${r.data.skipped.length} bereits vorhanden oder wegen fehlender Tische übersprungen.`;});}}>Hemingway-Kombinationen übernehmen</button>
         <div className="rb-combinations">{data.combinations.map(c=><div key={c.id} className="rb-block"><div><strong>{data.rooms.find(r=>r.id===c.room_id)?.name} · {c.name}</strong><p>{c.capacity} Plätze · Tische {c.table_ids.map(id=>data.rooms.flatMap(r=>r.tables).find(t=>t.id===id)?.name||'entfernt').join(' + ')}</p></div><button className="rb-icon" aria-label={`Kombination ${c.name} entfernen`} disabled={busy} onClick={()=>{if(window.confirm('Kombination entfernen?'))action(()=>axios.delete(`${api}/combinations/${c.id}`).then(()=>null));}}><Trash2 size={16}/></button></div>)}</div></section></div>}
-        {data&&<><WidgetSettings/><ResmioMappings data={data}/></>}
+        {data&&<><WidgetSettings/><MailOutbox/><ResmioMappings data={data}/></>}
     </div></TimeTrackingLayout>;
 }
 

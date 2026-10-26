@@ -29,6 +29,7 @@ class PublicReservationService
 
         return [...$config, 'today' => CarbonImmutable::now('Europe/Berlin')->toDateString(),
             'last_date' => CarbonImmutable::now('Europe/Berlin')->addDays($config['max_days'])->toDateString(),
+            'mail_enabled' => app(ReservationMailService::class)->ready(),
             'rooms' => $config['room_selection'] ? ReservationRoom::whereHas('tables')->orderBy('name')->get(['id', 'name'])->toArray() : [],
         ];
     }
@@ -129,6 +130,8 @@ class PublicReservationService
                 'public_meta' => ['privacy_accepted_at' => CarbonImmutable::now()->toIso8601String(), 'privacy_url' => $config['privacy_url'],
                     'requested_room_id' => $values['room_id'], 'requested_room_name' => $values['room_id'] ? ReservationRoom::find($values['room_id'])?->name : null],
             ]);
+
+            app(ReservationMailService::class)->record($booking);
 
             return $this->receipt($booking);
         });

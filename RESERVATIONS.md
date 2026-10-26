@@ -138,7 +138,7 @@ Den bisherigen öffentlichen Resmio-Schnipsel durch dieses Widget ersetzen. Buch
 
 1. Gästezahl, Datum und optional Raum wählen. Freie Uhrzeiten sind direkt auswählbar; eine Sanduhr kennzeichnet Wartelistenzeiten. Geschlossene Wochentage, Vorlauf, Horizont und explizite Restaurant-/gewählte Raumsperren werden berücksichtigt.
 2. Name, Telefonnummer, E-Mail und optional Wünsche eingeben; Datenschutzhinweise bestätigen. Es werden keine Tischnummern oder manuellen Überbelegungen öffentlich angeboten.
-3. Die Rückmeldung unterscheidet **Tisch reserviert**, **Anfrage eingegangen** und **Auf der Warteliste** und zeigt eine Buchungsnummer. Warteliste und manuelle Anfrage werden ausdrücklich nicht als bestätigte Reservierung bezeichnet. Die Bestätigung erscheint im Widget; E-Mails werden in diesem Baustein noch nicht versendet.
+3. Die Rückmeldung unterscheidet **Tisch reserviert**, **Anfrage eingegangen** und **Auf der Warteliste** und zeigt eine Buchungsnummer. Warteliste und manuelle Anfrage werden ausdrücklich nicht als bestätigte Reservierung bezeichnet. Die Bestätigung erscheint im Widget. Bei aktiviertem Reservierungsmailversand erhalten Gäste zusätzlich die passende Rückmeldung per E-Mail.
 
 Die Zeitübersicht verwendet einen beschränkten Tagesschnappschuss. Beim Absenden werden Regeln, Uhrzeit und gesamte Aufenthaltsdauer unter der gemeinsamen Datenbanksperre erneut geprüft und ein freier Einzeltisch oder eine hinterlegte Kombination automatisch zugeordnet. Manuelle Zusatzstühle umgehen die Online-Kapazität nicht. Bei zwischenzeitlich geänderter Verfügbarkeit erhält der Gast HTTP 409 mit verständlicher Rückmeldung und kann die Zeiten neu wählen; seine Kontaktdaten bleiben im Formular erhalten.
 
@@ -150,6 +150,42 @@ Jeder Absendeversuch besitzt einen zufälligen Anfrageschlüssel. Ein identische
 
 Die öffentlichen Endpunkte sind `GET /api/public/reservations/slots` und `POST /api/public/reservations/book`. Sie benötigen keine Drittanbieter-Cookies oder Portal-Anmeldung. Getrennte IP-Limits begrenzen die Zeitenabfrage auf 60/min und das Absenden auf 6/min; zusätzliche Felder wie clientseitiger Status, Tischwahl, Aufenthaltsdauer oder Quelle werden nicht übernommen. Ein Honeypot, Kontakt-/Datumsvalidierung und serverseitige Regeln ergänzen die Begrenzung. Die Zustimmung wird mit Zeitpunkt und dem zu diesem Zeitpunkt geltenden Datenschutzlink gespeichert; es wird kein Marketingeinverständnis angefordert.
 
+## Reservierungsmails
+
+Neue Website-Buchungen erhalten nach Aktivierung eine Bestätigung, einen ausdrücklich unbestätigten Anfrageneingang oder einen Wartelisteneingang. Die spätere interne Bestätigung bzw. Wartelistenübernahme versendet eine Bestätigung. Änderungen an Datum, Startzeit, Gästezahl, Gastname oder Empfängeradresse und Stornierungen erzeugen passende Nachrichten. Eine stornierte Warteliste hat einen eigenen Text. Interne Notizen, reine Tischwechsel und die Servicestatus Eingetroffen/Fertig/No-Show lösen keine Mails aus. Resmio-Importe und telefonisch/manuell angelegte Datensätze werden nicht zusätzlich angeschrieben. Bereits vor Aktivierung vorhandene Buchungen werden nicht pauschal nachversendet; neue relevante Änderungen an Website-Buchungen werden berücksichtigt.
+
+HTML- und Textvorlagen liegen unter `resources/views/mail/reservations/`. Sie zeigen nur Gastname, Datum/Startzeit in Europe/Berlin, Gästezahl und Buchungsnummer. Interne Notizen, Gastkommentare, Kontakte anderer Gäste und Tischnummern sind nicht enthalten. Für Änderungen oder Absagen wird auf die Antwort per E-Mail verwiesen; ein öffentlicher Stornolink ist noch nicht Bestandteil dieses Schritts. Erinnerungen folgen separat.
+
+### Aktivieren auf dem Server
+
+Migration und Build wie oben ausführen. In der Server-`.env` die vorhandenen SMTP-Daten prüfen und ergänzen, zum Beispiel mit den eigenen Zugangsdaten statt der Platzhalter:
+
+```dotenv
+RESERVATION_MAIL_ENABLED=true
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtp
+MAIL_HOST=SMTP-SERVER
+MAIL_PORT=587
+MAIL_USERNAME=POSTFACH
+MAIL_PASSWORD="PASSWORT"
+MAIL_FROM_ADDRESS=ABSENDERADRESSE
+MAIL_FROM_NAME="Hemingway Hilden"
+RESERVATION_MAIL_REPLY_TO=ANTWORTPOSTFACH
+MAIL_TIMEOUT=30
+```
+
+`MAIL_SCHEME=smtp` nutzt mit einem entsprechend konfigurierten Server STARTTLS; bei implizitem TLS z. B. auf Port 465 `MAIL_SCHEME=smtps` verwenden. Port und Modus nach den eigenen Postfach-Einstellungen setzen. Absender und Antwortpostfach müssen eigene erreichbare Adressen sein; keine Zugangsdaten im Repository speichern. Danach `php artisan optimize:clear` (bei verwendetem Konfigurationscache anschließend `php artisan config:cache`).
+
+Der bestehende Laravel-Scheduler muss **jede Minute** laufen (`php artisan schedule:run` über die Plesk-Aufgabenplanung mit dem verwendeten PHP-Binary und dem Projektpfad). Der Mailausgang wird dann jede Minute verarbeitet. Dafür ist kein Queue-Worker erforderlich. Ein manueller Lauf ist `php artisan reservations:send-mails --limit=25`. Die im Browser erzeugte Bestätigung ist unabhängig davon sofort verfügbar. Ohne aktivierten Versand wird im Widget keine zusätzliche E-Mail angekündigt. `log`/`array`-Mailer und Platzhalter-Absender gelten nicht als echter Versand; ein aktivierter, aber falsch konfigurierter Versand lässt vorgemerkte Mails unverändert warten.
+
+Unter **Reservierungsregeln → E-Mails an Reservierungsgäste** sehen Administratoren Konfigurationsstatus, Zähler und bis zu 20 Nachrichten (Fehler zuerst). „An Mailserver übergeben“ bedeutet SMTP-/Transportannahme, nicht nachgewiesene Zustellung im Postfach. Für den Echtbetrieb eine eigene Testreservierung an ein kontrolliertes Postfach durchführen und Empfang/Spamordner sowie Antworten prüfen. Diese Prüfung ist lokal nur mit gefälschtem Mailtransport erfolgt; echte SMTP-Zugangsdaten wurden weder benötigt noch verwendet.
+
+### Mailausgang, Fehler und Wiederholungen
+
+Die Mail wird innerhalb derselben Datenbanktransaktion wie die Buchung im dauerhaften `reservation_mail_outbox` gespeichert; SMTP findet erst im separaten Versandlauf statt. Scheitert das Speichern, entstehen weder Buchung noch Mail. Ein identischer Widget-Retry erzeugt nur eine Buchung und einen Mailauftrag. Ein eindeutiger Index aus Buchung und Version verhindert wiederholte Aufträge bei derselben Änderung. Der gespeicherte Snapshot enthält nur die benötigten Mailangaben. Ein überholter Termin-/Status-/Empfängerstand wird vor dem Versand übersprungen, sodass beispielsweise eine noch ausstehende Bestätigung nach einem Storno nicht mehr gesendet wird.
+
+Ein Versandfehler ändert die Reservierung nicht. Bis zu acht automatische Versuche mit wachsendem Abstand; danach steht die Mail als fehlgeschlagen im Verwaltungsbereich und kann von einem Administrator erneut vorgemerkt werden. Eine Verarbeitungssperre mit Token verhindert parallelen Versand desselben Auftrags; nach zehn Minuten kann ein abgebrochener Lauf wieder aufgenommen werden. Versuche verwenden dieselbe Message-ID. Zwischen erfolgreicher SMTP-Annahme und Speicherung des Erfolgs bleibt bei einem Prozessabbruch dennoch eine seltene Doppelzustellung möglich; SMTP bietet hier keine transaktionale Genau-einmal-Zustellung. Fehlertexte enthalten keine rohen SMTP-Antworten oder Zugangsdaten. Ein reiner interner Notizwechsel bewahrt den bisherigen Buchungsstatus und erzeugt keine Statusmail.
+
 ## Vereinbarte weitere Entwicklung
 
 Zielumfang: funktionale Orientierung an Resmio Ultimate samt Add-ons; die Funktionen der iPad-App werden in die Gesamtlösung integriert. Builder und interner Reservierungskern sind umgesetzt. Der weitere Ultimate-Umfang bleibt als Ziel bestehen.
@@ -158,11 +194,11 @@ Geplante Bausteine:
 
 1. Ausbau der Regeln um Ausnahmen/Feiertage, wiederkehrende Sperren und weitere Kapazitätsgrenzen.
 2. Wochen-/Agenda-/Zeitstrahlansicht, Serienreservierungen und weitere Komfortfunktionen für den vorhandenen Tagesbetrieb.
-3. Ausbau der Gastverwaltung, E-Mail-Bestätigungen, Erinnerungen, Nachrichten und Gast-Stornierungen. Das einbettbare Online-Widget ist umgesetzt.
+3. Ausbau der Gastverwaltung, Erinnerungen, Nachrichten und Gast-Stornierungen. Das einbettbare Online-Widget und transaktionale Gastmails sind umgesetzt.
 4. Anzahlungen, No-Show-Abwicklung, Automatisierungen, Auswertungen und bestehende Dienstplan-/TV-Anbindung.
 5. Marketing, Feedback, Erweiterung bestehender Gutscheine/Tickets sowie weitere vereinbarte Module. Externe Buchungskanäle, SMS, Telefonassistent und Zahlungsdienste benötigen eigene Integrationen.
 
-Die öffentliche Online-Buchung kann mit dem oben beschriebenen Widget freigeschaltet werden; Gästemails sind noch nicht aktiviert. Bestehende Resmio-Buchungen können mit dem beschriebenen Abgleich übernommen werden. Neue lokale Buchungen werden nicht an Resmio übertragen; Resmio kennt deren Belegung daher nicht. Ein öffentlicher Parallelbetrieb beider Buchungssysteme benötigt weiterhin eine gesonderte Umschaltung oder gemeinsame Verfügbarkeitsprüfung.
+Die öffentliche Online-Buchung kann mit dem oben beschriebenen Widget freigeschaltet werden; Gästemails lassen sich wie im Abschnitt „Reservierungsmails“ serverseitig aktivieren. Bestehende Resmio-Buchungen können mit dem beschriebenen Abgleich übernommen werden. Neue lokale Buchungen werden nicht an Resmio übertragen; Resmio kennt deren Belegung daher nicht. Ein öffentlicher Parallelbetrieb beider Buchungssysteme benötigt weiterhin eine gesonderte Umschaltung oder gemeinsame Verfügbarkeitsprüfung.
 
 ### Aus den Screenshots übernommene Werte
 
@@ -179,7 +215,7 @@ Die öffentliche Online-Buchung kann mit dem oben beschriebenen Widget freigesch
 ### Prüfung
 
 ```bash
-php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest|ReservationWidgetTest'
+php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest|ReservationWidgetTest|ReservationMailTest'
 node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs tests/Workflow/reservation-plan.test.mjs tests/Workflow/table-selection.test.mjs
 npm run build
 ```
