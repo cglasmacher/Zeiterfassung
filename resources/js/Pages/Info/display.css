@@ -75,6 +75,22 @@
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+.tv-youtube-status > button {
+    flex-shrink: 0;
+}
+.tv-account-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7em;
+    margin: 1em 0;
+}
+.tv-search-dialog p + p {
+    margin-top: 0.8em;
+}
+.tv-search-dialog a {
+    color: var(--tv-green);
+    text-decoration: underline;
+}
 .tv-youtube-window button,
 .tv-search-dialog button {
     border: 1px solid #a9b89d;

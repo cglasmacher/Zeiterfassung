@@ -5,9 +5,12 @@ import {
     playerError,
     readSelection,
     saveSelection,
+    youtubeEmbedUrl,
+    readAccountMode,
+    saveAccountMode,
 } from "./youtube-player";
 
-function Player({ video, sound, selecting }) {
+function Player({ video, sound, selecting, account, onSettings }) {
     const iframe = useRef(null),
         player = useRef(null);
     // Keep the original iframe URL stable: changing sound/feed must not restart playback.
@@ -87,7 +90,11 @@ function Player({ video, sound, selecting }) {
                 <iframe
                     ref={iframe}
                     title="YouTube-Player"
-                    src={`https://www.youtube-nocookie.com/embed/${initial.current}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&autoplay=1&mute=1&playsinline=1&controls=1&rel=0`}
+                    src={youtubeEmbedUrl(
+                        initial.current,
+                        window.location.origin,
+                        account,
+                    )}
                     allow="autoplay; encrypted-media; fullscreen"
                     allowFullScreen
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -114,6 +121,14 @@ function Player({ video, sound, selecting }) {
                 <span title={video.title}>{video.title}</span>
                 <button
                     type="button"
+                    aria-haspopup="dialog"
+                    aria-label="Kontomodus einrichten"
+                    onClick={onSettings}
+                >
+                    {account ? "Kontomodus an" : "Kontomodus"}
+                </button>
+                <button
+                    type="button"
                     disabled={!ready}
                     onClick={() =>
                         playing
@@ -125,6 +140,91 @@ function Player({ video, sound, selecting }) {
                 </button>
             </div>
         </>
+    );
+}
+
+function AccountSettings({ enabled, onChange, onClose }) {
+    const dialog = useRef(null);
+    useEffect(() => {
+        const previous = document.activeElement;
+        dialog.current.querySelector("button").focus();
+        return () => previous?.focus();
+    }, []);
+    function keys(e) {
+        if (e.key === "Escape" || e.key === "BrowserBack") {
+            e.preventDefault();
+            onClose();
+        }
+        if (e.key === "Tab") {
+            const nodes = [
+                ...dialog.current.querySelectorAll("button, a[href]"),
+            ];
+            const first = nodes[0],
+                last = nodes[nodes.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            }
+            if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    }
+    return (
+        <div className="tv-search-backdrop">
+            <section
+                ref={dialog}
+                className="tv-search-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="tv-account-title"
+                onKeyDown={keys}
+            >
+                <header>
+                    <h2 id="tv-account-title">YouTube-Kontomodus testen</h2>
+                    <button type="button" onClick={onClose}>
+                        Schließen
+                    </button>
+                </header>
+                <p>
+                    Im selben Silk-Browser bei YouTube mit dem
+                    Hemingway-Premium-Konto anmelden. Danach hier den Kontomodus
+                    aktivieren und mehrere Videos im Infoboard prüfen.
+                </p>
+                <p>
+                    Der Kontomodus verwendet den normalen YouTube-Player. Ob
+                    YouTube deine Anmeldung und Premium hier erkennt, hängt vom
+                    Browser und seinen Cookie-Einstellungen ab. Das Infoboard
+                    kann den Kontostatus nicht prüfen und keine Werbefreiheit
+                    bestätigen.
+                </p>
+                <p>
+                    <a
+                        href="https://www.youtube.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        YouTube im Browser öffnen
+                    </a>
+                </p>
+                <div className="tv-account-actions">
+                    <button type="button" onClick={() => onChange(true)}>
+                        {enabled
+                            ? "Kontomodus erneut starten"
+                            : "Kontomodus testen"}
+                    </button>
+                    <button type="button" onClick={() => onChange(false)}>
+                        Ohne Kontomodus
+                    </button>
+                </div>
+                <small>
+                    Die Einstellung bleibt auf diesem TV gespeichert. Beim
+                    Wechsel startet der Player neu. Die Anmeldung der
+                    YouTube-App wird nicht übernommen.
+                </small>
+            </section>
+        </div>
     );
 }
 
@@ -338,6 +438,11 @@ export default function YouTubeWindow({ items, sound, base, fallback }) {
         (item) => item.media_type === "youtube" && youtubeId(item.url),
     );
     const [selected, setSelected] = useState(() => readSelection(storageKey));
+    const [account, setAccount] = useState(() =>
+        readAccountMode(`${storageKey}:account`),
+    );
+    const [settings, setSettings] = useState(false);
+    const [playerVersion, setPlayerVersion] = useState(0);
     const video =
         selected ||
         (seed ? { id: youtubeId(seed.url), title: seed.title } : null);
@@ -391,7 +496,14 @@ export default function YouTubeWindow({ items, sound, base, fallback }) {
                 {mode === "media" ? (
                     fallback
                 ) : video ? (
-                    <Player video={video} sound={sound} selecting={open} />
+                    <Player
+                        key={`${account}:${playerVersion}`}
+                        video={video}
+                        sound={sound}
+                        selecting={open || settings}
+                        account={account}
+                        onSettings={() => setSettings(true)}
+                    />
                 ) : (
                     <div className="tv-placeholder tv-youtube-empty">
                         <img src="/brand/hemingway-logo.png" alt="Hemingway" />
@@ -407,6 +519,18 @@ export default function YouTubeWindow({ items, sound, base, fallback }) {
                     base={base}
                     onSelect={choose}
                     onClose={() => setOpen(false)}
+                />
+            )}
+            {settings && (
+                <AccountSettings
+                    enabled={account}
+                    onClose={() => setSettings(false)}
+                    onChange={(value) => {
+                        setAccount(value);
+                        saveAccountMode(`${storageKey}:account`, value);
+                        setPlayerVersion((version) => version + 1);
+                        setSettings(false);
+                    }}
                 />
             )}
         </>

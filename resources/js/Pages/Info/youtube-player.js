@@ -1,5 +1,45 @@
 let api;
 
+export function youtubeEmbedUrl(id, origin, account = false) {
+    if (typeof id !== "string" || !/^[\w-]{11}$/.test(id)) {
+        throw new Error("Ungültige YouTube-Video-ID.");
+    }
+    const site = new URL(origin);
+    if (!["https:", "http:"].includes(site.protocol)) {
+        throw new Error("Ungültige Player-Origin.");
+    }
+    const url = new URL(
+        `/embed/${id}`,
+        account
+            ? "https://www.youtube.com"
+            : "https://www.youtube-nocookie.com",
+    );
+    url.search = new URLSearchParams({
+        enablejsapi: "1",
+        origin: site.origin,
+        autoplay: "1",
+        mute: "1",
+        playsinline: "1",
+        controls: "1",
+        rel: "0",
+    }).toString();
+    return url.toString();
+}
+
+export function readAccountMode(key) {
+    try {
+        return localStorage.getItem(key) === "account";
+    } catch {
+        return false;
+    }
+}
+
+export function saveAccountMode(key, enabled) {
+    try {
+        localStorage.setItem(key, enabled ? "account" : "private");
+    } catch {}
+}
+
 export function loadYouTubeAPI() {
     if (window.YT?.Player) return Promise.resolve(window.YT);
     if (api) return api;
