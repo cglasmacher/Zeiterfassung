@@ -207,6 +207,9 @@ class ReservationService
                     return $this->importedLocal($booking->load('tables'), $data, $userId);
                 }
             }
+            if (($data['status'] ?? null) === 'arrived') {
+                $data['status'] = 'seated';
+            }
             $before = $booking?->load('tables')->toArray();
             $kind = $booking?->kind ?? $data['kind'];
             $status = $data['status'] ?? ($kind === 'waitlist' ? 'waiting' : ($kind === 'walkin' ? 'seated' : 'confirmed'));
@@ -278,6 +281,10 @@ class ReservationService
 
     private function importedLocal(ReservationBooking $booking, array $data, int $userId): ReservationBooking
     {
+        $previousStatus = $booking->status;
+        if (($data['status'] ?? null) === 'arrived') {
+            $data['status'] = 'seated';
+        }
         if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status', 'table_ids', 'reset_resmio_tables'])) {
             throw ValidationException::withMessages(['source' => 'Buchungsdaten dieser Reservierung werden in Resmio gepflegt. Hier sind eigene Notizen, lokale Tischzuordnungen und Serviceaktionen möglich.']);
         }
@@ -302,20 +309,21 @@ class ReservationService
         if (! empty($data['reset_resmio_status'])) {
             $booking->resmio_local_status = null;
             $booking->status = match ($booking->resmio_status) {
-                'waiting','unconfirmed','confirmed','arrived','seated','finished' => $booking->resmio_status,
+                'waiting','unconfirmed','confirmed','seated','finished' => $booking->resmio_status,
+                'arrived' => 'seated',
                 'noshow','no_show' => 'noshow', 'cancelled','canceled','deleted','removed' => 'cancelled', default => 'unconfirmed',
             };
         } elseif (isset($data['status'])) {
             if ($booking->resmio_status === 'waiting') {
                 throw ValidationException::withMessages(['status' => 'Wartelistenübernahme bitte in Resmio durchführen.']);
             }
-            if (! in_array($data['status'], ['arrived', 'seated', 'finished'], true)) {
-                throw ValidationException::withMessages(['status' => 'Bestätigung, Stornierung und No-Show bitte in Resmio ändern.']);
+            if (! in_array($data['status'], ['unconfirmed', 'confirmed', 'seated', 'finished', 'cancelled', 'noshow'], true)) {
+                throw ValidationException::withMessages(['status' => 'Bitte einen gültigen Reservierungsstatus wählen.']);
             }
             if (in_array($booking->resmio_status, ['cancelled', 'canceled', 'deleted', 'removed', 'noshow', 'no_show', 'finished'], true)) {
                 throw ValidationException::withMessages(['status' => 'Diese Buchung wurde bereits in Resmio beendet.']);
             }
-            if ($data['status'] === 'seated') {
+            if ($data['status'] === 'seated' || (in_array($data['status'], ReservationBooking::ACTIVE, true) && ! in_array($booking->status, ReservationBooking::ACTIVE, true))) {
                 if ($booking->resmio_unassigned || $booking->tables->isEmpty()) {
                     throw ValidationException::withMessages(['status' => 'Bitte zuerst alle Resmio-Tische zuordnen und erneut synchronisieren.']);
                 }
@@ -331,6 +339,9 @@ class ReservationService
             }
             $booking->status = $data['status'];
             $booking->resmio_local_status = $data['status'];
+        }
+        if (! in_array($previousStatus, ReservationBooking::ACTIVE, true) && in_array($booking->status, ReservationBooking::ACTIVE, true)) {
+            $this->validateTableSelection($booking->tables->pluck('id')->all(), $booking->starts_at, $booking->ends_at, $booking->party_size, $booking->id, true);
         }
         $booking->resmio_unassigned = in_array($booking->status, ReservationBooking::ACTIVE, true) && ($booking->tables->isEmpty() || $booking->tables->count() !== count($booking->resmio_local_table_ids ?? $booking->resmio_tables ?? []));
         $this->withCurrentIssues($booking);

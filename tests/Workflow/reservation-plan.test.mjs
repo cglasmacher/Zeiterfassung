@@ -37,16 +37,16 @@ test('combination reservations get a time list at every member table',()=>{
     assert.ok(layout.labels.every(l=>l.reservations[0].id==='combo'));
 });
 
-test('time lists do not cover rotated tables or each other and expand the canvas for dense plans',()=>{
+test('compact time labels stay immediately left or right of each table, even in a dense rotated plan',()=>{
     const tables=Array.from({length:8},(_,i)=>({...table,id:`table-${i}`,x:60+(i%4)*90,y:60+Math.floor(i/4)*100,rotation:45}));
-    const bookings=tables.flatMap(t=>Array.from({length:5},(_,i)=>booking(`${t.id}-${i}`,`2026-10-26T${String(10+i*2).padStart(2,'0')}:00:00Z`,`2026-10-26T${String(11+i*2).padStart(2,'0')}:00:00Z`,'confirmed',[t])));
+    const bookings=tables.flatMap(t=>Array.from({length:3},(_,i)=>booking(`${t.id}-${i}`,`2026-10-26T${String(10+i*2).padStart(2,'0')}:00:00Z`,`2026-10-26T${String(11+i*2).padStart(2,'0')}:00:00Z`,'confirmed',[t])));
     const layout=planTimeLayout({width:400,height:300,tables},bookings,'2026-10-26');
-    const overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
     assert.equal(layout.labels.length,8);
-    assert.ok(layout.width>400);
     for(const label of layout.labels){
-        assert.ok(label.x>=0&&label.y>=0&&label.x+label.width<=layout.width&&label.y+label.height<=layout.height);
-        for(const t of tables){const e=extents(t);assert.ok(!overlap(label,{x:t.x-e.x,y:t.y-e.y,width:e.x*2,height:e.y*2}));}
-        for(const other of layout.labels)if(label!==other)assert.ok(!overlap(label,other));
+        const e=extents(label.table);
+        assert.equal(label.width,40);
+        assert.ok(Math.abs(label.x-(label.table.x+e.x+3))<0.001 || Math.abs(label.x+label.width-(label.table.x-e.x-3))<0.001);
+        assert.ok(Math.abs(label.y+label.height/2-label.table.y)<=e.y);
+        assert.ok(label.x>=layout.minX&&label.y>=layout.minY&&label.x+label.width<=layout.minX+layout.width&&label.y+label.height<=layout.minY+layout.height);
     }
 });

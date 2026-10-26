@@ -101,6 +101,17 @@ class ReservationBookTest extends TestCase
         $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 2, 'table_ids' => [$ids[0]], 'party_size' => 8])->assertOk()->assertJsonPath('party_size', 8)->assertJsonCount(1, 'tables');
     }
 
+    public function test_legacy_arrived_bookings_are_one_arrival_state_without_losing_occupancy(): void
+    {
+        $room = $this->room();
+        $table = $room['tables'][0]['id'];
+        $b = $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$table]]))->assertCreated()->json();
+        \Illuminate\Support\Facades\DB::table('reservation_bookings')->where('id', $b['id'])->update(['status' => 'arrived']);
+        $this->getJson('/api/reservations/book?date=2026-10-26')->assertOk()->assertJsonPath('bookings.0.status', 'seated');
+        $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$table]]))->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 1, 'status' => 'arrived'])->assertOk()->assertJsonPath('status', 'seated');
+    }
+
     public function test_operations_can_run_service_but_cannot_change_settings_or_builder(): void
     {
         $this->get('/reservierungen')->assertOk();
