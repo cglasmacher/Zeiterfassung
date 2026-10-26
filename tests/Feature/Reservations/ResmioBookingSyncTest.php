@@ -193,7 +193,8 @@ class ResmioBookingSyncTest extends TestCase
         $this->rows = [$this->row(['num' => 5])];
         app(ResmioSync::class)->run();
         $b = $this->imported();
-        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$ids[0]]])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$ids[0]]])->assertOk();
+        $b = $this->imported();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => $ids])->assertOk()->assertJsonCount(2, 'tables');
         app(ResmioSync::class)->run();
         $b = $this->imported();
@@ -209,7 +210,10 @@ class ResmioBookingSyncTest extends TestCase
         app(ResmioSync::class)->run();
         $b = $this->imported();
         $ids = collect($this->room['tables'])->take(8)->pluck('id')->all();
-        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => array_slice($ids, 0, 6)])->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => array_slice($ids, 0, 6)])->assertOk()->assertJsonCount(6, 'tables');
+        app(ResmioSync::class)->run();
+        $this->assertCount(6, $this->imported()->tables);
+        $b = $this->imported();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => $ids])->assertOk()->assertJsonCount(8, 'tables');
         app(ResmioSync::class)->run();
         $this->assertEqualsCanonicalizing($ids, $this->imported()->tables->pluck('id')->all());

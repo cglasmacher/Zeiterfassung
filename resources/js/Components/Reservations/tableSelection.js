@@ -6,5 +6,5 @@ export function selectionSummary(ids, tables, combinations, size) {
     const unavailable=selected.some(t=>!t?.available);
     const mixedRooms=new Set(selected.filter(Boolean).map(t=>t.room_id)).size>1;
     const missing=Math.max(0,Number(size)-capacity);
-    return {capacity,missing,unavailable,mixedRooms,valid:ids.length>0&&ids.length<=20&&!unavailable&&!mixedRooms&&!missing};
+    return {capacity,missing,unavailable,mixedRooms,valid:ids.length>0&&ids.length<=20&&!unavailable&&!mixedRooms};
 }

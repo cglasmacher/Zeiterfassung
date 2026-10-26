@@ -76,8 +76,8 @@ class ReservationBookTest extends TestCase
         $room = $this->room();
         $tables = collect($room['tables'])->keyBy('name');
         $ids = collect(['11', '12', '13', '14', '15', '16'])->map(fn ($name) => $tables[$name]['id'])->all();
-        $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 15, 'table_ids' => $ids]))->assertUnprocessable()->assertJsonValidationErrors('table_ids');
-        $this->assertDatabaseCount('reservation_bookings', 0);
+        $small = $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 15, 'table_ids' => $ids]))->assertCreated()->assertJsonCount(6, 'tables')->json();
+        $this->putJson('/api/reservations/bookings/'.$small['id'], ['version' => 1, 'status' => 'cancelled'])->assertOk();
         $ids[] = $tables['17']['id'];
         $ids[] = $tables['1']['id'];
         $b = $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 15, 'table_ids' => $ids]))->assertCreated()->assertJsonCount(8, 'tables')->json();
@@ -87,6 +87,18 @@ class ReservationBookTest extends TestCase
         $other = $this->room();
         $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 2, 'table_ids' => array_merge($ids, [$other['tables'][0]['id']])])->assertUnprocessable();
         $this->assertCount(8, ReservationBooking::find($b['id'])->tables);
+    }
+
+    public function test_seven_guests_can_save_three_two_seat_tables_and_automatic_allocation_still_needs_capacity(): void
+    {
+        $room = $this->room();
+        $tables = collect($room['tables'])->keyBy('name');
+        $ids = collect(['1', '2', '3'])->map(fn ($name) => $tables[$name]['id'])->all();
+        $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 7]))->assertUnprocessable();
+        $b = $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 7, 'table_ids' => $ids]))->assertCreated()->assertJsonPath('party_size', 7)->assertJsonCount(3, 'tables')->json();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 1, 'status' => 'seated'])->assertOk();
+        $this->postJson('/api/reservations/bookings', $this->booking(['table_ids' => [$ids[0]]]))->assertUnprocessable();
+        $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 2, 'table_ids' => [$ids[0]], 'party_size' => 8])->assertOk()->assertJsonPath('party_size', 8)->assertJsonCount(1, 'tables');
     }
 
     public function test_operations_can_run_service_but_cannot_change_settings_or_builder(): void
