@@ -229,4 +229,18 @@ class AccountingImportTest extends TestCase
         $this->postJson("/api/accounting/documents/$id/approve")->assertUnprocessable();
         $this->patchJson("/api/accounting/documents/$id/lines/$line->id", ['account_id' => $this->wine->id])->assertUnprocessable();
     }
+
+    public function test_decimal_confidence_is_accepted_as_percentage_and_rounded_down(): void
+    {
+        $this->upload(['confidence' => 98.9, 'lines' => [['description' => 'Unbekannter Artikel', 'confidence' => 89.9]]])
+            ->assertCreated()->assertJsonPath('document.confidence', 98)
+            ->assertJsonPath('document.lines.0.confidence', 89)->assertJsonPath('document.status', 'review');
+    }
+
+    public function test_fractional_confidence_is_not_inflated_to_high_certainty(): void
+    {
+        $this->upload(['confidence' => 0.99, 'lines' => [['description' => 'Unbekannter Artikel', 'confidence' => 0.99]]])
+            ->assertCreated()->assertJsonPath('document.confidence', 0)
+            ->assertJsonPath('document.lines.0.confidence', 0)->assertJsonPath('document.status', 'review');
+    }
 }
