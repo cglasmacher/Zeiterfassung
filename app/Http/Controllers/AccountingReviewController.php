@@ -7,6 +7,7 @@ use App\Models\AccountingDocument;
 use App\Models\AccountingDocumentLine;
 use App\Models\AccountingRule;
 use App\Models\AccountingSupplier;
+use App\Services\Accounting\DocumentValidation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,6 +66,8 @@ class AccountingReviewController extends Controller
 
         return response()->json([
             'document' => $document,
+            'locked' => $document->isLocked(),
+            'blocking_errors' => $document->isLocked() ? [] : app(DocumentValidation::class)->errors($document),
             'accounts' => AccountingAccount::where('active', true)->orderBy('account_number')->get(['id', 'account_number', 'name', 'kind']),
         ]);
     }
@@ -95,7 +98,7 @@ class AccountingReviewController extends Controller
 
         $data = $request->validate([
             'source' => ['nullable', 'string', 'max:32'],
-            'source_reference' => ['nullable', 'string', 'max:255'],
+            'source_reference' => ['required', 'string', 'max:255'],
             'supplier_id' => ['nullable', 'integer', 'exists:accounting_suppliers,id'],
             'supplier_name' => ['nullable', 'string', 'max:255'],
             'invoice_number' => ['nullable', 'string', 'max:255'],
@@ -108,9 +111,9 @@ class AccountingReviewController extends Controller
             'gross_cents' => ['nullable', 'integer'],
             'confidence' => ['nullable', 'integer', 'between:0,100'],
             'original_filename' => ['nullable', 'string', 'max:255'],
-            'file_path' => ['nullable', 'string', 'max:1024'],
             'raw_payload' => ['nullable', 'array'],
             'validation_errors' => ['nullable', 'array'],
+            'validation_errors.*' => ['string', 'max:2000'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.position_no' => ['nullable', 'integer', 'min:0'],
             'lines.*.article_number' => ['nullable', 'string', 'max:255'],
@@ -131,14 +134,17 @@ class AccountingReviewController extends Controller
             $supplier = $this->resolveSupplier($data['supplier_id'] ?? null, $data['supplier_name'] ?? null);
             $status = ! empty($data['validation_errors']) ? 'review' : 'analyzed';
 
-            $lookup = array_filter([
+            // The unique source key and firstOrCreate also cover simultaneous retries.
+            $document = AccountingDocument::firstOrCreate([
                 'source' => $data['source'] ?? 'n8n',
-                'source_reference' => $data['source_reference'] ?? null,
-            ], fn ($value) => $value !== null && $value !== '');
-
-            $document = $lookup && isset($lookup['source_reference'])
-                ? AccountingDocument::firstOrNew($lookup)
-                : new AccountingDocument();
+                'source_reference' => $data['source_reference'],
+            ]);
+            $created = $document->wasRecentlyCreated;
+            $document = AccountingDocument::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            if (! $created) {
+                // Retries never replace analysis, manual corrections, PDF or approval.
+                return ['document' => $document, 'duplicate' => true];
+            }
 
             $document->fill([
                 'source' => $data['source'] ?? 'n8n',
@@ -156,7 +162,7 @@ class AccountingReviewController extends Controller
                 'confidence' => $data['confidence'] ?? null,
                 'status' => $status,
                 'original_filename' => $data['original_filename'] ?? null,
-                'file_path' => $data['file_path'] ?? $document->file_path,
+                'file_path' => $document->file_path,
                 'raw_payload' => $data['raw_payload'] ?? null,
                 'validation_errors' => $data['validation_errors'] ?? null,
             ]);
@@ -180,8 +186,8 @@ class AccountingReviewController extends Controller
             foreach ($data['lines'] as $line) {
                 $resolved = $this->resolveAccounting($supplier, $line);
                 $account = $resolved['account'];
-                $confidence = $line['confidence'] ?? $resolved['confidence'];
-                $taxRate = $line['tax_rate'] ?? $resolved['tax_rate'];
+                $confidence = $resolved['confidence'];
+                $taxRate = $line['tax_rate'] ?? null;
                 $lineStatus = $account && $confidence >= 90 ? 'proposed' : 'review';
 
                 $document->lines()->create([
@@ -189,7 +195,7 @@ class AccountingReviewController extends Controller
                     'tax_rate' => $taxRate,
                     'account_id' => $account?->id,
                     'account_number_snapshot' => $account?->account_number,
-                    'classification_source' => $line['classification_source'] ?? $resolved['source'],
+                    'classification_source' => $resolved['source'],
                     'confidence' => $confidence,
                     'status' => $lineStatus,
                     'rule_key' => $resolved['rule_key'],
@@ -198,17 +204,20 @@ class AccountingReviewController extends Controller
 
             $this->refreshStatus($document);
 
-            return $document;
+            return ['document' => $document, 'duplicate' => false];
         });
 
-        return response()->json(['document' => $document->fresh(['supplier', 'lines.account'])], 201);
+        return response()->json([
+            'document' => $document['document']->fresh(['supplier', 'lines.account']),
+            'duplicate' => $document['duplicate'],
+        ], $document['duplicate'] ? 200 : 201);
     }
 
     public function updateLine(Request $request, int $documentId, int $lineId): JsonResponse
     {
         $line = AccountingDocumentLine::where('document_id', $documentId)->findOrFail($lineId);
         $data = $request->validate([
-            'account_id' => ['required', 'integer', 'exists:accounting_accounts,id'],
+            'account_id' => ['required', 'integer', Rule::exists('accounting_accounts', 'id')->where('active', true)],
             'note' => ['nullable', 'string', 'max:2000'],
             'remember_rule' => ['sometimes', 'boolean'],
         ]);
@@ -216,6 +225,11 @@ class AccountingReviewController extends Controller
         $account = AccountingAccount::findOrFail($data['account_id']);
 
         DB::transaction(function () use ($line, $account, $data) {
+            $document = AccountingDocument::whereKey($line->document_id)->lockForUpdate()->firstOrFail();
+            $this->assertEditable($document);
+            if (! empty($data['remember_rule']) && ! $document->supplier_id) {
+                throw ValidationException::withMessages(['remember_rule' => 'Eine Lernregel benötigt einen erkannten Lieferanten.']);
+            }
             $line->update([
                 'account_id' => $account->id,
                 'account_number_snapshot' => $account->account_number,
@@ -237,7 +251,7 @@ class AccountingReviewController extends Controller
                     ],
                     [
                         'account_id' => $account->id,
-                        'tax_rate' => $line->tax_rate,
+                        'tax_rate' => null,
                         'priority' => $line->article_number ? 10 : 50,
                         'learned_from_manual' => true,
                         'active' => true,
@@ -253,44 +267,44 @@ class AccountingReviewController extends Controller
 
     public function approve(Request $request, int $id): JsonResponse
     {
-        $document = AccountingDocument::with('lines')->findOrFail($id);
+        $document = DB::transaction(function () use ($request, $id) {
+            $document = AccountingDocument::whereKey($id)->lockForUpdate()->firstOrFail();
+            $this->assertEditable($document);
+            $errors = app(DocumentValidation::class)->errors($document);
+            if ($errors) {
+                throw ValidationException::withMessages(['document' => $errors]);
+            }
 
-        if ($document->lines->isEmpty()) {
-            throw ValidationException::withMessages(['document' => 'Der Beleg enthält keine Buchungszeilen.']);
-        }
-
-        if ($document->lines->contains(fn ($line) => ! $line->account_id)) {
-            throw ValidationException::withMessages(['document' => 'Nicht alle Positionen sind kontiert.']);
-        }
-
-        $lineGross = $document->lines->sum(fn ($line) => $line->gross_cents ?? (($line->net_cents ?? 0) + ($line->tax_cents ?? 0)));
-        if ($document->gross_cents !== null && abs($lineGross - $document->gross_cents) > 2) {
-            throw ValidationException::withMessages([
-                'document' => 'Die Summe der Buchungszeilen weicht vom Rechnungsbrutto ab.',
+            $document->lines()->update(['status' => 'approved']);
+            $document->update([
+                'status' => 'approved',
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
             ]);
-        }
 
-        $document->lines()->update(['status' => 'approved']);
-        $document->update([
-            'status' => 'approved',
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-        ]);
+            return $document;
+        });
 
         return response()->json(['document' => $document->fresh(['supplier', 'lines.account', 'approver'])]);
+    }
+
+    private function assertEditable(AccountingDocument $document): void
+    {
+        abort_if($document->isLocked(), 409, 'Freigegebene oder exportierte Belege dürfen nicht verändert werden.');
     }
 
     private function resolveSupplier(?int $supplierId, ?string $name): ?AccountingSupplier
     {
         if ($supplierId) {
-            return AccountingSupplier::find($supplierId);
+            return AccountingSupplier::where('active', true)->find($supplierId);
         }
         if (! $name) {
             return null;
         }
 
         $normalized = mb_strtolower(trim($name));
-        return AccountingSupplier::whereRaw('LOWER(name) = ?', [$normalized])->get()->first()
+
+        return AccountingSupplier::where('active', true)->whereRaw('LOWER(name) = ?', [$normalized])->get()->first()
             ?? AccountingSupplier::where('active', true)->get()->first(function ($supplier) use ($normalized) {
                 return collect($supplier->aliases ?? [])->contains(fn ($alias) => mb_strtolower(trim($alias)) === $normalized);
             });
@@ -298,31 +312,23 @@ class AccountingReviewController extends Controller
 
     private function resolveAccounting(?AccountingSupplier $supplier, array $line): array
     {
-        if (! empty($line['account_number'])) {
-            $account = AccountingAccount::where('account_number', $line['account_number'])->where('active', true)->first();
-            if ($account) {
-                return [
-                    'account' => $account,
-                    'tax_rate' => null,
-                    'confidence' => $line['confidence'] ?? 95,
-                    'source' => $line['classification_source'] ?? 'n8n',
-                    'rule_key' => null,
-                ];
-            }
-        }
-
-        if (! $supplier) {
-            return $this->unresolvedAccounting();
-        }
-
         $description = mb_strtolower(trim($line['description'] ?? ''));
         $articleNumber = trim((string) ($line['article_number'] ?? ''));
         $rules = AccountingRule::with('account')
-            ->where('supplier_id', $supplier->id)
+            ->where('supplier_id', $supplier?->id)
+            ->whereNotNull('supplier_id')
             ->where('active', true)
             ->orderBy('priority')
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->sortBy(function ($rule) {
+                return match (true) {
+                    $rule->learned_from_manual && $rule->match_type === 'article_number' => 0,
+                    $rule->learned_from_manual && $rule->match_type === 'description_exact' => 1,
+                    $rule->learned_from_manual => 2,
+                    default => 3,
+                };
+            });
 
         foreach ($rules as $rule) {
             $matchValue = mb_strtolower(trim($rule->match_value));
@@ -340,11 +346,24 @@ class AccountingReviewController extends Controller
 
             return [
                 'account' => $rule->account,
-                'tax_rate' => $rule->tax_rate !== null ? (float) $rule->tax_rate : null,
+                'tax_rate' => null,
                 'confidence' => $rule->learned_from_manual ? 100 : 98,
                 'source' => $rule->learned_from_manual ? 'learned_rule' : 'rule',
                 'rule_key' => $rule->match_type.':'.$rule->match_value,
             ];
+        }
+
+        if (! empty($line['account_number'])) {
+            $account = AccountingAccount::where('account_number', $line['account_number'])->where('active', true)->first();
+            if ($account) {
+                return [
+                    'account' => $account,
+                    'tax_rate' => null,
+                    'confidence' => $line['confidence'] ?? 0,
+                    'source' => 'ai',
+                    'rule_key' => null,
+                ];
+            }
         }
 
         return $this->unresolvedAccounting();
@@ -363,12 +382,11 @@ class AccountingReviewController extends Controller
 
     private function refreshStatus(AccountingDocument $document): void
     {
-        $document->load('lines');
-        $hasUnassigned = $document->lines->contains(fn ($line) => ! $line->account_id);
-        $hasReview = $document->lines->contains(fn ($line) => in_array($line->status, ['review', 'manual'], true));
-
-        $document->update([
-            'status' => ($hasUnassigned || $hasReview) ? 'review' : 'ready',
-        ]);
+        if ($document->isLocked()) {
+            return;
+        }
+        $document->unsetRelation('lines');
+        $errors = app(DocumentValidation::class)->errors($document);
+        $document->update(['status' => $errors ? 'review' : 'ready']);
     }
 }

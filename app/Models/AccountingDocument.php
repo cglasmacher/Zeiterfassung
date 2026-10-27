@@ -46,9 +46,15 @@ class AccountingDocument extends Model
         return $this->belongsTo(AccountingExportBatch::class, 'export_batch_id');
     }
 
+    public function isLocked(): bool
+    {
+        return in_array($this->status, ['approved', 'exported'], true)
+            || $this->approved_at !== null || $this->exported_at !== null
+            || $this->export_batch_id !== null;
+    }
+
     public function needsReview(): bool
     {
-        return $this->lines()->whereIn('status', ['review', 'manual'])->exists()
-            || $this->lines()->whereNull('account_id')->exists();
+        return ! empty(app(\App\Services\Accounting\DocumentValidation::class)->errors($this));
     }
 }
