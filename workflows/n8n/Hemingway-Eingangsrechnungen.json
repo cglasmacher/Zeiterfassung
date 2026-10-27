@@ -46,7 +46,7 @@
         "messages": {
           "values": [
             {
-              "content": "=Analysiere die folgende Eingangsrechnung und gib ausschließlich JSON zurück.\n\nExtrahiere:\n- supplier_name\n- invoice_number\n- invoice_date\n- net_cents\n- tax_cents\n- gross_cents\n- lines mit:\n  - position_no\n  - article_number\n  - description\n  - quantity\n  - unit\n  - net_cents\n  - tax_rate\n  - tax_cents\n  - gross_cents\n  - account_number\n  - confidence\n\nWICHTIG:\n- Geldbeträge als Integer-Cent.\n- confidence als ganze Prozentzahl von 0 bis 100, z. B. 95. Keine 0-bis-1-Skala.\n- Nichts erfinden.\n- Steuer aus der Rechnung übernehmen.\n- Bei Getränke Gato gilt:\n  - Position mit * = 7 %\n  - Position ohne * = 19 %\n  - Bier = 5132\n  - AfG = 5131\n  - Wein/Prosecco = 5133\n  - Spirituosen = 5134\n  - Sirup mit * = 5110\n  - Pfand = 1141\n- Nur JSON zurückgeben.\n\nRECHNUNGSTEXT:\n{{ $json.text }}"
+              "content": "=Analysiere die folgende Eingangsrechnung und gib ausschließlich JSON zurück.\n\nExtrahiere:\n- supplier_name\n- invoice_number\n- invoice_date\n- net_cents\n- tax_cents\n- gross_cents\n- lines mit:\n  - position_no\n  - article_number\n  - description\n  - quantity\n  - unit\n  - net_cents\n  - tax_rate\n  - tax_cents\n  - gross_cents\n  - account_number\n  - confidence\n\nWICHTIG:\n- Geldbeträge als Integer-Cent.\n- confidence als ganze Prozentzahl von 0 bis 100, z. B. 95. Keine 0-bis-1-Skala.\n- Nichts erfinden.\n- Steuer aus der Rechnung übernehmen.\n- Bei Getränke Gato gilt:\n  - Position mit * = 7 %\n  - Position ohne * = 19 %\n  - Bier = 5132\n  - AfG = 5131\n  - Wein/Prosecco = 5133\n  - Spirituosen = 5134\n  - Sirup mit * = 5110\n  - Pfand = 1141\n- Nur JSON zurückgeben.\n\nRECHNUNGSTEXT:\n{{ $('Kassenberichte ausschließen').item.json.text }}"
             }
           ]
         },
@@ -57,7 +57,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        1200,
+        1680,
         400
       ]
     },
@@ -71,7 +71,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1440,
+        1920,
         400
       ]
     },
@@ -114,14 +114,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1680,
+        2160,
         240
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (!addresses.length) throw new Error('Absender fehlt; Mail nicht automatisch verarbeiten.');\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                accounting_supplier: addresses.some(address => address.toLowerCase().endsWith('@getraenke-gato.de')) ? 'gato' : null,\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
+        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
       },
       "id": "f3a308e0-d970-4641-b351-e5394277e238",
       "name": "PDF normalisieren",
@@ -152,7 +152,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        960,
+        1440,
         240
       ],
       "parameters": {
@@ -166,7 +166,7 @@
           "conditions": [
             {
               "id": "2b063039-7248-4d1a-9919-e9afcda64a0e",
-              "leftValue": "={{ $('PDF normalisieren').item.json.accounting_supplier === 'gato' }}",
+              "leftValue": "={{ $json.supplier === 'gato' && $json.profile === 'gato_layout_v1' }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -186,13 +186,66 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        1680,
         80
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Gato branch bypasses AI. Laravel parses the original PDF and owns all accounting.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif (attachment.json.accounting_supplier !== 'gato' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Gato-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Getränke Gato GmbH',\n            extraction_profile: 'gato_layout_v1',\n            original_filename: metadata.original_filename,\n            extracted_text: $json.text ?? null,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
+        "jsCode": "// Gato branch bypasses AI. Laravel parses the original PDF and owns all accounting.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif ($json.supplier !== 'gato' || $json.profile !== 'gato_layout_v1' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Gato-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Getränke Gato GmbH',\n            extraction_profile: 'gato_layout_v1',\n            original_filename: metadata.original_filename,\n            extracted_text: $('Kassenberichte ausschließen').item.json.text ?? null,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
       }
+    },
+    {
+      "id": "775eadbb-202f-4400-8590-171bb7cd21a0",
+      "name": "Original für Lieferantenprüfung",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reattach the exact original before the read-only content inspection request.\nconst attachment = $('PDF normalisieren').item;\nif (!attachment.binary?.eingangsrechnung_0) throw new Error('Original-PDF fehlt.');\nreturn { json: $json, binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 } };\n"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dienstplan.hemingway-hilden.de/api/integrations/accounting/inspect",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer HEMINGWAY_ACCOUNTING_IMPORT_TOKEN_EINTRAGEN"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "eingangsrechnung_0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5be7f800-ea9c-4b1c-882c-2443727c63ed",
+      "name": "Lieferant aus PDF erkennen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        240
+      ]
     }
   ],
   "connections": {
@@ -233,7 +286,7 @@
       "main": [
         [
           {
-            "node": "Gato ohne KI?",
+            "node": "Original für Lieferantenprüfung",
             "type": "main",
             "index": 0
           }
@@ -285,6 +338,28 @@
         [
           {
             "node": "Hemingway Portal - Beleg übergeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Original für Lieferantenprüfung": {
+      "main": [
+        [
+          {
+            "node": "Lieferant aus PDF erkennen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferant aus PDF erkennen": {
+      "main": [
+        [
+          {
+            "node": "Gato ohne KI?",
             "type": "main",
             "index": 0
           }

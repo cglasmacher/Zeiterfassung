@@ -16,6 +16,9 @@ Route::post('/integrations/vectron/z-reports', [\App\Http\Controllers\ZReportCon
 Route::post('/integrations/accounting/documents', [\App\Http\Controllers\AccountingReviewController::class, 'store'])
     ->middleware([\App\Http\Middleware\AuthenticateAccountingImport::class, 'throttle:60,1']);
 
+Route::post('/integrations/accounting/inspect', [\App\Http\Controllers\AccountingReviewController::class, 'inspect'])
+    ->middleware([\App\Http\Middleware\AuthenticateAccountingImport::class, 'throttle:60,1']);
+
 Route::prefix('integrations/cash-documents')
     ->middleware([\App\Http\Middleware\AuthenticateCashDocumentExport::class, 'throttle:120,1'])
     ->controller(\App\Http\Controllers\CashDocumentExportController::class)->group(function () {
