@@ -35,3 +35,15 @@ Das bekannte native Gato-Layout ist abgedeckt. Andere Layouts, Scans/OCR, komple
 3. Frontend mit `npm install` und `npm run build` bauen; Laravel-Konfigurationscache nach Umgebungsänderungen erneuern.
 4. Aktualisierte Workflow-JSON importieren. IMAP-/OpenAI-Zugangsdaten auswählen und die Platzhalter in beiden HTTP-Authorization-Headern (Lieferantenerkennung und Belegübergabe) mit demselben ACCOUNTING_IMPORT_TOKEN ersetzen. Alten Rechnungsworkflow deaktivieren, bevor der neue aktiv wird.
 5. Mit einer neuen Gato-Mail testen: Gato-Zweig ohne GPT, 324,81 € brutto, Pfand −2,38 €, vollständiges Original im Review. Wiederholung derselben Referenz darf den Beleg nicht verändern. Alte Mails nicht pauschal erneut als ungelesen markieren.
+
+## Pfand: 1141 netto und 1461 Vorsteuer
+
+Die Buchungsvorbereitung zeigt zusätzlich explizite Soll-/Haben-Zeilen je Pfand-Steuergruppe: 1141 nur mit Nettobetrag, 1461 nur mit Vorsteuer und Kreditor mit dem zugehörigen Bruttobetrag. Rückgaben kehren die Richtung um. Die Testrechnung ergibt 1141 Haben 2,38 €, 1461 Haben 0,45 € und 70007 Soll 2,83 €. Die Gruppensummen darüber dienen der Belegabstimmung; Pfandbrutto ist kein Buchungsbetrag für Konto 1141.
+
+Die Zeilen tragen `tax_mode=explicit`. Ein späterer Lexware-Exporter muss diese Aufteilung übernehmen und darf für dieselben Pfandbeträge keine zusätzliche automatische Vorsteuer berechnen. Der CSV-Exporter selbst ist weiterhin nicht implementiert.
+
+Fehlt das aktive Konto 1461 bei steuerpflichtigem Pfand, blockieren Bereitschaft und Freigabe. Bestehende Installationen ergänzen das Konto gezielt mit:
+
+`php artisan db:seed --class=AccountingDepositTaxAccountSeeder --force`
+
+Dieser Seeder legt ausschließlich ein fehlendes Konto 1461 an und ändert keine vorhandenen Kontobezeichnungen oder Aktivzustände. Der allgemeine Kontenseeder verwendet für Pfandvorsteuer künftig ebenfalls 1461. Ein bereits vorhandenes Konto 1406 wird nicht gelöscht oder umkontiert. Keine Migration erforderlich; nach Deployment Frontend neu bauen und Beleg neu öffnen.

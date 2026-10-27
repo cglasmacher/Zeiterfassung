@@ -63,6 +63,11 @@ class DocumentValidation
             }
         }
 
+        if ($document->lines->contains(fn ($line) => $line->account?->account_number === '1141' && $line->tax_cents !== null && $line->tax_cents != 0)
+            && ! \App\Models\AccountingAccount::where('account_number', '1461')->where('active', true)->exists()) {
+            $errors[] = 'Aktives Vorsteuerkonto 1461 für Pfand fehlt.';
+        }
+
         return array_values(array_unique($errors, SORT_REGULAR));
     }
 }

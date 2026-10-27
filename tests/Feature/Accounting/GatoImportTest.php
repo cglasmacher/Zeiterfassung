@@ -89,7 +89,7 @@ class GatoImportTest extends \Tests\TestCase
 
     public function test_portal_classifies_real_layout_without_ai_and_keeps_rule_precedence(): void
     {
-        foreach (['1141', '5110', '5131'] as $number) {
+        foreach (['1141', '1461', '5110', '5131'] as $number) {
             AccountingAccount::create(['account_number' => $number, 'name' => $number, 'active' => true]);
         }
         Process::fake(fn () => Process::result(output: $this->fixture()));
@@ -108,6 +108,11 @@ class GatoImportTest extends \Tests\TestCase
         $this->assertSame(-45, $rows['1141']['tax_cents']);
         $this->assertSame(11312, $rows['5131']['net_cents']);
         $this->assertSame(32481, $rows->sum('gross_cents'));
+        $postings = collect($detail->json('booking_summary.deposit_postings.rows'))->keyBy('account_number');
+        $this->assertSame(238, $postings['1141']['credit_cents']);
+        $this->assertSame(45, $postings['1461']['credit_cents']);
+        $this->assertSame(283, $postings['70007']['debit_cents']);
+        $this->assertSame($postings->sum('debit_cents'), $postings->sum('credit_cents'));
         $this->gatoUpload()->assertOk()->assertJsonPath('duplicate', true);
         $this->assertDatabaseCount('accounting_documents', 1);
 
@@ -136,7 +141,7 @@ class GatoImportTest extends \Tests\TestCase
 
     public function test_unrecognized_article_remains_for_review_instead_of_inventing_account(): void
     {
-        foreach (['1141', '5110', '5131'] as $number) {
+        foreach (['1141', '1461', '5110', '5131'] as $number) {
             AccountingAccount::create(['account_number' => $number, 'name' => $number, 'active' => true]);
         }
         $text = str_replace("04205    CONCA d'ORO Prosecco Frizzante", '09999    Unbekanntes Produkt', $this->fixture());
@@ -200,7 +205,7 @@ class GatoImportTest extends \Tests\TestCase
 
     public function test_summary_keeps_different_tax_rates_separate_on_same_account(): void
     {
-        foreach (['1141', '5110', '5131'] as $number) {
+        foreach (['1141', '1461', '5110', '5131'] as $number) {
             AccountingAccount::create(['account_number' => $number, 'name' => $number, 'active' => true]);
         }
         Process::fake(fn () => Process::result(output: $this->fixture()));
@@ -214,5 +219,44 @@ class GatoImportTest extends \Tests\TestCase
         $beer->update(['active' => false]);
         $document->unsetRelation('lines');
         $this->assertSame(2, app(\App\Services\Accounting\BookingSummary::class)->forDocument($document)['unresolved_lines']);
+    }
+
+    public function test_positive_deposit_posts_only_net_to_1141_and_tax_to_1461(): void
+    {
+        AccountingAccount::create(['account_number' => '1461', 'name' => 'Vorsteuer Pfand', 'active' => true]);
+        $doc = AccountingDocument::create(['supplier_id' => AccountingSupplier::first()->id]);
+        $group = ['account_number' => '1141', 'tax_rate' => '19.00', 'net_cents' => 238, 'tax_cents' => 45, 'gross_cents' => 283];
+        $result = app(\App\Services\Accounting\DepositPostings::class)->forGroups($doc, [$group]);
+        $rows = collect($result['rows'])->keyBy('account_number');
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(238, $rows['1141']['debit_cents']);
+        $this->assertSame(45, $rows['1461']['debit_cents']);
+        $this->assertSame(283, $rows['70007']['credit_cents']);
+        $this->assertTrue($rows->every(fn ($row) => $row['tax_mode'] === 'explicit'));
+        $this->assertSame($rows->sum('debit_cents'), $rows->sum('credit_cents'));
+    }
+
+    public function test_missing_input_tax_account_blocks_readiness_and_approval(): void
+    {
+        foreach (['1141', '5110', '5131'] as $number) {
+            AccountingAccount::create(['account_number' => $number, 'name' => $number, 'active' => true]);
+        }
+        Process::fake(fn () => Process::result(output: $this->fixture()));
+        $id = $this->gatoUpload()->assertCreated()->assertJsonPath('document.status', 'review')->json('document.id');
+        $this->actingAs(\App\Models\User::factory()->create());
+        $this->getJson('/api/accounting/documents/'.$id)->assertOk()
+            ->assertJsonPath('booking_summary.deposit_postings.rows', [])
+            ->assertJsonPath('booking_summary.deposit_postings.errors.0', 'Aktives Vorsteuerkonto 1461 für Pfand fehlt.');
+        $this->postJson('/api/accounting/documents/'.$id.'/approve')->assertUnprocessable();
+    }
+
+    public function test_targeted_tax_account_seeder_is_idempotent_and_preserves_existing_settings(): void
+    {
+        $this->seed(\Database\Seeders\AccountingDepositTaxAccountSeeder::class);
+        $this->seed(\Database\Seeders\AccountingDepositTaxAccountSeeder::class);
+        $this->assertSame(1, AccountingAccount::where('account_number', '1461')->count());
+        AccountingAccount::where('account_number', '1461')->update(['name' => 'Eigene Bezeichnung', 'active' => false]);
+        $this->seed(\Database\Seeders\AccountingDepositTaxAccountSeeder::class);
+        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1461', 'name' => 'Eigene Bezeichnung', 'active' => false]);
     }
 }

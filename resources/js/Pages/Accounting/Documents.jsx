@@ -91,6 +91,16 @@ function Detail({ data, busy, saveLine, approve, deleteDocument }) {
             </table></div>
         </section>}
 
+        {data.booking_summary?.deposit_postings && (data.booking_summary.deposit_postings.rows.length > 0 || data.booking_summary.deposit_postings.errors.length > 0) && <section className="space-y-2">
+            <h3 className="font-semibold">Pfandbuchung: Netto und Vorsteuer getrennt</h3>
+            <p className="text-sm text-neutral-600">1141 enthält ausschließlich Pfandnetto. Die Vorsteuer wird separat auf 1461 ausgewiesen.</p>
+            {data.booking_summary.deposit_postings.errors.length > 0 && <p className="text-sm text-amber-800">{data.booking_summary.deposit_postings.errors.join(" · ")}</p>}
+            {data.booking_summary.deposit_postings.rows.length > 0 && <div className="overflow-x-auto"><table className="min-w-full text-sm">
+                <thead><tr className="border-b text-left text-neutral-500"><th className="py-2 pr-3">Konto</th><th className="py-2 pr-3">USt.</th><th className="py-2 pr-3">Soll</th><th className="py-2">Haben</th></tr></thead>
+                <tbody>{data.booking_summary.deposit_postings.rows.map((row, index) => <tr key={index} className="border-b border-neutral-100"><td className="py-2 pr-3">{row.account_number} · {row.label}</td><td className="py-2 pr-3">{Number(row.tax_rate).toLocaleString("de-DE")}%</td><td className="py-2 pr-3">{row.debit_cents ? formatMoney(row.debit_cents) : "–"}</td><td className="py-2">{row.credit_cents ? formatMoney(row.credit_cents) : "–"}</td></tr>)}</tbody>
+            </table></div>}
+        </section>}
+
         <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
                 <thead><tr className="border-b text-left text-neutral-500"><th className="py-2 pr-3">Pos.</th><th className="py-2 pr-3">Beschreibung</th><th className="py-2 pr-3">Netto</th><th className="py-2 pr-3">USt.</th><th className="py-2 pr-3 min-w-64">Konto</th><th className="py-2">Status</th></tr></thead>
