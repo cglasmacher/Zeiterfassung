@@ -121,7 +121,7 @@ class AccountingReviewController extends Controller
             'net_cents' => ['nullable', 'integer'],
             'tax_cents' => ['nullable', 'integer'],
             'gross_cents' => ['nullable', 'integer'],
-            'confidence' => ['nullable', 'integer', 'between:0,100'],
+            'confidence' => ['nullable', 'numeric', 'between:0,100'],
             'original_filename' => ['nullable', 'string', 'max:255'],
             'raw_payload' => ['nullable', 'array'],
             'validation_errors' => ['nullable', 'array'],
@@ -137,10 +137,21 @@ class AccountingReviewController extends Controller
             'lines.*.tax_cents' => ['nullable', 'integer'],
             'lines.*.gross_cents' => ['nullable', 'integer'],
             'lines.*.account_number' => ['nullable', 'string', 'max:20'],
-            'lines.*.confidence' => ['nullable', 'integer', 'between:0,100'],
+            'lines.*.confidence' => ['nullable', 'numeric', 'between:0,100'],
             'lines.*.classification_source' => ['nullable', 'string', 'max:24'],
             'file' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
         ]);
+
+        // Confidence is a percentage. Accept decimal percentages, but never infer a 0..1 scale.
+        if (isset($data['confidence'])) {
+            $data['confidence'] = (int) floor((float) $data['confidence']);
+        }
+        foreach ($data['lines'] as &$line) {
+            if (isset($line['confidence'])) {
+                $line['confidence'] = (int) floor((float) $line['confidence']);
+            }
+        }
+        unset($line);
 
         $document = DB::transaction(function () use ($data, $request) {
             $supplier = $this->resolveSupplier($data['supplier_id'] ?? null, $data['supplier_name'] ?? null);

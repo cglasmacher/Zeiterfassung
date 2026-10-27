@@ -46,7 +46,7 @@
         "messages": {
           "values": [
             {
-              "content": "=Analysiere die folgende Eingangsrechnung und gib ausschließlich JSON zurück.\n\nExtrahiere:\n- supplier_name\n- invoice_number\n- invoice_date\n- net_cents\n- tax_cents\n- gross_cents\n- lines mit:\n  - position_no\n  - article_number\n  - description\n  - quantity\n  - unit\n  - net_cents\n  - tax_rate\n  - tax_cents\n  - gross_cents\n  - account_number\n  - confidence\n\nWICHTIG:\n- Geldbeträge als Integer-Cent.\n- Nichts erfinden.\n- Steuer aus der Rechnung übernehmen.\n- Bei Getränke Gato gilt:\n  - Position mit * = 7 %\n  - Position ohne * = 19 %\n  - Bier = 5132\n  - AfG = 5131\n  - Wein/Prosecco = 5133\n  - Spirituosen = 5134\n  - Sirup mit * = 5110\n  - Pfand = 1141\n- Nur JSON zurückgeben.\n\nRECHNUNGSTEXT:\n{{ $json.text }}"
+              "content": "=Analysiere die folgende Eingangsrechnung und gib ausschließlich JSON zurück.\n\nExtrahiere:\n- supplier_name\n- invoice_number\n- invoice_date\n- net_cents\n- tax_cents\n- gross_cents\n- lines mit:\n  - position_no\n  - article_number\n  - description\n  - quantity\n  - unit\n  - net_cents\n  - tax_rate\n  - tax_cents\n  - gross_cents\n  - account_number\n  - confidence\n\nWICHTIG:\n- Geldbeträge als Integer-Cent.\n- confidence als ganze Prozentzahl von 0 bis 100, z. B. 95. Keine 0-bis-1-Skala.\n- Nichts erfinden.\n- Steuer aus der Rechnung übernehmen.\n- Bei Getränke Gato gilt:\n  - Position mit * = 7 %\n  - Position ohne * = 19 %\n  - Bier = 5132\n  - AfG = 5131\n  - Wein/Prosecco = 5133\n  - Spirituosen = 5134\n  - Sirup mit * = 5110\n  - Pfand = 1141\n- Nur JSON zurückgeben.\n\nRECHNUNGSTEXT:\n{{ $json.text }}"
             }
           ]
         },
