@@ -148,6 +148,19 @@ test('community IMAP metadata is linked to both originals and retains expected a
     assert.equal(originals[0].json.accounting_attachment.source_reference, '<poll@example.test>');
 });
 
+test('poller downloads inline PDFs even when search attachmentsInfo is empty', () => {
+    const download = node('IMAP - Anhänge laden').parameters;
+    assert.equal(download.allAttachments, true);
+    assert.equal(download.includeInlineAttachments, true);
+    const source = { uid: 44, attachmentsInfo: [], messageId: '<forward@example.test>', from: [{ address: 'chris@example.test' }] };
+    const binaries = { attachment_0: { fileName: 'invoice.pdf', mimeType: 'application/pdf', data: 'INLINE_PDF' } };
+    const canonical = run('Mail mit Anlagen', [], { $: () => ({ item: { json: source } }), $binary: binaries });
+    const output = run('PDF normalisieren', [canonical]);
+    assert.equal(output.length, 1);
+    assert.equal(output[0].binary.eingangsrechnung_0.data, 'INLINE_PDF');
+    assert.equal(output[0].json.accounting_mail.uid, '44');
+});
+
 test('only confirmed portal storage is accepted; duplicate responses are also safe', () => {
     const original = { json: { accounting_mail: { uid: '12', expected_pdf_count: 2 }, accounting_attachment: { original_binary_key: 'pdf_0' } } };
     for (const data of [{ document: { id: 7, file_path: 'original.pdf' } }, { duplicate: true, document: { id: 7, file_path: 'original.pdf' } }]) {
