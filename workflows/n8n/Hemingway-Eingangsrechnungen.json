@@ -1,25 +1,6 @@
 {
-  "name": "01 - Hemingway - Eingangsrechnungen - PDF einzeln",
+  "name": "01 - Hemingway - Eingangsrechnungen - POLLING",
   "nodes": [
-    {
-      "parameters": {
-        "format": "resolved",
-        "dataPropertyAttachmentsPrefixName": "eingangsrechnung_",
-        "options": {
-          "customEmailConfig": "[\"UNSEEN\",[\"!FROM\",\"noreply@myvectron.com\"]]",
-          "forceReconnect": 1,
-          "trackLastMessageId": true
-        }
-      },
-      "id": "a574d1a7-22bb-4985-86b2-820e02980a61",
-      "name": "01 - Hemingway - Eingangsrechnungen",
-      "type": "n8n-nodes-base.emailReadImap",
-      "typeVersion": 2.2,
-      "position": [
-        0,
-        240
-      ]
-    },
     {
       "parameters": {
         "operation": "pdf",
@@ -31,9 +12,10 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        480,
-        240
-      ]
+        2100,
+        180
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -57,9 +39,10 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        1680,
-        400
-      ]
+        3900,
+        350
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -71,9 +54,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1920,
-        400
-      ]
+        4200,
+        350
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -114,22 +98,23 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2160,
-        240
-      ]
+        4500,
+        180
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
+        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                ...(data.accounting_mail_uid ? { accounting_mail: { uid: data.accounting_mail_uid, expected_pdf_count: pdfKeys.length } } : {}),\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
       },
       "id": "f3a308e0-d970-4641-b351-e5394277e238",
       "name": "PDF normalisieren",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        240,
-        240
+        1500,
+        0
       ]
     },
     {
@@ -138,13 +123,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
-        240
+        2400,
+        180
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// n8n Code node, runOnceForAllItems, immediately after PDF extraction.\n// Also catches forwarded Vectron reports whose sender is no longer myVectron.\nconst result = [];\nfor (const [index, item] of $input.all().entries()) {\n    const text = item.json?.text;\n    if (typeof text !== 'string' || !text.trim()) {\n        throw new Error('PDF enthält keinen auslesbaren Text; Original manuell prüfen.');\n    }\n    const normalized = text.replace(/\\s+/g, ' ');\n    const isCashReport = /(?:Finanzbericht|Bediener\\s*\\(erweitert\\))\\s*<\\s*[ZX]\\d+\\s*>/i.test(normalized)\n        || (/\\bVectron\\b/i.test(normalized) && /\\bZ[-\\s]?(?:Bericht|Zähler|Zaehler)\\b/i.test(normalized));\n    if (isCashReport) continue;\n    result.push({ ...item, pairedItem: { item: index } });\n}\nreturn result;\n"
-      }
+        "jsCode": "// In the polling loop, skipped cash reports must still complete their attachment iteration.\nreturn $input.all().map((item, index) => {\n    const text = item.json?.text;\n    if (typeof text !== 'string' || !text.trim()) throw new Error('PDF enthält keinen auslesbaren Text; Mail bleibt im Posteingang.');\n    const normalized = text.replace(/\\s+/g, ' ');\n    const skip = /(?:Finanzbericht|Bediener\\s*\\(erweitert\\))\\s*<\\s*[ZX]\\d+\\s*>/i.test(normalized)\n        || (/\\bVectron\\b/i.test(normalized) && /\\bZ[-\\s]?(?:Bericht|Zähler|Zaehler)\\b/i.test(normalized));\n    return { ...item, json: { ...item.json, skip_accounting: skip }, pairedItem: { item: index } };\n});\n"
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "8854b17c-8657-4503-9660-8e99749ed379",
@@ -152,8 +138,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1440,
-        240
+        3600,
+        180
       ],
       "parameters": {
         "conditions": {
@@ -186,13 +172,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        80
+        3900,
+        0
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "// Gato branch bypasses AI. Laravel parses the original PDF and owns all accounting.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif ($json.supplier !== 'gato' || $json.profile !== 'gato_layout_v1' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Gato-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Getränke Gato GmbH',\n            extraction_profile: 'gato_layout_v1',\n            original_filename: metadata.original_filename,\n            extracted_text: $('Kassenberichte ausschließen').item.json.text ?? null,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "775eadbb-202f-4400-8590-171bb7cd21a0",
@@ -200,13 +187,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        960,
-        240
+        3000,
+        180
       ],
       "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "// Reattach the exact original before the read-only content inspection request.\nconst attachment = $('PDF normalisieren').item;\nif (!attachment.binary?.eingangsrechnung_0) throw new Error('Original-PDF fehlt.');\nreturn { json: $json, binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 } };\n"
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -243,28 +231,248 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
+        3300,
+        180
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "8abef3db-3642-4f0f-bf0a-f54aeea2c2d0",
+      "name": "Alle 2 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "coreImapAccount",
+        "resource": "email",
+        "mailboxPath": {
+          "__rl": true,
+          "mode": "list",
+          "value": "INBOX"
+        },
+        "emailDateRange": {},
+        "emailFlags": {
+          "seen": false
+        },
+        "emailSearchFilters": {},
+        "includeParts": [
+          "attachmentsInfo",
+          "headers",
+          "flags"
+        ]
+      },
+      "id": "a4308392-7068-425e-ae2d-a7f19becf3ea",
+      "name": "IMAP - Ungelesene Mails suchen",
+      "type": "n8n-nodes-imap.imap",
+      "typeVersion": 1,
+      "position": [
+        300,
+        0
+      ]
+    },
+    {
+      "id": "ad7f3780-40e6-4fba-91ca-281d520d7a7c",
+      "name": "Vectron vor Download ausschließen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Exclude direct Vectron messages before downloading; forwarding sender is not a supplier criterion.\nreturn $input.all().flatMap((item, index) => {\n    const source = item.json;\n    const values = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            collect(value.address); collect(value.value); collect(value.text);\n        } else if (typeof value === 'string') values.push(value);\n    }\n    collect(source.envelope?.from ?? source.from ?? source.headers?.from);\n    const addresses = values.flatMap(value => value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []);\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) return [];\n    return [{ ...item, pairedItem: { item: index } }];\n});\n"
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "coreImapAccount",
+        "resource": "email",
+        "operation": "downloadAttachment",
+        "mailboxPath": {
+          "__rl": true,
+          "mode": "list",
+          "value": "INBOX"
+        },
+        "emailUid": "={{ $json.uid }}",
+        "allAttachments": true
+      },
+      "id": "02b8770a-34eb-4071-886b-182fd9f07bc9",
+      "name": "IMAP - Anhänge laden",
+      "type": "n8n-nodes-imap.imap",
+      "typeVersion": 1,
+      "position": [
+        900,
+        0
+      ]
+    },
+    {
+      "id": "cd934caf-d74b-422e-aed1-dc55044fa645",
+      "name": "Mail mit Anlagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
         1200,
-        240
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// The community IMAP node is the same one used by the working Z-report poller.\nconst source = $('IMAP - Ungelesene Mails suchen').item.json;\nconst uid = String(source.uid ?? '');\nif (!/^[1-9]\\d*$/.test(uid)) throw new Error('IMAP UID fehlt.');\nreturn {\n    json: {\n        ...source,\n        from: source.envelope?.from ?? source.from ?? source.headers?.from,\n        messageId: typeof source.headers?.['message-id'] === 'string'\n            ? source.headers['message-id'] : source.envelope?.messageId ?? source.messageId ?? null,\n        accounting_mail_uid: uid,\n    },\n    binary: $binary,\n};\n"
+      }
+    },
+    {
+      "id": "7703e028-d6c8-4dc9-8b3d-6ccfda3ea673",
+      "name": "PDFs einzeln verarbeiten",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1800,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "1bff9be9-b70b-4048-93a5-7926cc45d7fe",
+      "name": "Kassenbericht überspringen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2700,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b063039-7248-4d1a-9919-e9afcda64a0e",
+              "leftValue": "={{ $json.skip_accounting === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4ca85fdc-a99a-4c1e-9962-917767927e14",
+      "name": "PDF übersprungen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        500
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { _polling_result: 'skipped' } };"
+      }
+    },
+    {
+      "id": "a737fc2d-a2c0-4278-be7c-87e5affeeebb",
+      "name": "PDF fehlgeschlagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4500,
+        650
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: { _polling_result: 'failed' } };"
+      }
+    },
+    {
+      "id": "ba8b7ea8-8af5-4480-aaed-d51fe8c49f2a",
+      "name": "PDF-Ergebnis prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Execute once per PDF after a portal response, intentional skip or error output.\nconst original = $('PDF normalisieren').item;\nconst mail = original.json.accounting_mail;\nif (!mail?.uid || !Number.isInteger(mail.expected_pdf_count)) throw new Error('Mail-/Anhangszuordnung fehlt.');\nconst kind = $json._polling_result;\nconst accepted = kind !== 'failed' && kind !== 'skipped'\n    && Number.isInteger($json.document?.id) && $json.document.id > 0\n    && typeof $json.document.file_path === 'string' && $json.document.file_path.length > 0;\nreturn {\n    json: {\n        imap_uid: mail.uid,\n        expected_pdf_count: mail.expected_pdf_count,\n        attachment_key: original.json.accounting_attachment.original_binary_key,\n        status: kind === 'skipped' ? 'skipped' : accepted ? 'accepted' : 'failed',\n    },\n};\n"
+      }
+    },
+    {
+      "id": "1fa690b6-d2cc-4603-9cab-60abc6505502",
+      "name": "Vollständige Mails bestätigen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2100,
+        -300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The done output is reached only after every queued PDF has produced an outcome.\nconst groups = new Map();\nfor (const item of $input.all()) {\n    const row = item.json;\n    if (!row.imap_uid || !row.attachment_key || !Number.isInteger(row.expected_pdf_count)) {\n        throw new Error('Unvollständiges Verarbeitungsergebnis; keine Mail verschieben.');\n    }\n    const group = groups.get(row.imap_uid) ?? { expected: row.expected_pdf_count, outcomes: new Map(), invalid: false };\n    if (group.expected !== row.expected_pdf_count || group.outcomes.has(row.attachment_key)) group.invalid = true;\n    group.outcomes.set(row.attachment_key, row.status);\n    groups.set(row.imap_uid, group);\n}\nconst result = [];\nfor (const [uid, group] of groups) {\n    const statuses = [...group.outcomes.values()];\n    if (!group.invalid && statuses.length === group.expected\n        && statuses.every(status => status === 'accepted' || status === 'skipped')\n        && statuses.includes('accepted')) {\n        result.push({ json: { imap_uid: uid } });\n    }\n}\nreturn result;\n"
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "coreImapAccount",
+        "resource": "email",
+        "operation": "moveEmail",
+        "sourceMailbox": {
+          "__rl": true,
+          "mode": "list",
+          "value": "INBOX"
+        },
+        "emailUid": "={{ $json.imap_uid }}",
+        "destinationMailbox": {
+          "__rl": true,
+          "value": "INBOX/Eingangsrechnungen",
+          "mode": "list",
+          "cachedResultName": "INBOX/Eingangsrechnungen"
+        }
+      },
+      "id": "3858f7c9-678f-4073-8bb6-bf99f42dab55",
+      "name": "IMAP - Erfolgreiche Mail archivieren",
+      "type": "n8n-nodes-imap.imap",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        -300
       ]
     }
   ],
   "connections": {
-    "01 - Hemingway - Eingangsrechnungen": {
-      "main": [
-        [
-          {
-            "node": "PDF normalisieren",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "PDF normalisieren": {
       "main": [
         [
           {
-            "node": "Extract from File",
+            "node": "PDFs einzeln verarbeiten",
             "type": "main",
             "index": 0
           }
@@ -279,6 +487,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -286,7 +501,14 @@
       "main": [
         [
           {
-            "node": "Original für Lieferantenprüfung",
+            "node": "Kassenbericht überspringen?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
             "type": "main",
             "index": 0
           }
@@ -301,6 +523,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -309,6 +538,13 @@
         [
           {
             "node": "Hemingway Portal - Beleg übergeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
             "type": "main",
             "index": 0
           }
@@ -341,6 +577,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -352,6 +595,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -360,6 +610,166 @@
         [
           {
             "node": "Gato ohne KI?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alle 2 Minuten": {
+      "main": [
+        [
+          {
+            "node": "IMAP - Ungelesene Mails suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMAP - Ungelesene Mails suchen": {
+      "main": [
+        [
+          {
+            "node": "Vectron vor Download ausschließen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vectron vor Download ausschließen": {
+      "main": [
+        [
+          {
+            "node": "IMAP - Anhänge laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMAP - Anhänge laden": {
+      "main": [
+        [
+          {
+            "node": "Mail mit Anlagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail mit Anlagen": {
+      "main": [
+        [
+          {
+            "node": "PDF normalisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDFs einzeln verarbeiten": {
+      "main": [
+        [
+          {
+            "node": "Vollständige Mails bestätigen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kassenbericht überspringen?": {
+      "main": [
+        [
+          {
+            "node": "PDF übersprungen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Original für Lieferantenprüfung",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF übersprungen": {
+      "main": [
+        [
+          {
+            "node": "PDF-Ergebnis prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF-Ergebnis prüfen": {
+      "main": [
+        [
+          {
+            "node": "PDFs einzeln verarbeiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF fehlgeschlagen": {
+      "main": [
+        [
+          {
+            "node": "PDF-Ergebnis prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hemingway Portal - Beleg übergeben": {
+      "main": [
+        [
+          {
+            "node": "PDF-Ergebnis prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vollständige Mails bestätigen": {
+      "main": [
+        [
+          {
+            "node": "IMAP - Erfolgreiche Mail archivieren",
             "type": "main",
             "index": 0
           }
