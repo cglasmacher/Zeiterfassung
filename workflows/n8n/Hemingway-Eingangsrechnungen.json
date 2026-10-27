@@ -310,7 +310,8 @@
           "value": "INBOX"
         },
         "emailUid": "={{ $json.uid }}",
-        "allAttachments": true
+        "allAttachments": true,
+        "includeInlineAttachments": true
       },
       "id": "02b8770a-34eb-4071-886b-182fd9f07bc9",
       "name": "IMAP - Anhänge laden",

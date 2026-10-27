@@ -6,7 +6,7 @@ Basis ist der bereitgestellte funktionierende Z-Workflow „Hemingway - IONOS Z-
 
 1. Portaländerungen ausrollen. `pdftotext` und `pdfimages` müssen für die PDF-/Gato-Erkennung ausführbar sein.
 2. Alten Rechnungsworkflow sichern und deaktivieren. `workflows/n8n/Hemingway-Eingangsrechnungen.json` als inaktiven Workflow importieren.
-3. Bei den drei Community-IMAP-Nodes (Suchen, Anhänge laden, Archivieren) dasselbe bestehende IMAP-Konto wie beim funktionierenden Z-Poller auswählen. Node: `n8n-nodes-imap.imap`, Version 1, Authentifizierung `coreImapAccount`. Kein zusätzlicher Listener und keine neue IMAP-Bibliothek erforderlich.
+3. Bei den drei Community-IMAP-Nodes (Suchen, Anhänge laden, Archivieren) dasselbe bestehende IMAP-Konto wie beim funktionierenden Z-Poller auswählen. Node: `n8n-nodes-imap.imap`, Version 1, Authentifizierung `coreImapAccount`. Im Downloadnode müssen **All Attachments** und **Include Inline Attachments** aktiv sein. Sichtbare PDFs können insbesondere bei Weiterleitungen als Inline-MIME-Teil vorliegen, auch wenn `attachmentsInfo` in der Suchantwort leer ist. Die nachgelagerte Auswahl verarbeitet weiterhin nur PDFs. Kein zusätzlicher Listener und keine neue IMAP-Bibliothek erforderlich.
 4. Den Ordner `INBOX/Eingangsrechnungen` im Postfach anlegen und im Archivierungsnode auswählen. Falls der Anbieter einen anderen internen Ordnerpfad meldet, den vorhandenen Ordner aus der Liste wählen.
 5. Vorhandene OpenAI-Zugangsdaten auswählen. In beiden HTTP-Nodes (Lieferantenerkennung und Belegübergabe) denselben `ACCOUNTING_IMPORT_TOKEN` eintragen. Die Importdatei enthält Platzhalter statt Geheimnissen.
 6. Mit einer neuen Mail und zwei PDF-Rechnungen testen, bevor der Zeitplan aktiviert wird. Danach erfolgt der Abruf alle zwei Minuten.
