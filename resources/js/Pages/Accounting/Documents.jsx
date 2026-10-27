@@ -60,6 +60,8 @@ function DocumentList({ data, selectedId, select, filters, setFilters, busy }) {
 
 function Detail({ data, busy, saveLine, approve }) {
     const doc = data?.document;
+    const locked = data?.locked ?? ["approved", "exported"].includes(doc?.status);
+    const issues = data?.blocking_errors ?? doc?.validation_errors ?? [];
     if (!doc) return <section className="card p-6 text-neutral-600">Beleg auswählen.</section>;
     return <section className="card p-5 space-y-5">
         <div className="grid grid-cols-1 2xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.1fr)] gap-5 items-start">
@@ -71,7 +73,7 @@ function Detail({ data, busy, saveLine, approve }) {
                     <div><h2 className="text-xl font-semibold">{doc.supplier?.name || doc.supplier_name_raw || "Unbekannter Lieferant"}</h2><p className="text-neutral-600">Rechnung {doc.invoice_number || "–"} · {date(doc.invoice_date)}</p><p className="text-sm text-neutral-500">Kreditor {doc.supplier?.creditor_account || "noch nicht zugeordnet"}</p>{doc.original_filename && <a className="inline-block mt-2 text-sm underline text-primary-700" href={`/api/accounting/documents/${doc.id}/pdf`} target="_blank" rel="noreferrer">Original-PDF öffnen</a>}</div>
                     <div className="text-right"><strong className="text-xl">{formatMoney(doc.gross_cents)}</strong><div className="mt-2"><Badge status={doc.status} /></div></div>
                 </div>
-                {doc.validation_errors?.length > 0 && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{doc.validation_errors.join(" · ")}</div>}
+                {issues.length > 0 && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{issues.join(" · ")}</div>}
                 <div className="grid grid-cols-3 gap-3 text-sm"><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">Netto</span><strong>{formatMoney(doc.net_cents)}</strong></div><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">USt.</span><strong>{formatMoney(doc.tax_cents)}</strong></div><div className="rounded-lg bg-neutral-50 p-3"><span className="block text-neutral-500">Brutto</span><strong>{formatMoney(doc.gross_cents)}</strong></div></div>
             </div>
         </div>
@@ -79,13 +81,13 @@ function Detail({ data, busy, saveLine, approve }) {
         <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
                 <thead><tr className="border-b text-left text-neutral-500"><th className="py-2 pr-3">Pos.</th><th className="py-2 pr-3">Beschreibung</th><th className="py-2 pr-3">Netto</th><th className="py-2 pr-3">USt.</th><th className="py-2 pr-3 min-w-64">Konto</th><th className="py-2">Status</th></tr></thead>
-                <tbody>{doc.lines.map((line) => <AccountingLine key={line.id} line={line} accounts={data.accounts} busy={busy} save={saveLine} />)}</tbody>
+                <tbody>{doc.lines.map((line) => <AccountingLine key={line.id} line={line} accounts={data.accounts} busy={busy || locked} save={saveLine} />)}</tbody>
             </table>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <div className="text-sm text-neutral-600">Erst nach vollständiger Kontierung wird der Beleg zur Freigabe zugelassen.</div>
-            <Button disabled={busy || !["ready", "review", "analyzed"].includes(doc.status) || doc.lines.some((line) => !line.account_id)} onClick={approve}>Beleg freigeben</Button>
+            <div className="text-sm text-neutral-600">Zur Freigabe müssen alle Positionen geprüft und alle Prüfprobleme behoben sein.</div>
+            <Button disabled={busy || locked || issues.length > 0 || !["ready", "review", "analyzed"].includes(doc.status) || doc.lines.some((line) => !line.account_id)} onClick={approve}>Beleg freigeben</Button>
         </div>
     </section>;
 }
@@ -106,8 +108,8 @@ function AccountingLine({ line, accounts, busy, save }) {
                     <option value="">Konto auswählen …</option>
                     {accounts.map((account) => <option key={account.id} value={account.id}>{account.account_number} · {account.name}</option>)}
                 </select>
-                {changed && <label className="flex items-center gap-2 text-xs text-neutral-600"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Regel für diesen Artikel merken</label>}
-                {changed && <Button size="sm" disabled={busy || !accountId} onClick={() => save(line.id, Number(accountId), remember)}>Kontierung übernehmen</Button>}
+                {!busy && <label className="flex items-center gap-2 text-xs text-neutral-600"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Regel für diesen Artikel merken</label>}
+                {(changed || remember || line.status === "review") && <Button size="sm" disabled={busy || !accountId} onClick={() => save(line.id, Number(accountId), remember)}>Kontierung übernehmen</Button>}
             </div>
         </td>
         <td className="py-3"><span className={line.status === "approved" ? "text-green-700" : line.status === "review" ? "text-amber-700" : "text-neutral-600"}>{line.status === "approved" ? "Bestätigt" : line.status === "review" ? "Prüfen" : "Vorschlag"}</span>{line.confidence !== null && <p className="text-xs text-neutral-500">{line.confidence}%</p>}</td>
