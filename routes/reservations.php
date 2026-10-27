@@ -14,6 +14,7 @@ Route::get('/reservierungen/verwaltung', function (Request $request) {
 Route::prefix('api/reservations')->controller(ReservationBookController::class)->group(function () {
     Route::get('/book', 'index');
     Route::get('/mails', [\App\Http\Controllers\ReservationMailController::class, 'index']);
+    Route::put('/mails/settings', [\App\Http\Controllers\ReservationMailController::class, 'settings']);
     Route::post('/mails/{id}/retry', [\App\Http\Controllers\ReservationMailController::class, 'retry'])->whereUuid('id');
     Route::get('/widget/settings', [\App\Http\Controllers\ReservationWidgetController::class, 'settings']);
     Route::put('/widget/settings', [\App\Http\Controllers\ReservationWidgetController::class, 'updateSettings']);

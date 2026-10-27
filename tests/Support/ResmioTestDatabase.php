@@ -20,6 +20,7 @@ trait ResmioTestDatabase
             'database/migrations/2026_10_25_235500_add_local_reservation_table_assignment.php',
             'database/migrations/2026_10_26_140000_create_reservation_widget.php',
             'database/migrations/2026_10_26_150000_create_reservation_mail_outbox.php',
+            'database/migrations/2026_10_26_160000_add_reservation_guest_actions.php',
         ]];
     }
 }

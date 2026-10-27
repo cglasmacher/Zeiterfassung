@@ -3,7 +3,9 @@ Hemingway · Hilden
 
 Hallo {!! $details['guest_name'] !!},
 
-@if(in_array($type, ['waiting', 'waiting_updated']))
+@if($type === 'reminder')
+Wir freuen uns auf deinen Besuch! Hier noch einmal die Angaben zu deiner bestätigten Reservierung:
+@elseif(in_array($type, ['waiting', 'waiting_updated']))
 Wir haben deinen Wartelisteneintrag {{ $type === 'waiting_updated' ? 'geändert' : 'erhalten' }}. Das ist noch keine bestätigte Reservierung. Sobald wir dir einen Tisch verbindlich anbieten können, erhältst du eine separate Bestätigung.
 @elseif($type === 'requested')
 Vielen Dank für deine Anfrage. Wir prüfen sie und melden uns bei dir. Dies ist noch keine bestätigte Reservierung.
@@ -22,6 +24,12 @@ Uhrzeit: {{ $details['time'] }} Uhr
 Gäste: {{ $details['party_size'] }}
 Buchungsnummer: {{ $details['reference'] }}
 
+@if($cancel_url ?? null)
+Persönlicher Stornolink (bis zum Reservierungsbeginn):
+{!! $cancel_url !!}
+Der Link öffnet zuerst eine Bestätigungsseite. Bitte nicht weiterleiten.
+
+@endif
 Für Rückfragen, Änderungen oder eine Absage antworte bitte auf diese E-Mail und nenne deine Buchungsnummer.
 
 Dein Hemingway-Team

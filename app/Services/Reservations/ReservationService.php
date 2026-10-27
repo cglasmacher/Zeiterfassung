@@ -231,6 +231,7 @@ class ReservationService
             $end = $start->addMinutes($minutes);
             $values = [
                 'kind' => $kind, 'source' => $data['source'] ?? $booking?->source ?? ($kind === 'walkin' ? 'walkin' : 'phone'),
+                'confirmed_at' => $status === 'confirmed' ? ((! $booking || $booking->status !== 'confirmed' || $start->ne($booking->starts_at)) ? now() : $booking->confirmed_at) : null,
                 'status' => $status, 'party_size' => $size, 'starts_at' => $start, 'ends_at' => $end,
                 'version' => ($booking?->version ?? 0) + 1,
             ];

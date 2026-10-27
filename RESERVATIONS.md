@@ -154,7 +154,7 @@ Die öffentlichen Endpunkte sind `GET /api/public/reservations/slots` und `POST 
 
 Neue Website-Buchungen erhalten nach Aktivierung eine Bestätigung, einen ausdrücklich unbestätigten Anfrageneingang oder einen Wartelisteneingang. Die spätere interne Bestätigung bzw. Wartelistenübernahme versendet eine Bestätigung. Änderungen an Datum, Startzeit, Gästezahl, Gastname oder Empfängeradresse und Stornierungen erzeugen passende Nachrichten. Eine stornierte Warteliste hat einen eigenen Text. Interne Notizen, reine Tischwechsel und die Servicestatus Eingetroffen/Fertig/No-Show lösen keine Mails aus. Resmio-Importe und telefonisch/manuell angelegte Datensätze werden nicht zusätzlich angeschrieben. Bereits vor Aktivierung vorhandene Buchungen werden nicht pauschal nachversendet; neue relevante Änderungen an Website-Buchungen werden berücksichtigt.
 
-HTML- und Textvorlagen liegen unter `resources/views/mail/reservations/`. Sie zeigen nur Gastname, Datum/Startzeit in Europe/Berlin, Gästezahl und Buchungsnummer. Interne Notizen, Gastkommentare, Kontakte anderer Gäste und Tischnummern sind nicht enthalten. Für Änderungen oder Absagen wird auf die Antwort per E-Mail verwiesen; ein öffentlicher Stornolink ist noch nicht Bestandteil dieses Schritts. Erinnerungen folgen separat.
+HTML- und Textvorlagen liegen unter `resources/views/mail/reservations/`. Sie zeigen nur Gastname, Datum/Startzeit in Europe/Berlin, Gästezahl und Buchungsnummer. Interne Notizen, Gastkommentare, Kontakte anderer Gäste und Tischnummern sind nicht enthalten. Für Änderungen kann der Gast auf die Mail antworten. Buchungsmails enthalten zusätzlich einen persönlichen Stornolink mit Bestätigungsseite; bestätigte Website-Buchungen können automatisch erinnert werden (siehe unten).
 
 ### Aktivieren auf dem Server
 
@@ -186,6 +186,22 @@ Die Mail wird innerhalb derselben Datenbanktransaktion wie die Buchung im dauerh
 
 Ein Versandfehler ändert die Reservierung nicht. Bis zu acht automatische Versuche mit wachsendem Abstand; danach steht die Mail als fehlgeschlagen im Verwaltungsbereich und kann von einem Administrator erneut vorgemerkt werden. Eine Verarbeitungssperre mit Token verhindert parallelen Versand desselben Auftrags; nach zehn Minuten kann ein abgebrochener Lauf wieder aufgenommen werden. Versuche verwenden dieselbe Message-ID. Zwischen erfolgreicher SMTP-Annahme und Speicherung des Erfolgs bleibt bei einem Prozessabbruch dennoch eine seltene Doppelzustellung möglich; SMTP bietet hier keine transaktionale Genau-einmal-Zustellung. Fehlertexte enthalten keine rohen SMTP-Antworten oder Zugangsdaten. Ein reiner interner Notizwechsel bewahrt den bisherigen Buchungsstatus und erzeugt keine Statusmail.
 
+### Persönliche Stornolinks
+
+Buchungs-, Anfrage-, Wartelisten- und Erinnerungsmails enthalten einen signierten persönlichen Link. Die Adresse wird immer aus `APP_URL` erzeugt; eingehende Host-Header werden nicht als Mailziel verwendet. Der Link gilt bis zum Reservierungsbeginn und ist an Termin, Gästezahl und Empfängeradresse gebunden. Nach entsprechenden Änderungen gilt nur der Link aus der neuesten Mail. Interne Notiz- und Tischänderungen lassen ihn gültig. Bereits vor dieser Erweiterung zugestellte Mails lassen sich nicht nachträglich ergänzen; neue Änderungs-/Erinnerungsmails enthalten den Link.
+
+`GET /reservieren/storno/{booking}` zeigt eine schlanke Bestätigungsseite ohne Name, E-Mail, Telefon oder interne Angaben. Ein bloßer Aufruf durch den Gast oder einen Mail-Linkscanner ändert nichts. Erst ein POST mit CSRF-Token und ausdrücklicher Bestätigung storniert. Signatur, aktueller Buchungsstand und erlaubter Status werden unter der gemeinsamen Kapazitätssperre nochmals geprüft. Wiederholtes Stornieren vor Ablauf des Links ist idempotent. Die Buchung wechselt auf Storno, ihre Tische werden sofort für neue Belegungen frei, das Ereignis wird als `guest_cancelled` protokolliert und die bestehende Stornomail wird vorgemerkt.
+
+Online stornierbar sind Website-Reservierungen mit Status Angefragt/Bestätigt und wartende Website-Einträge. Eingetroffen, Fertig und No-Show sowie Resmio-Buchungen sind ausgeschlossen. Die Seite ist ohne Anmeldung erreichbar, auf der TV-Domain gesperrt, nicht einbettbar und mit No-Store/No-Index/No-Referrer versehen. Sie lädt keine externen Inhalte. Links sind persönliche Zugangsberechtigungen und sollten nicht weitergeleitet werden.
+
+### Einstellbare Erinnerungen
+
+Unter **Reservierungsregeln → E-Mails an Reservierungsgäste → Erinnerungsmail** können Administratoren Erinnerungen aktivieren und 1–168 Stunden Vorlauf wählen. Standard sind **aktiv, 24 Stunden**; der globale serverseitige Mailversand muss ebenfalls eingeschaltet und konfiguriert sein. Die Einstellungen besitzen eine eigene Revision. Migration und Build ausführen; weitere Cronjobs sind nicht nötig: `reservations:send-mails` merkt jetzt vor dem Versand auch fällige Erinnerungen vor.
+
+Erinnert werden ausschließlich weiterhin bestätigte Website-Reservierungen mit gültiger E-Mail und zukünftigem Beginn. Die Buchung muss bereits vor dem Erinnerungszeitpunkt bestätigt worden sein und eine Bestätigungs-/Änderungsmail für den aktuellen Termin und Empfänger muss bis dahin erfolgreich an den Mailserver übergeben worden sein. So erhalten kurzfristige Buchungen oder verspätet zugestellte Erstbestätigungen nicht unmittelbar eine zweite Mail. Alte importierte oder vor Einführung des Mailversands angelegte Buchungen ohne passenden Versandnachweis werden nicht pauschal angeschrieben.
+
+Der Scheduler holt eine fällige Erinnerung höchstens 60 Minuten verspätet nach. Vor dem eigentlichen Versand werden Status, aktueller Termin, Empfänger und Erinnerungseinstellung erneut geprüft; überholte oder zu spät gewordene Aufträge werden übersprungen. Pro Buchung, Starttermin und Empfänger entsteht maximal ein Erinnerungsauftrag, auch bei mehrfachen Scheduler-Aufrufen oder internen Notizänderungen. Gastname/Gästezahl werden vor dem Versand aktualisiert. Eine neue Termin- oder Empfängerzuordnung kann einen neuen Auftrag bekommen; eine Terminverschiebung setzt den Bestätigungszeitpunkt neu. Ein bereits übersprungener oder zugestellter Auftrag wird durch bloßes Aus-/Einschalten nicht erneut angelegt. Die Zeitberechnung berücksichtigt Europe/Berlin und die Sommerzeitumstellung.
+
 ## Vereinbarte weitere Entwicklung
 
 Zielumfang: funktionale Orientierung an Resmio Ultimate samt Add-ons; die Funktionen der iPad-App werden in die Gesamtlösung integriert. Builder und interner Reservierungskern sind umgesetzt. Der weitere Ultimate-Umfang bleibt als Ziel bestehen.
@@ -194,7 +210,7 @@ Geplante Bausteine:
 
 1. Ausbau der Regeln um Ausnahmen/Feiertage, wiederkehrende Sperren und weitere Kapazitätsgrenzen.
 2. Wochen-/Agenda-/Zeitstrahlansicht, Serienreservierungen und weitere Komfortfunktionen für den vorhandenen Tagesbetrieb.
-3. Ausbau der Gastverwaltung, Erinnerungen, Nachrichten und Gast-Stornierungen. Das einbettbare Online-Widget und transaktionale Gastmails sind umgesetzt.
+3. Ausbau der Gastverwaltung und Nachrichten. Persönliche Gast-Stornierungen und Erinnerungen sind umgesetzt. Das einbettbare Online-Widget und transaktionale Gastmails sind umgesetzt.
 4. Anzahlungen, No-Show-Abwicklung, Automatisierungen, Auswertungen und bestehende Dienstplan-/TV-Anbindung.
 5. Marketing, Feedback, Erweiterung bestehender Gutscheine/Tickets sowie weitere vereinbarte Module. Externe Buchungskanäle, SMS, Telefonassistent und Zahlungsdienste benötigen eigene Integrationen.
 
@@ -215,7 +231,7 @@ Die öffentliche Online-Buchung kann mit dem oben beschriebenen Widget freigesch
 ### Prüfung
 
 ```bash
-php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest|ReservationWidgetTest|ReservationMailTest'
+php artisan test --filter='ReservationBookTest|FloorPlanTest|ResmioBookingSyncTest|ResmioContractTest|ResmioDiagnosticsTest|ReservationWidgetTest|ReservationMailTest|ReservationGuestActionsTest'
 node --test tests/Workflow/floor-plan.test.mjs tests/Workflow/reservation-ui.test.mjs tests/Workflow/reservation-plan.test.mjs tests/Workflow/table-selection.test.mjs
 npm run build
 ```

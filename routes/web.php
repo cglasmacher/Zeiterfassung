@@ -8,6 +8,8 @@ use Inertia\Inertia;
 
 Route::domain(config('infosystem.stream_host'))->get('/', fn () => redirect('/display/kitchen'));
 require __DIR__.'/infosystem.php';
+Route::get('/reservieren/storno/{booking}', [\App\Http\Controllers\ReservationGuestController::class, 'show'])->whereUuid('booking')->middleware('throttle:30,1,guest-cancel')->name('reservations.cancel');
+Route::post('/reservieren/storno/{booking}', [\App\Http\Controllers\ReservationGuestController::class, 'cancel'])->whereUuid('booking')->middleware('throttle:10,1,guest-cancel-submit');
 Route::get('/reservieren', [\App\Http\Controllers\ReservationWidgetController::class, 'show'])->name('reservations.widget');
 Route::get('/', fn (Request $request) => redirect()->route($request->user() ? $request->user()->landingRoute() : 'login'))->name('home');
 Route::middleware('auth')->group(function () {

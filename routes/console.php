@@ -43,8 +43,9 @@ Artisan::command('reservations:send-mails {--limit=25}', function (\App\Services
         $this->warn('Reservierungsmails sind deaktiviert oder ein echter Mailtransport/Absender fehlt.');
         return 1;
     }
+    $queued = app(\App\Services\Reservations\ReservationReminderService::class)->queueDue();
     $counts = $mail->sendDue(max(1, min(100, (int) $this->option('limit'))));
-    $this->info('Gesendet: '.$counts['sent'].'; Wiederholung: '.$counts['retry'].'; fehlgeschlagen: '.$counts['failed'].'; überholt: '.$counts['skipped']);
+    $this->info('Erinnerungen vorgemerkt: '.$queued.'; Gesendet: '.$counts['sent'].'; Wiederholung: '.$counts['retry'].'; fehlgeschlagen: '.$counts['failed'].'; überholt: '.$counts['skipped']);
     return $counts['failed'] ? 1 : 0;
 })->purpose('Fällige Reservierungsmails aus dem dauerhaften Mailausgang versenden');
 

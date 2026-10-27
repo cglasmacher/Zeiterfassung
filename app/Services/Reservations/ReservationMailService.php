@@ -98,15 +98,26 @@ class ReservationMailService
             $payload = json_decode($row->payload, true);
             $booking = ReservationBooking::find($row->booking_id);
             // A superseded pending confirmation must not arrive after a cancellation or changed date/address.
-            $superseded = DB::table('reservation_mail_outbox')->where('booking_id', $row->booking_id)->where('booking_version', '>', $row->booking_version)->exists();
-            if ($superseded || ! $booking || $booking->source === 'resmio' || $this->snapshot($booking) !== $payload) {
+            $superseded = DB::table('reservation_mail_outbox')->where('booking_id', $row->booking_id)->where('type', '!=', 'reminder')->where('booking_version', '>', $row->booking_version)->exists();
+            if ($row->type === 'reminder') {
+                $reminders = app(ReservationReminderService::class);
+                $valid = $booking && $reminders->eligible($booking) && hash_equals($row->reminder_key, $reminders->key($booking));
+                if ($valid) {
+                    // Name/party-size corrections do not cause a second reminder; use the latest guest-facing details.
+                    $payload = $this->snapshot($booking);
+                    $query->update(['payload' => json_encode($payload)]);
+                }
+            } else {
+                $valid = ! $superseded && $booking && $booking->source !== 'resmio' && $this->snapshot($booking) === $payload;
+            }
+            if (! $valid) {
                 $query->update(['status' => 'skipped', 'locked_at' => null, 'lock_token' => null, 'updated_at' => now()]);
                 $counts['skipped']++;
 
                 continue;
             }
             try {
-                Mail::to($payload['email'])->send(new ReservationGuestMail($payload, $row->type, $row->id));
+                Mail::to($payload['email'])->send(new ReservationGuestMail($payload, $row->type, $row->id, app(ReservationGuestActions::class)->url($booking)));
                 $query->update(['status' => 'sent', 'sent_at' => now(), 'last_error' => null, 'locked_at' => null, 'lock_token' => null, 'updated_at' => now()]);
                 $counts['sent']++;
             } catch (\Throwable $e) {
