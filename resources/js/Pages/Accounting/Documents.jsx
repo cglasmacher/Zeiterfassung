@@ -61,7 +61,7 @@ function DocumentList({ data, selectedId, select, filters, setFilters, busy }) {
     </section>;
 }
 
-function Detail({ data, busy, saveLine, approve }) {
+function Detail({ data, busy, saveLine, approve, deleteDocument }) {
     const doc = data?.document;
     const locked = data?.locked ?? ["approved", "exported"].includes(doc?.status);
     const issues = data?.blocking_errors ?? doc?.validation_errors ?? [];
@@ -89,6 +89,7 @@ function Detail({ data, busy, saveLine, approve }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            {!locked && <Button variant="error" disabled={busy} onClick={deleteDocument}>Beleg löschen</Button>}
             <div className="text-sm text-neutral-600">Zur Freigabe müssen alle Positionen geprüft und alle Prüfprobleme behoben sein.</div>
             <Button disabled={busy || locked || issues.length > 0 || !["ready", "review", "analyzed"].includes(doc.status) || doc.lines.some((line) => !line.account_id)} onClick={approve}>Beleg freigeben</Button>
         </div>
@@ -145,6 +146,17 @@ export default function Documents() {
         await Promise.all([loadDetail(selectedId), loadList()]);
         setMessage("Kontierung übernommen.");
     });
+    const deleteDocument = () => {
+        const doc = detail?.document;
+        if (!doc || !window.confirm(`Beleg ${doc.invoice_number || doc.id} einschließlich aller Positionen und Original-PDF endgültig löschen?`)) return;
+        return run(async () => {
+            await axios.delete(`/api/accounting/documents/${doc.id}`);
+            setSelectedId(null);
+            setDetail(null);
+            await loadList();
+            setMessage("Beleg gelöscht.");
+        });
+    };
     const approve = () => run(async () => {
         await axios.post(`/api/accounting/documents/${selectedId}/approve`);
         await Promise.all([loadDetail(selectedId), loadList()]);
@@ -158,7 +170,7 @@ export default function Documents() {
         {list?.counts && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{Object.entries({ review: "Prüfen", ready: "Bereit", approved: "Freigegeben", exported: "Exportiert", received: "Eingegangen" }).map(([key, label]) => <div key={key} className="card p-4"><p className="text-xs text-neutral-500">{label}</p><strong className="text-2xl">{list.counts[key] || 0}</strong></div>)}</div>}
         <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
             <DocumentList data={list} selectedId={selectedId} select={(id) => run(() => loadDetail(id))} filters={filters} setFilters={setFilters} busy={busy} />
-            <Detail data={detail} busy={busy} saveLine={saveLine} approve={approve} />
+            <Detail data={detail} busy={busy} saveLine={saveLine} approve={approve} deleteDocument={deleteDocument} />
         </div>
     </div></TimeTrackingLayout>;
 }
