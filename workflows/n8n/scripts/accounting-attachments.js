@@ -43,6 +43,7 @@ for (let index = 0; index < inputs.length; index++) {
         result.push({
             json: {
                 ...data,
+                ...(data.accounting_mail_uid ? { accounting_mail: { uid: data.accounting_mail_uid, expected_pdf_count: pdfKeys.length } } : {}),
                 accounting_attachment: {
                     source_reference: reference,
                     original_filename: binaries[key].fileName ?? `${key}.pdf`,

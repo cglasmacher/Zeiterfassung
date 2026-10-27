@@ -59,8 +59,9 @@ test('forwarded cash reports are filtered before AI, normal invoices preserve pa
         { json: { text: 'Gato Rechnung 100 Altbier 119,00 EUR' } },
         { json: { text: 'Bediener (erweitert) <X1>' } },
     ]);
-    assert.equal(output.length, 1);
-    assert.equal(output[0].pairedItem.item, 1);
+    assert.equal(output.length, 3);
+    assert.deepEqual(Array.from(output, x => x.json.skip_accounting), [true, false, true]);
+    assert.equal(output[1].pairedItem.item, 1);
     assert.throws(() => run('Kassenberichte ausschließen', [{ json: { text: '' } }]), /keinen auslesbaren Text/);
 });
 
@@ -86,7 +87,10 @@ test('portal payload retrieves the exact linked PDF, including the second origin
 });
 
 test('import template is inactive, has no credentials/secrets and no positional merge', () => {
-    assert.deepEqual(JSON.parse(node('01 - Hemingway - Eingangsrechnungen').parameters.options.customEmailConfig), ['UNSEEN', ['!FROM', 'noreply@myvectron.com']]);
+    assert.equal(workflow.nodes.some(n => n.type === 'n8n-nodes-base.emailReadImap'), false);
+    assert.equal(node('Alle 2 Minuten').parameters.rule.interval[0].minutesInterval, 2);
+    assert.equal(node('IMAP - Ungelesene Mails suchen').type, 'n8n-nodes-imap.imap');
+    assert.equal(node('IMAP - Ungelesene Mails suchen').parameters.emailFlags.seen, false);
     assert.equal(workflow.active, false);
     assert.equal(workflow.nodes.some(n => n.type === 'n8n-nodes-base.merge'), false);
     for (const n of workflow.nodes) assert.equal(n.credentials, undefined);
@@ -96,7 +100,7 @@ test('import template is inactive, has no credentials/secrets and no positional 
 });
 
 test('embedded code matches the reviewable script sources', () => {
-    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
+    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-polling-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
         assert.equal(node(name).parameters.jsCode, fs.readFileSync(new URL(`../../workflows/n8n/scripts/${file}`, import.meta.url), 'utf8'));
     }
 });
@@ -114,9 +118,66 @@ test('forwarding sender never determines supplier; PDF inspection chooses the Ga
         assert.equal(output.json.portal_payload.extracted_text, 'original text');
         assert.equal(output.json.portal_payload.lines, undefined);
     }
-    assert.equal(workflow.connections['Kassenberichte ausschließen'].main[0][0].node, 'Original für Lieferantenprüfung');
+    assert.equal(workflow.connections['Kassenberichte ausschließen'].main[0][0].node, 'Kassenbericht überspringen?');
+    assert.equal(workflow.connections['Kassenbericht überspringen?'].main[1][0].node, 'Original für Lieferantenprüfung');
     assert.equal(workflow.connections['Original für Lieferantenprüfung'].main[0][0].node, 'Lieferant aus PDF erkennen');
     assert.equal(workflow.connections['Lieferant aus PDF erkennen'].main[0][0].node, 'Gato ohne KI?');
     assert.equal(workflow.connections['Gato ohne KI?'].main[0][0].node, 'Gato Original ans Portal');
     assert.equal(workflow.connections['Gato ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
+});
+
+test('poller downloads invoice mails but never selects direct Vectron mail for download', () => {
+    const items = run('Vectron vor Download ausschließen', [
+        { json: { uid: 1, envelope: { from: [{ address: 'noreply@myvectron.com' }] } } },
+        { json: { uid: 2, envelope: { from: [{ address: 'buchhaltung@example.test' }] } } },
+    ]);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].json.uid, 2);
+    assert.equal(items[0].pairedItem.item, 1);
+});
+
+test('community IMAP metadata is linked to both originals and retains expected attachment count', () => {
+    const source = { uid: 12, headers: { 'message-id': '<poll@example.test>' }, envelope: { from: [{ address: 'chris@example.test' }] } };
+    const canonical = run('Mail mit Anlagen', [], { $: () => ({ item: { json: source } }), $binary: mail().binary });
+    const originals = run('PDF normalisieren', [canonical]);
+    assert.equal(originals.length, 2);
+    for (const item of originals) {
+        assert.equal(item.json.accounting_mail.uid, '12');
+        assert.equal(item.json.accounting_mail.expected_pdf_count, 2);
+    }
+    assert.equal(originals[0].json.accounting_attachment.source_reference, '<poll@example.test>');
+});
+
+test('only confirmed portal storage is accepted; duplicate responses are also safe', () => {
+    const original = { json: { accounting_mail: { uid: '12', expected_pdf_count: 2 }, accounting_attachment: { original_binary_key: 'pdf_0' } } };
+    for (const data of [{ document: { id: 7, file_path: 'original.pdf' } }, { duplicate: true, document: { id: 7, file_path: 'original.pdf' } }]) {
+        assert.equal(run('PDF-Ergebnis prüfen', [], { $: () => ({ item: original }), $json: data }).json.status, 'accepted');
+    }
+    for (const data of [{}, { document: { id: 7 } }, { _polling_result: 'failed' }]) {
+        assert.equal(run('PDF-Ergebnis prüfen', [], { $: () => ({ item: original }), $json: data }).json.status, 'failed');
+    }
+});
+
+test('partial failure leaves its mail in INBOX while other complete mails may move', () => {
+    const row = (uid, key, status, count = 2) => ({ json: { imap_uid: uid, attachment_key: key, expected_pdf_count: count, status } });
+    const output = run('Vollständige Mails bestätigen', [
+        row('12', 'a', 'accepted'), row('12', 'b', 'failed'),
+        row('13', 'a', 'accepted'), row('13', 'b', 'accepted'),
+        row('14', 'a', 'skipped', 1), row('15', 'a', 'accepted'),
+    ]);
+    assert.deepEqual(Array.from(output, x => x.json.imap_uid), ['13']);
+    assert.equal(run('Vollständige Mails bestätigen', [row('12', 'a', 'accepted'), row('12', 'a', 'accepted')]).length, 0);
+});
+
+test('one PDF loop finishes before mail move; processing errors continue to the next PDF', () => {
+    assert.equal(node('PDFs einzeln verarbeiten').parameters.batchSize, 1);
+    assert.equal(workflow.connections['PDFs einzeln verarbeiten'].main[0][0].node, 'Vollständige Mails bestätigen');
+    assert.equal(workflow.connections['PDFs einzeln verarbeiten'].main[1][0].node, 'Extract from File');
+    assert.equal(workflow.connections['PDF-Ergebnis prüfen'].main[0][0].node, 'PDFs einzeln verarbeiten');
+    assert.equal(workflow.connections['Vollständige Mails bestätigen'].main[0][0].node, 'IMAP - Erfolgreiche Mail archivieren');
+    for (const name of ['Extract from File', 'Lieferant aus PDF erkennen', 'Rechnung mit GPT auslesen', 'Hemingway Portal - Beleg übergeben']) {
+        assert.equal(node(name).onError, 'continueErrorOutput');
+        assert.equal(workflow.connections[name].main[1][0].node, 'PDF fehlgeschlagen');
+    }
+    assert.equal(node('IMAP - Erfolgreiche Mail archivieren').parameters.destinationMailbox.value, 'INBOX/Eingangsrechnungen');
 });
