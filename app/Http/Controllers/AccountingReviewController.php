@@ -324,6 +324,31 @@ class AccountingReviewController extends Controller
         abort_if($document->isLocked(), 409, 'Freigegebene oder exportierte Belege dürfen nicht verändert werden.');
     }
 
+    public function destroy(int $id): \Illuminate\Http\Response
+    {
+        DB::transaction(function () use ($id) {
+            $document = AccountingDocument::whereKey($id)->lockForUpdate()->firstOrFail();
+            $this->assertEditable($document);
+            $path = $document->file_path;
+            $document->delete(); // Positions are removed by the existing cascading foreign key.
+
+            DB::afterCommit(function () use ($path) {
+                if (! $path || AccountingDocument::where('file_path', $path)->exists()) {
+                    return;
+                }
+                try {
+                    if (! Storage::disk('local')->delete($path)) {
+                        \Illuminate\Support\Facades\Log::warning('Original-PDF nach Beleglöschung nicht entfernt.', ['path' => $path]);
+                    }
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            });
+        });
+
+        return response()->noContent();
+    }
+
     private function resolveSupplier(?int $supplierId, ?string $name): ?AccountingSupplier
     {
         if ($supplierId) {
