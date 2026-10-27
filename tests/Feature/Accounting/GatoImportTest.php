@@ -99,6 +99,15 @@ class GatoImportTest extends \Tests\TestCase
         $this->assertSame('5132', $doc->lines()->where('article_number', '11388')->first()->account_number_snapshot);
         $this->assertSame('5131', $doc->lines()->where('article_number', '80400')->first()->account_number_snapshot);
         $this->assertSame('gato_layout_v1', $doc->raw_payload['gato']['parser']);
+        $this->actingAs(\App\Models\User::factory()->create());
+        $detail = $this->getJson('/api/accounting/documents/'.$doc->id)->assertOk()
+            ->assertJsonPath('blocking_errors', [])->assertJsonPath('booking_summary.unresolved_lines', 0)
+            ->assertJsonCount(5, 'booking_summary.rows')->assertJsonPath('document.supplier.active', true);
+        $rows = collect($detail->json('booking_summary.rows'))->keyBy('account_number');
+        $this->assertSame(-238, $rows['1141']['net_cents']);
+        $this->assertSame(-45, $rows['1141']['tax_cents']);
+        $this->assertSame(11312, $rows['5131']['net_cents']);
+        $this->assertSame(32481, $rows->sum('gross_cents'));
         $this->gatoUpload()->assertOk()->assertJsonPath('duplicate', true);
         $this->assertDatabaseCount('accounting_documents', 1);
 
@@ -187,5 +196,23 @@ class GatoImportTest extends \Tests\TestCase
         $result = app(\App\Services\Accounting\InvoiceSupplierDetector::class)->detect('/tmp/input.pdf');
         $this->assertNull($result['supplier']);
         $this->assertNull($result['profile']);
+    }
+
+    public function test_summary_keeps_different_tax_rates_separate_on_same_account(): void
+    {
+        foreach (['1141', '5110', '5131'] as $number) {
+            AccountingAccount::create(['account_number' => $number, 'name' => $number, 'active' => true]);
+        }
+        Process::fake(fn () => Process::result(output: $this->fixture()));
+        $id = $this->gatoUpload()->assertCreated()->json('document.id');
+        $document = AccountingDocument::find($id);
+        $beer = AccountingAccount::where('account_number', '5132')->first();
+        $document->lines()->where('article_number', '59054')->update(['account_id' => $beer->id, 'account_number_snapshot' => '5132']);
+        $rows = collect(app(\App\Services\Accounting\BookingSummary::class)->forDocument($document)['rows']);
+        $this->assertCount(2, $rows->where('account_number', '5132'));
+        $this->assertSame(32481, $rows->sum('gross_cents'));
+        $beer->update(['active' => false]);
+        $document->unsetRelation('lines');
+        $this->assertSame(2, app(\App\Services\Accounting\BookingSummary::class)->forDocument($document)['unresolved_lines']);
     }
 }
