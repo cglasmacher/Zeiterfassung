@@ -104,6 +104,31 @@ class ReservationBookTest extends TestCase
         $this->putJson('/api/reservations/bookings/'.$b['id'], ['version' => 2, 'table_ids' => [$ids[0]], 'party_size' => 8])->assertOk()->assertJsonPath('party_size', 8)->assertJsonCount(1, 'tables');
     }
 
+    public function test_tables_six_and_seven_use_five_combined_seats_for_assignment_and_capacity_warnings(): void
+    {
+        $room = $this->room();
+        $tables = collect($room['tables'])->keyBy('name');
+        $ids = [$tables['6']['id'], $tables['7']['id']];
+        $this->assertSame(2, $tables['6']['capacity']);
+        $this->assertSame(2, $tables['7']['capacity']);
+        $combo = $this->postJson('/api/reservations/combinations', ['room_id' => $room['id'], 'name' => 'Tisch 6 + 7', 'capacity' => 5, 'table_ids' => $ids])->assertCreated()->json();
+        $service = app(ReservationService::class);
+        $this->assertSame(5, $service->selectionCapacity(array_reverse($ids)));
+        $availability = $this->getJson('/api/reservations/availability?'.http_build_query(['date' => '2026-10-26', 'time' => '12:00', 'party_size' => 5, 'duration_minutes' => 60, 'kind' => 'reservation']))->assertOk();
+        $this->assertSame(5, collect($availability->json('combinations'))->firstWhere('id', $combo['id'])['capacity']);
+        $this->assertSame(5, collect($availability->json('options'))->firstWhere('id', $combo['id'])['capacity']);
+        $b = $this->postJson('/api/reservations/bookings', $this->booking(['party_size' => 5, 'table_ids' => array_reverse($ids)]))->assertCreated()->json();
+        $booking = ReservationBooking::find($b['id']);
+        $this->assertNotContains(ReservationService::ALLOCATION_ISSUES[2], $service->allocationIssues($booking->starts_at, $booking->ends_at, $ids, 5, $booking->id));
+        $this->assertContains(ReservationService::ALLOCATION_ISSUES[2], $service->allocationIssues($booking->starts_at, $booking->ends_at, $ids, 6, $booking->id));
+        $this->getJson('/api/reservations/bookings/'.$booking->id.'/table-options')->assertOk()->assertJsonPath('combinations.0.capacity', 5);
+        // A configured combination can also have fewer places than the standalone tables.
+        \App\Models\ReservationCombination::find($combo['id'])->update(['capacity' => 3]);
+        $this->assertSame(3, $service->selectionCapacity($ids));
+        $this->assertContains(ReservationService::ALLOCATION_ISSUES[2], $service->allocationIssues($booking->starts_at, $booking->ends_at, $ids, 4, $booking->id));
+        $this->getJson('/api/reservations/bookings/'.$booking->id.'/table-options')->assertOk()->assertJsonPath('combinations.0.capacity', 3);
+    }
+
     public function test_legacy_arrived_bookings_are_one_arrival_state_without_losing_occupancy(): void
     {
         $room = $this->room();
