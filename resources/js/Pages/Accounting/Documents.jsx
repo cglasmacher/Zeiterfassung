@@ -81,6 +81,16 @@ function Detail({ data, busy, saveLine, approve, deleteDocument }) {
             </div>
         </div>
 
+        {data.booking_summary && <section className="space-y-2">
+            <h3 className="font-semibold">Buchungssummen je Konto und Steuersatz</h3>
+            <p className="text-sm text-neutral-600">Zusammenfassung dieses Belegs. Artikel bleiben unten einzeln prüfbar.</p>
+            {data.booking_summary.unresolved_lines > 0 && <p className="text-sm text-amber-800">{data.booking_summary.unresolved_lines} Position(en) fehlen noch in der Zusammenfassung.</p>}
+            <div className="overflow-x-auto"><table className="min-w-full text-sm">
+                <thead><tr className="border-b text-left text-neutral-500"><th className="py-2 pr-3">Konto</th><th className="py-2 pr-3">USt.</th><th className="py-2 pr-3">Netto</th><th className="py-2 pr-3">Steuer</th><th className="py-2">Brutto</th></tr></thead>
+                <tbody>{data.booking_summary.rows.map(row => <tr key={`${row.account_number}-${row.tax_rate}`} className="border-b border-neutral-100"><td className="py-2 pr-3">{row.account_number} · {row.account_name}</td><td className="py-2 pr-3">{Number(row.tax_rate).toLocaleString("de-DE")}%</td><td className="py-2 pr-3">{formatMoney(row.net_cents)}</td><td className="py-2 pr-3">{formatMoney(row.tax_cents)}</td><td className="py-2">{formatMoney(row.gross_cents)}</td></tr>)}</tbody>
+            </table></div>
+        </section>}
+
         <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
                 <thead><tr className="border-b text-left text-neutral-500"><th className="py-2 pr-3">Pos.</th><th className="py-2 pr-3">Beschreibung</th><th className="py-2 pr-3">Netto</th><th className="py-2 pr-3">USt.</th><th className="py-2 pr-3 min-w-64">Konto</th><th className="py-2">Status</th></tr></thead>

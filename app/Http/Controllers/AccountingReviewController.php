@@ -67,8 +67,8 @@ class AccountingReviewController extends Controller
     public function show(int $id): JsonResponse
     {
         $document = AccountingDocument::with([
-            'supplier:id,name,creditor_account',
-            'lines.account:id,account_number,name',
+            'supplier:id,name,creditor_account,active',
+            'lines.account:id,account_number,name,active',
             'approver:id,name',
         ])->findOrFail($id);
 
@@ -76,6 +76,7 @@ class AccountingReviewController extends Controller
             'document' => $document,
             'locked' => $document->isLocked(),
             'blocking_errors' => $document->isLocked() ? [] : app(DocumentValidation::class)->errors($document),
+            'booking_summary' => app(\App\Services\Accounting\BookingSummary::class)->forDocument($document),
             'accounts' => AccountingAccount::where('active', true)->orderBy('account_number')->get(['id', 'account_number', 'name', 'kind']),
         ]);
     }
