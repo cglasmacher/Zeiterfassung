@@ -10,6 +10,8 @@ test('fifteen guests need three more seats after selecting six two-seat tables',
 test('exact configured combination overrides the sum, in either selection order',()=>{
     const combos=[{table_ids:['0','1'],capacity:5}];
     assert.equal(selectionSummary(['1','0'],tables,combos,5).valid,true);
+    assert.equal(selectionSummary(['1','0'],tables,combos,5).capacity,5);
+    assert.equal(selectionSummary(['1','0'],tables,combos,5).missing,0);
     assert.equal(selectionSummary(['0','1','2'],tables,combos,7).missing,1);
 });
 test('empty, missing, unavailable and cross-room selections cannot save',()=>{
@@ -22,4 +24,19 @@ test('empty, missing, unavailable and cross-room selections cannot save',()=>{
 test('seven guests at tables 1, 2 and 3 can save six configured seats with a head chair',()=>{
     const summary=selectionSummary(['0','1','2'],tables,[],7);
     assert.equal(summary.capacity,6);assert.equal(summary.missing,1);assert.equal(summary.valid,true);
+});
+
+test('tables 6 and 7 use five configured seats, with no additional-chair warning in either order',()=>{
+    const pair=[{id:'six',name:'6',room_id:'r',capacity:2,available:true},{id:'seven',name:'7',room_id:'r',capacity:2,available:true}];
+    const combo={table_ids:['six','seven'],capacity:5};
+    for(const ids of [['six','seven'],['seven','six']]){
+        const summary=selectionSummary(ids,pair,[combo],5);
+        assert.equal(summary.capacity,5);
+        assert.equal(summary.missing,0);
+        assert.equal(summary.combination,combo);
+        assert.equal(summary.valid,true);
+    }
+    assert.equal(selectionSummary(['six','seven'],pair,[combo],6).missing,1);
+    assert.equal(selectionSummary(['six','seven'],pair,[],5).missing,1);
+    assert.equal(selectionSummary(['six','seven'],pair,[{...combo,capacity:3}],4).missing,1);
 });

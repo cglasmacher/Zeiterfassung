@@ -60,20 +60,22 @@ function ImportedInfo({booking:b,compact=false}) {
 }
 
 function ImportedBookingDialog({booking,data,close,done}) {
+    const [issues,setIssues]=useState(booking.resmio_issues||[]);
     const [notes,setNotes]=useState(booking.notes||''),[status,setStatus]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+    const [combinations,setCombinations]=useState(data.combinations);
     const [inventory,setInventory]=useState([]),[optionBusy,setOptionBusy]=useState(true),[optionError,setOptionError]=useState(''),[tableIds,setTableIds]=useState(booking.tables.map(t=>t.id));
     const tableChanged=!sameTables(tableIds,booking.tables.map(t=>t.id));
     const canAssign=activeStatuses.includes(booking.status)&&booking.kind!=='waitlist';
-    useEffect(()=>{if(!canAssign){setOptionBusy(false);return;}const controller=new AbortController();axios.get(`${api}/bookings/${booking.id}/table-options`,{signal:controller.signal}).then(r=>setInventory(r.data.tables)).catch(e=>{if(!axios.isCancel(e))setOptionError(errorText(e));}).finally(()=>setOptionBusy(false));return()=>controller.abort();},[booking.id]);
-    const tableSummary=selectionSummary(tableIds,inventory,data.combinations,booking.party_size);
+    useEffect(()=>{if(!canAssign){setOptionBusy(false);return;}const controller=new AbortController();axios.get(`${api}/bookings/${booking.id}/table-options`,{signal:controller.signal}).then(r=>{setInventory(r.data.tables);setCombinations(r.data.combinations??data.combinations);setIssues(r.data.issues??booking.resmio_issues??[]);}).catch(e=>{if(!axios.isCancel(e))setOptionError(errorText(e));}).finally(()=>setOptionBusy(false));return()=>controller.abort();},[booking.id]);
+    const tableSummary=selectionSummary(tableIds,inventory,combinations,booking.party_size);
     const dismiss=()=>{if((notes=== (booking.notes||'')&&!status&&!tableChanged)||window.confirm('Lokale Änderungen verwerfen?'))close();};
     const save=async(reset=false,resetTables=false)=>{if(!resetTables&&tableChanged&&(optionBusy||optionError||!tableSummary.valid))return;setBusy(true);setError('');try{await axios.put(`${api}/bookings/${booking.id}`,{version:booking.version,notes,...(reset?{reset_resmio_status:true}:status?{status}:{}),...(resetTables?{reset_resmio_tables:true}:tableChanged?{table_ids:tableIds}:{})});await done();}catch(e){setError(errorText(e));}finally{setBusy(false);}};
     return <Dialog wide title={`Reservierung bearbeiten · ${booking.guest_name||'Gäste'}`} close={dismiss} busy={busy}><form className="rb-form" onSubmit={e=>{e.preventDefault();save();}}>
         {error&&<div className="rb-alert rb-error" role="alert">{error}</div>}
         <p className="rb-hint">Datum, Gästezahl, Kontakte und Resmio-Notizen werden in Resmio gepflegt. Tischwahl, eigene Notizen und Serviceaktionen können lokal geändert werden und bleiben beim Abgleich erhalten. Tischänderungen gelten nur in Hemingway.</p>
-        <div className="rb-card"><strong>{localParts(booking.starts_at).date} · {clock(booking.starts_at)}–{clock(booking.ends_at)} · {booking.party_size} Personen</strong><p>{tableLabel(booking.tables)}</p><p>{booking.phone} {booking.email}</p><p>{statusLabels[booking.status]} · Quelle: {booking.resmio_data?.source||'Resmio'}{booking.resmio_data?.ref_num?` · Referenz ${booking.resmio_data.ref_num}`:''}</p><details><summary>Weitere Gast- und Resmio-Angaben</summary><ImportedInfo booking={booking}/></details></div>
+        <div className="rb-card"><strong>{localParts(booking.starts_at).date} · {clock(booking.starts_at)}–{clock(booking.ends_at)} · {booking.party_size} Personen</strong><p>{tableLabel(booking.tables)}</p><p>{booking.phone} {booking.email}</p><p>{statusLabels[booking.status]} · Quelle: {booking.resmio_data?.source||'Resmio'}{booking.resmio_data?.ref_num?` · Referenz ${booking.resmio_data.ref_num}`:''}</p><details><summary>Weitere Gast- und Resmio-Angaben</summary><ImportedInfo booking={{...booking,resmio_issues:issues}}/></details></div>
         <fieldset disabled={busy}>
-        {canAssign&&<><TablePicker rooms={data.rooms} tables={inventory} combinations={data.combinations} selected={tableIds} onChange={setTableIds} size={booking.party_size} busy={optionBusy} error={optionError}/>
+        {canAssign&&<><TablePicker rooms={data.rooms} tables={inventory} combinations={combinations} selected={tableIds} onChange={setTableIds} size={booking.party_size} busy={optionBusy} error={optionError}/>
         {booking.resmio_local_table_ids!==null&&booking.resmio_local_table_ids!==undefined&&<p className="rb-hint">Lokale Tischzuordnung aktiv. <button type="button" className="rb-btn" onClick={()=>save(false,true)}>Wieder Resmio-Tische übernehmen</button></p>}</>}
         <Field label="Eigene interne Notizen"><textarea maxLength={2000} rows={4} value={notes} onChange={e=>setNotes(e.target.value)}/></Field>
         {editableStatuses(booking).length>0&&<Field label="Status"><select aria-label="Status" value={status} onChange={e=>setStatus(e.target.value)}><option value="">Status beibehalten</option>{reservationStatuses.map(s=><option key={s} value={s}>{statusLabels[s]}</option>)}</select></Field>}
@@ -84,6 +86,7 @@ function ImportedBookingDialog({booking,data,close,done}) {
 
 function BookingDialog({modal,date,data,close,done}) {
     const [form,setForm]=useState(()=>{const f=defaultForm(modal.kind,date,data.settings.configuration,modal.booking);if(modal.promote){f.kind='reservation';f.status='confirmed';f.table_ids=[];}return f;});
+    const [combinations,setCombinations]=useState(data.combinations);
     const [inventory,setInventory]=useState([]),[autoTables,setAutoTables]=useState(!modal.booking||!!modal.promote),[optionBusy,setOptionBusy]=useState(false),[optionError,setOptionError]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[events,setEvents]=useState([]);
     const [customDuration,setCustomDuration]=useState(!!modal.booking);
     const dirty=useRef(false);const set=(key,value)=>{dirty.current=true;setForm(f=>({...f,[key]:value,...(['date','time','party_size','duration_minutes','room_id','kind'].includes(key)?{table_ids:[]}:{}),...(key==='party_size'&&!customDuration?{duration_minutes:durationFor(value,data.settings.configuration)}:{})}));};
@@ -92,13 +95,13 @@ function BookingDialog({modal,date,data,close,done}) {
     useEffect(()=>{
         if(form.kind==='waitlist')return;
         const controller=new AbortController();setOptionBusy(true);setOptionError('');
-        const timer=setTimeout(()=>axios.get(`${api}/availability`,{signal:controller.signal,params:{date:form.date,time:form.time,party_size:form.party_size,duration_minutes:form.duration_minutes,room_id:form.room_id||undefined,except:modal.booking?.id,kind:form.kind}}).then(r=>{setInventory(r.data.tables);setOptionBusy(false);}).catch(e=>{if(!axios.isCancel(e)){setInventory([]);setOptionError(errorText(e));setOptionBusy(false);}}),200);
+        const timer=setTimeout(()=>axios.get(`${api}/availability`,{signal:controller.signal,params:{date:form.date,time:form.time,party_size:form.party_size,duration_minutes:form.duration_minutes,room_id:form.room_id||undefined,except:modal.booking?.id,kind:form.kind}}).then(r=>{setInventory(r.data.tables);setCombinations(r.data.combinations??data.combinations);setOptionBusy(false);}).catch(e=>{if(!axios.isCancel(e)){setInventory([]);setOptionError(errorText(e));setOptionBusy(false);}}),200);
         return()=>{clearTimeout(timer);controller.abort();};
     },[form.kind,form.date,form.time,form.party_size,form.duration_minutes,form.room_id]);
     const save=async e=>{e.preventDefault();if(needsTables&&(optionBusy||optionError||(!autoTables&&!tableSummary.valid)))return;setBusy(true);setError('');try {const payload={...form,room_id:form.room_id||null};if(!modal.booking)delete payload.version;
         let result; if(modal.promote)result=await axios.post(`${api}/bookings/${modal.booking.id}/promote`,payload);else if(modal.booking)result=await axios.put(`${api}/bookings/${modal.booking.id}`,payload);else result=await axios.post(`${api}/bookings`,payload);await done(result.data);
     }catch(e){setError(errorText(e));}finally{setBusy(false);}};
-    const tableSummary=selectionSummary(form.table_ids,inventory,data.combinations,form.party_size);
+    const tableSummary=selectionSummary(form.table_ids,inventory,combinations,form.party_size);
     const needsTables=form.kind!=='waitlist'&&(!modal.booking||modal.promote||activeStatuses.includes(form.status));
     return <Dialog wide title={modal.promote?'Warteliste übernehmen':`${kindLabels[form.kind]} ${modal.booking?'bearbeiten':'anlegen'}`} close={dismiss} busy={busy}><form onSubmit={save} className="rb-form">
         {error&&<div className="rb-alert rb-error" role="alert">{error}</div>}
@@ -110,7 +113,7 @@ function BookingDialog({modal,date,data,close,done}) {
         <Field label="Personen"><input required type="number" min={1} max={100} value={form.party_size} onChange={e=>set('party_size',Number(e.target.value))}/></Field><Field label="Aufenthalt (Minuten)"><input required type="number" min={15} max={720} value={form.duration_minutes} onChange={e=>{setCustomDuration(true);set('duration_minutes',Number(e.target.value));}}/></Field>
         <Field label="Name / Gruppe"><input required={form.kind==='waitlist'||(form.kind==='reservation'&&data.settings.configuration.require_name)} maxLength={120} value={form.guest_name} onChange={e=>set('guest_name',e.target.value)}/></Field><Field label="Telefon"><input required={form.kind==='reservation'&&data.settings.configuration.require_phone} maxLength={60} type="tel" value={form.phone} onChange={e=>set('phone',e.target.value)}/></Field>
         <Field label="E-Mail (optional)"><input type="email" maxLength={200} value={form.email} onChange={e=>set('email',e.target.value)}/></Field><Field label="Quelle"><select aria-label="Quelle" value={form.source} onChange={e=>set('source',e.target.value)}>{[['phone','Telefon'],['email','E-Mail'],['manual','Vor Ort'],['walkin','Walk-in'],['widget','Website']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></Field>
-        {form.kind!=='waitlist'&&<div className="rb-span"><TablePicker rooms={data.rooms} tables={inventory} combinations={data.combinations} selected={form.table_ids} onChange={ids=>{dirty.current=true;setAutoTables(false);setForm(f=>({...f,table_ids:ids}));}} size={form.party_size} busy={optionBusy} error={optionError} roomId={form.room_id} onRoomChange={id=>set('room_id',id)} automatic={autoTables} onAutomatic={()=>{dirty.current=true;setAutoTables(true);setForm(f=>({...f,table_ids:[]}));}}/></div>}
+        {form.kind!=='waitlist'&&<div className="rb-span"><TablePicker rooms={data.rooms} tables={inventory} combinations={combinations} selected={form.table_ids} onChange={ids=>{dirty.current=true;setAutoTables(false);setForm(f=>({...f,table_ids:ids}));}} size={form.party_size} busy={optionBusy} error={optionError} roomId={form.room_id} onRoomChange={id=>set('room_id',id)} automatic={autoTables} onAutomatic={()=>{dirty.current=true;setAutoTables(true);setForm(f=>({...f,table_ids:[]}));}}/></div>}
         {form.kind==='waitlist'&&<p className="rb-hint rb-span">Dieser Eintrag hält keine Plätze frei. Erst beim Übernehmen werden Zeit und Tisch verbindlich geprüft.</p>}
         {modal.booking&&!modal.promote&&<Field label="Status"><select aria-label="Status" value={form.status} onChange={e=>set('status',e.target.value)}>{Object.entries(statusLabels).filter(([v])=>form.kind==='waitlist'?['waiting','cancelled'].includes(v):reservationStatuses.includes(v)).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></Field>}
         <div className="rb-span"><Field label="Interne Notizen"><textarea rows={3} maxLength={2000} value={form.notes} onChange={e=>set('notes',e.target.value)}/></Field></div>

@@ -152,18 +152,8 @@ class ReservationService
         if ($blocks->contains(fn ($b) => $b->table_ids ? count(array_intersect($ids, $b->table_ids)) > 0 : (! $b->room_id || in_array($b->room_id, $rooms, true)))) {
             $issues[] = self::ALLOCATION_ISSUES[1];
         }
-        if ($tables->sum('capacity') < $size) {
-            $allowed = ReservationCombination::where('capacity', '>=', $size)->get()->contains(function ($c) use ($ids) {
-                $a = $c->table_ids;
-                $b = $ids;
-                sort($a);
-                sort($b);
-
-                return $a === $b;
-            });
-            if (! $allowed) {
-                $issues[] = self::ALLOCATION_ISSUES[2];
-            }
+        if ($this->selectionCapacity($ids) < $size) {
+            $issues[] = self::ALLOCATION_ISSUES[2];
         }
 
         return $issues;

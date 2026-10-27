@@ -111,14 +111,14 @@ class ReservationBookController extends Controller
             $this->service->checkHours($start);
         }
 
-        return response()->json(['options' => $this->service->candidates($start, $start->addMinutes((int) $data['duration_minutes']), $data['party_size'], $data['room_id'] ?? null, $data['except'] ?? null), 'tables' => $this->service->tableInventory($start, $start->addMinutes((int) $data['duration_minutes']), $data['except'] ?? null)]);
+        return response()->json(['combinations' => ReservationCombination::orderBy('name')->get(), 'options' => $this->service->candidates($start, $start->addMinutes((int) $data['duration_minutes']), $data['party_size'], $data['room_id'] ?? null, $data['except'] ?? null), 'tables' => $this->service->tableInventory($start, $start->addMinutes((int) $data['duration_minutes']), $data['except'] ?? null)]);
     }
 
     public function tableOptions(Request $request, ReservationBooking $booking)
     {
         $this->access($request);
 
-        return response()->json(['options' => $this->service->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, $booking->source === 'resmio'), 'tables' => $this->service->tableInventory($booking->starts_at, $booking->ends_at, $booking->id, $booking->source === 'resmio')]);
+        return response()->json(['issues' => $this->service->withCurrentIssues($booking->load('tables'))->resmio_issues ?? [], 'combinations' => ReservationCombination::orderBy('name')->get(), 'options' => $this->service->candidates($booking->starts_at, $booking->ends_at, $booking->party_size, null, $booking->id, $booking->source === 'resmio'), 'tables' => $this->service->tableInventory($booking->starts_at, $booking->ends_at, $booking->id, $booking->source === 'resmio')]);
     }
 
     public function events(Request $request, ReservationBooking $booking)

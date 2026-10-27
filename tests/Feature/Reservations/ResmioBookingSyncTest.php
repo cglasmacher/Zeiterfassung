@@ -7,6 +7,7 @@ use App\Models\InfoReservation;
 use App\Models\ReservationBooking;
 use App\Models\User;
 use App\Services\Info\ResmioSync;
+use App\Services\Reservations\ReservationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -196,6 +197,7 @@ class ResmioBookingSyncTest extends TestCase
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => [$ids[0]]])->assertOk();
         $b = $this->imported();
         $this->putJson('/api/reservations/bookings/'.$b->id, ['version' => $b->version, 'table_ids' => $ids])->assertOk()->assertJsonCount(2, 'tables');
+        $this->assertNotContains(ReservationService::ALLOCATION_ISSUES[2], app(ReservationService::class)->withCurrentIssues($this->imported()->load('tables'))->resmio_issues);
         app(ResmioSync::class)->run();
         $b = $this->imported();
         $this->assertEqualsCanonicalizing($ids, $b->tables->pluck('id')->all());
