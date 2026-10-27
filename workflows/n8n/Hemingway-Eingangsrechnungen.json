@@ -57,22 +57,22 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1.8,
       "position": [
-        960,
-        240
+        1200,
+        400
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const raw =\n  $json.output?.[0]?.content?.[0]?.text ??\n  $json.message?.content ??\n  $json.text ??\n  $json;\n\nlet d = raw;\nif (typeof raw === 'string') {\n  const clean = raw.replace(/^```json\\s*/i, '').replace(/```$/i, '').trim();\n  d = JSON.parse(clean);\n}\n\nconst errors = [];\nconst isInt = (v) => Number.isInteger(v);\nconst allowedTax = new Set([0, 7, 19, null]);\n\nif (!d || typeof d !== 'object') throw new Error('OpenAI-Ausgabe ist kein Objekt');\nif (!Array.isArray(d.lines) || d.lines.length === 0) errors.push('Keine Rechnungspositionen erkannt');\nif (!d.supplier_name) errors.push('Lieferant fehlt');\nif (!d.invoice_number && d.document_type !== 'shift4_statement') errors.push('Rechnungsnummer fehlt');\nif (!d.invoice_date) errors.push('Rechnungsdatum fehlt');\nif (!isInt(d.gross_cents)) errors.push('Bruttobetrag fehlt oder ist nicht in Cent');\nif (!isInt(d.net_cents)) errors.push('Nettobetrag fehlt oder ist nicht in Cent');\nif (!isInt(d.tax_cents)) errors.push('USt-Betrag fehlt oder ist nicht in Cent');\n\nlet lineGross = 0;\nlet lineNet = 0;\nlet lineTax = 0;\n\nfor (let i = 0; i < (d.lines || []).length; i++) {\n  const l = d.lines[i];\n  if (!l.description) errors.push(`Position ${i + 1}: Beschreibung fehlt`);\n  if (!isInt(l.net_cents)) errors.push(`Position ${i + 1}: netto_cents ungültig`);\n  if (!isInt(l.tax_cents)) errors.push(`Position ${i + 1}: tax_cents ungültig`);\n  if (!isInt(l.gross_cents)) errors.push(`Position ${i + 1}: gross_cents ungültig`);\n  if (!allowedTax.has(l.tax_rate ?? null)) errors.push(`Position ${i + 1}: Steuersatz ungültig`);\n  if ((l.confidence ?? 0) < 80) errors.push(`Position ${i + 1}: Kontierung/Extraktion unsicher (${l.confidence ?? 0}%)`);\n  lineGross += Number(l.gross_cents || 0);\n  lineNet += Number(l.net_cents || 0);\n  lineTax += Number(l.tax_cents || 0);\n}\n\nif (isInt(d.gross_cents) && Math.abs(lineGross - d.gross_cents) > 2) {\n  errors.push(`Positionssumme Brutto weicht ab: ${lineGross} ct statt ${d.gross_cents} ct`);\n}\nif (isInt(d.net_cents) && Math.abs(lineNet - d.net_cents) > 2) {\n  errors.push(`Positionssumme Netto weicht ab: ${lineNet} ct statt ${d.net_cents} ct`);\n}\nif (isInt(d.tax_cents) && Math.abs(lineTax - d.tax_cents) > 2) {\n  errors.push(`Positionssumme USt weicht ab: ${lineTax} ct statt ${d.tax_cents} ct`);\n}\nif (isInt(d.net_cents) && isInt(d.tax_cents) && isInt(d.gross_cents) &&\n    Math.abs((d.net_cents + d.tax_cents) - d.gross_cents) > 2) {\n  errors.push('Netto + USt entspricht nicht Brutto');\n}\n\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif (!metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n  throw new Error('Original-PDF oder Anhangsreferenz fehlt.');\n}\nconst fileName = metadata.original_filename;\nconst sourceReference = metadata.source_reference;\n\nconst portalPayload = {\n  source: 'n8n',\n  source_reference: sourceReference,\n  supplier_name: d.supplier_name ?? null,\n  invoice_number: d.invoice_number ?? null,\n  invoice_date: d.invoice_date ?? null,\n  service_date_from: d.service_date_from ?? null,\n  service_date_to: d.service_date_to ?? null,\n  currency: d.currency || 'EUR',\n  net_cents: d.net_cents ?? null,\n  tax_cents: d.tax_cents ?? null,\n  gross_cents: d.gross_cents ?? null,\n  confidence: d.confidence ?? 0,\n  original_filename: fileName,\n  validation_errors: errors,\n  raw_payload: {\n    document_type: d.document_type || 'purchase_invoice',\n    original_binary_key: metadata.original_binary_key\n  },\n  lines: (d.lines || []).map((l, i) => ({\n    position_no: l.position_no ?? (i + 1),\n    article_number: l.article_number ?? null,\n    description: l.description || `Position ${i + 1}`,\n    quantity: l.quantity ?? null,\n    unit: l.unit ?? null,\n    net_cents: l.net_cents ?? null,\n    tax_rate: l.tax_rate ?? null,\n    tax_cents: l.tax_cents ?? null,\n    gross_cents: l.gross_cents ?? null,\n    account_number: l.account_number ?? null,\n    confidence: l.confidence ?? 0,\n    classification_source: l.classification_source || 'ai'\n  }))\n};\n\nreturn {\n  binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n  json: {\n    ...d,\n    validation_status: errors.length ? 'REVIEW' : 'VALID',\n    validation_errors: errors,\n    source_reference: sourceReference,\n    original_filename: fileName,\n    portal_payload: portalPayload\n  }\n};"
+        "jsCode": "const raw =\n  $json.output?.[0]?.content?.[0]?.text ??\n  $json.message?.content ??\n  $json.text ??\n  $json;\n\nlet d = raw;\nif (typeof raw === 'string') {\n  const clean = raw.replace(/^```json\\s*/i, '').replace(/```$/i, '').trim();\n  d = JSON.parse(clean);\n}\n\nconst errors = [];\nconst isInt = (v) => Number.isInteger(v);\nconst allowedTax = new Set([0, 7, 19, null]);\n\nif (!d || typeof d !== 'object') throw new Error('OpenAI-Ausgabe ist kein Objekt');\nif (!Array.isArray(d.lines) || d.lines.length === 0) errors.push('Keine Rechnungspositionen erkannt');\nif (!d.supplier_name) errors.push('Lieferant fehlt');\nif (!d.invoice_number && d.document_type !== 'shift4_statement') errors.push('Rechnungsnummer fehlt');\nif (!d.invoice_date) errors.push('Rechnungsdatum fehlt');\nif (!isInt(d.gross_cents)) errors.push('Bruttobetrag fehlt oder ist nicht in Cent');\nif (!isInt(d.net_cents)) errors.push('Nettobetrag fehlt oder ist nicht in Cent');\nif (!isInt(d.tax_cents)) errors.push('USt-Betrag fehlt oder ist nicht in Cent');\n\nlet lineGross = 0;\nlet lineNet = 0;\nlet lineTax = 0;\n\nfor (let i = 0; i < (d.lines || []).length; i++) {\n  const l = d.lines[i];\n  if (!l.description) errors.push(`Position ${i + 1}: Beschreibung fehlt`);\n  if (!isInt(l.net_cents)) errors.push(`Position ${i + 1}: netto_cents ungültig`);\n  if (!isInt(l.tax_cents)) errors.push(`Position ${i + 1}: tax_cents ungültig`);\n  if (!isInt(l.gross_cents)) errors.push(`Position ${i + 1}: gross_cents ungültig`);\n  if (!allowedTax.has(l.tax_rate ?? null)) errors.push(`Position ${i + 1}: Steuersatz ungültig`);\n  if ((l.confidence ?? 0) < 80) errors.push(`Position ${i + 1}: Kontierung/Extraktion unsicher (${l.confidence ?? 0}%)`);\n  lineGross += Number(l.gross_cents || 0);\n  lineNet += Number(l.net_cents || 0);\n  lineTax += Number(l.tax_cents || 0);\n}\n\nif (isInt(d.gross_cents) && Math.abs(lineGross - d.gross_cents) > 2) {\n  errors.push(`Positionssumme Brutto weicht ab: ${lineGross} ct statt ${d.gross_cents} ct`);\n}\nif (isInt(d.net_cents) && Math.abs(lineNet - d.net_cents) > 2) {\n  errors.push(`Positionssumme Netto weicht ab: ${lineNet} ct statt ${d.net_cents} ct`);\n}\nif (isInt(d.tax_cents) && Math.abs(lineTax - d.tax_cents) > 2) {\n  errors.push(`Positionssumme USt weicht ab: ${lineTax} ct statt ${d.tax_cents} ct`);\n}\nif (isInt(d.net_cents) && isInt(d.tax_cents) && isInt(d.gross_cents) &&\n    Math.abs((d.net_cents + d.tax_cents) - d.gross_cents) > 2) {\n  errors.push('Netto + USt entspricht nicht Brutto');\n}\n\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif (!metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n  throw new Error('Original-PDF oder Anhangsreferenz fehlt.');\n}\nconst fileName = metadata.original_filename;\nconst sourceReference = metadata.source_reference;\n\nconst portalPayload = {\n  source: 'n8n',\n  source_reference: sourceReference,\n  supplier_name: d.supplier_name ?? null,\n  invoice_number: d.invoice_number ?? null,\n  invoice_date: d.invoice_date ?? null,\n  service_date_from: d.service_date_from ?? null,\n  service_date_to: d.service_date_to ?? null,\n  currency: d.currency || 'EUR',\n  net_cents: d.net_cents ?? null,\n  tax_cents: d.tax_cents ?? null,\n  gross_cents: d.gross_cents ?? null,\n  confidence: d.confidence ?? 0,\n  original_filename: fileName,\n  validation_errors: errors,\n  raw_payload: {\n    document_type: d.document_type || 'purchase_invoice',\n    original_binary_key: metadata.original_binary_key,\n    extracted_text: $('Kassenberichte ausschließen').item.json.text\n  },\n  lines: (d.lines || []).map((l, i) => ({\n    position_no: l.position_no ?? (i + 1),\n    article_number: l.article_number ?? null,\n    description: l.description || `Position ${i + 1}`,\n    quantity: l.quantity ?? null,\n    unit: l.unit ?? null,\n    net_cents: l.net_cents ?? null,\n    tax_rate: l.tax_rate ?? null,\n    tax_cents: l.tax_cents ?? null,\n    gross_cents: l.gross_cents ?? null,\n    account_number: l.account_number ?? null,\n    confidence: l.confidence ?? 0,\n    classification_source: l.classification_source || 'ai'\n  }))\n};\n\nreturn {\n  binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n  json: {\n    ...d,\n    validation_status: errors.length ? 'REVIEW' : 'VALID',\n    validation_errors: errors,\n    source_reference: sourceReference,\n    original_filename: fileName,\n    portal_payload: portalPayload\n  }\n};"
       },
       "id": "ee93bcda-aee9-4bc2-b699-a5577d5011b9",
       "name": "JSON + Validierung + Portal Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
-        240
+        1440,
+        400
       ]
     },
     {
@@ -114,14 +114,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1440,
+        1680,
         240
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (!addresses.length) throw new Error('Absender fehlt; Mail nicht automatisch verarbeiten.');\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
+        "jsCode": "// n8n Code node, runOnceForAllItems. Preserve item linking for each attachment.\nconst result = [];\nconst inputs = $input.all();\nfor (let index = 0; index < inputs.length; index++) {\n    const mail = inputs[index];\n    const data = mail.json ?? {};\n    const sender = data.from ?? data.metadata?.from ?? data.headers?.from;\n    const addresses = [];\n    function collect(value) {\n        if (Array.isArray(value)) return value.forEach(collect);\n        if (value && typeof value === 'object') {\n            if (value.address) collect(value.address);\n            if (value.value) collect(value.value);\n            if (value.text) collect(value.text);\n        } else if (typeof value === 'string') {\n            addresses.push(...(value.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+/gi) ?? []));\n        }\n    }\n    collect(sender);\n    if (!addresses.length) throw new Error('Absender fehlt; Mail nicht automatisch verarbeiten.');\n    if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;\n\n    const binaries = mail.binary ?? {};\n    const pdfKeys = Object.keys(binaries).filter(key => {\n        const file = binaries[key];\n        return file?.mimeType?.toLowerCase() === 'application/pdf' || /\\.pdf$/i.test(file?.fileName ?? '');\n    });\n    // Other mail and image attachments do not interrupt invoice processing.\n    if (!pdfKeys.length) continue;\n\n    const messageId = data.metadata?.['message-id'] ?? data.metadata?.messageId ?? data.messageId ?? data.headers?.['message-id'];\n    const uid = data.attributes?.uid;\n    const validity = data.attributes?.uidValidity ?? data.attributes?.uidvalidity;\n    const base = typeof messageId === 'string' && messageId.trim()\n        ? messageId.trim()\n        : uid != null && validity != null ? `imap:rechnung@hemingway-hilden.de:${validity}:${uid}` : null;\n    if (!base) throw new Error('Stabile Message-ID oder IMAP UIDVALIDITY + UID fehlt.');\n\n    for (let position = 0; position < pdfKeys.length; position++) {\n        const key = pdfKeys[position];\n        // Keep legacy identity for the first PDF; additional originals are independent.\n        const reference = position === 0 ? base : `${base}:attachment:${encodeURIComponent(key)}`;\n        if (reference.length > 255) throw new Error('Quellreferenz überschreitet 255 Zeichen.');\n        result.push({\n            json: {\n                ...data,\n                accounting_supplier: addresses.some(address => address.toLowerCase().endsWith('@getraenke-gato.de')) ? 'gato' : null,\n                accounting_attachment: {\n                    source_reference: reference,\n                    original_filename: binaries[key].fileName ?? `${key}.pdf`,\n                    original_binary_key: key,\n                },\n            },\n            binary: { eingangsrechnung_0: binaries[key] },\n            pairedItem: { item: index },\n        });\n    }\n}\nreturn result;\n"
       },
       "id": "f3a308e0-d970-4641-b351-e5394277e238",
       "name": "PDF normalisieren",
@@ -144,6 +144,54 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "// n8n Code node, runOnceForAllItems, immediately after PDF extraction.\n// Also catches forwarded Vectron reports whose sender is no longer myVectron.\nconst result = [];\nfor (const [index, item] of $input.all().entries()) {\n    const text = item.json?.text;\n    if (typeof text !== 'string' || !text.trim()) {\n        throw new Error('PDF enthält keinen auslesbaren Text; Original manuell prüfen.');\n    }\n    const normalized = text.replace(/\\s+/g, ' ');\n    const isCashReport = /(?:Finanzbericht|Bediener\\s*\\(erweitert\\))\\s*<\\s*[ZX]\\d+\\s*>/i.test(normalized)\n        || (/\\bVectron\\b/i.test(normalized) && /\\bZ[-\\s]?(?:Bericht|Zähler|Zaehler)\\b/i.test(normalized));\n    if (isCashReport) continue;\n    result.push({ ...item, pairedItem: { item: index } });\n}\nreturn result;\n"
+      }
+    },
+    {
+      "id": "8854b17c-8657-4503-9660-8e99749ed379",
+      "name": "Gato ohne KI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b063039-7248-4d1a-9919-e9afcda64a0e",
+              "leftValue": "={{ $('PDF normalisieren').item.json.accounting_supplier === 'gato' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d2a651e7-563c-4d9b-b827-4dc83afe19ab",
+      "name": "Gato Original ans Portal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Gato branch bypasses AI. Laravel parses the original PDF and owns all accounting.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif (attachment.json.accounting_supplier !== 'gato' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Gato-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Getränke Gato GmbH',\n            extraction_profile: 'gato_layout_v1',\n            original_filename: metadata.original_filename,\n            extracted_text: $json.text ?? null,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
       }
     }
   ],
@@ -185,7 +233,7 @@
       "main": [
         [
           {
-            "node": "Rechnung mit GPT auslesen",
+            "node": "Gato ohne KI?",
             "type": "main",
             "index": 0
           }
@@ -204,6 +252,35 @@
       ]
     },
     "JSON + Validierung + Portal Payload": {
+      "main": [
+        [
+          {
+            "node": "Hemingway Portal - Beleg übergeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gato ohne KI?": {
+      "main": [
+        [
+          {
+            "node": "Gato Original ans Portal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechnung mit GPT auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gato Original ans Portal": {
       "main": [
         [
           {

@@ -2,6 +2,7 @@
 
 return [
     'import_token' => env('ACCOUNTING_IMPORT_TOKEN'),
+    'pdftotext_binary' => env('ACCOUNTING_PDFTOTEXT_BINARY', '/usr/bin/pdftotext'),
 
     'mailbox' => [
         'host' => env('ACCOUNTING_IMAP_HOST', 'imap.ionos.de'),

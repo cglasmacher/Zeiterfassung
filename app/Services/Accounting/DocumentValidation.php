@@ -56,6 +56,13 @@ class DocumentValidation
             $errors[] = 'Rechnungsnetto + USt entspricht nicht Brutto.';
         }
 
+        foreach (($document->raw_payload['gato']['tax_groups'] ?? []) as $rate => $group) {
+            $lines = $document->lines->filter(fn ($line) => (float) $line->tax_rate === (float) $rate);
+            if ($lines->sum('net_cents') !== $group['net_cents'] || $lines->sum('tax_cents') !== $group['tax_cents']) {
+                $errors[] = 'Gato-Steuergruppe '.$rate.' % stimmt nicht mit dem Original überein.';
+            }
+        }
+
         return array_values(array_unique($errors, SORT_REGULAR));
     }
 }

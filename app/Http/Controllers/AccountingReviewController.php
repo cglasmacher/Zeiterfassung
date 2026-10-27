@@ -48,7 +48,7 @@ class AccountingReviewController extends Controller
             'documents' => $query->paginate(30),
             'counts' => [
                 'received' => AccountingDocument::where('status', 'received')->count(),
-                'review' => AccountingDocument::whereIn('status', ['analyzed', 'review'])->count(),
+                'review' => AccountingDocument::whereIn('status', ['analyzed', 'review', 'analysis_failed'])->count(),
                 'ready' => AccountingDocument::where('status', 'ready')->count(),
                 'approved' => AccountingDocument::where('status', 'approved')->count(),
                 'exported' => AccountingDocument::where('status', 'exported')->count(),
@@ -94,6 +94,18 @@ class AccountingReviewController extends Controller
                 throw ValidationException::withMessages(['payload' => 'payload enthält kein gültiges JSON.']);
             }
             $request->merge($decoded);
+        }
+
+        if ($request->input('extraction_profile') === 'gato_layout_v1') {
+            $request->validate(['supplier_name' => ['required', 'string', 'max:255']]);
+            $supplier = $this->resolveSupplier(null, $request->input('supplier_name'));
+            if ($supplier?->creditor_account !== '70007') {
+                throw ValidationException::withMessages(['supplier_name' => 'Gato-Profil benötigt den aktiven Kreditor 70007.']);
+            }
+            $request->merge([
+                ...app(\App\Services\Accounting\GatoImport::class)->prepare($request),
+                'supplier_id' => $supplier->id,
+            ]);
         }
 
         $data = $request->validate([
@@ -353,6 +365,16 @@ class AccountingReviewController extends Controller
             ];
         }
 
+        if ($supplier?->creditor_account === '70007') {
+            $gato = app(\App\Services\Accounting\GatoAccount::class)->resolve($line);
+            if ($gato) {
+                $account = AccountingAccount::where('account_number', $gato[0])->where('active', true)->first();
+
+                return ['account' => $account, 'tax_rate' => null, 'confidence' => $account ? 99 : 0,
+                    'source' => 'supplier_rule', 'rule_key' => $gato[1]];
+            }
+        }
+
         if (! empty($line['account_number'])) {
             $account = AccountingAccount::where('account_number', $line['account_number'])->where('active', true)->first();
             if ($account) {
@@ -387,6 +409,7 @@ class AccountingReviewController extends Controller
         }
         $document->unsetRelation('lines');
         $errors = app(DocumentValidation::class)->errors($document);
-        $document->update(['status' => $errors ? 'review' : 'ready']);
+        $document->update(['status' => ! empty($document->raw_payload['analysis_failed'])
+            ? 'analysis_failed' : ($errors ? 'review' : 'ready')]);
     }
 }
