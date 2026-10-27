@@ -40,7 +40,7 @@ Das bekannte native Gato-Layout ist abgedeckt. Andere Layouts, Scans/OCR, komple
 
 Die Buchungsvorbereitung zeigt zusätzlich explizite Soll-/Haben-Zeilen je Pfand-Steuergruppe: 1141 nur mit Nettobetrag, 1461 nur mit Vorsteuer und Kreditor mit dem zugehörigen Bruttobetrag. Rückgaben kehren die Richtung um. Die Testrechnung ergibt 1141 Haben 2,38 €, 1461 Haben 0,45 € und 70007 Soll 2,83 €. Die Gruppensummen darüber dienen der Belegabstimmung; Pfandbrutto ist kein Buchungsbetrag für Konto 1141.
 
-Die Zeilen tragen `tax_mode=explicit`. Ein späterer Lexware-Exporter muss diese Aufteilung übernehmen und darf für dieselben Pfandbeträge keine zusätzliche automatische Vorsteuer berechnen. Der CSV-Exporter selbst ist weiterhin nicht implementiert.
+Die Zeilen tragen `tax_mode=explicit`. Der Lexware-CSV-Exporter übernimmt Pfand netto und Vorsteuer als getrennte Buchungssätze ohne zusätzlichen Steuerschlüssel; siehe `docs/accounting-lexware-export.md`. Dieselben Pfandbeträge dürfen in Lexware nicht zusätzlich automatisch versteuert werden.
 
 Fehlt das aktive Konto 1461 bei steuerpflichtigem Pfand, blockieren Bereitschaft und Freigabe. Bestehende Installationen ergänzen das Konto gezielt mit:
 

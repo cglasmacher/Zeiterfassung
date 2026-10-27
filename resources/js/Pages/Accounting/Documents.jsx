@@ -3,6 +3,7 @@ import axios from "axios";
 import TimeTrackingLayout from "@/Layouts/TimeTrackingLayout";
 import Button from "@/Components/ui/Button";
 import { formatMoney } from "@/lib/navigation";
+import ExportPanel from "./ExportPanel";
 
 const statusLabels = {
     analysis_failed: "Analyse fehlgeschlagen",
@@ -180,7 +181,7 @@ export default function Documents() {
     const approve = () => run(async () => {
         await axios.post(`/api/accounting/documents/${selectedId}/approve`);
         await Promise.all([loadDetail(selectedId), loadList()]);
-        setMessage("Beleg freigegeben und für den späteren Lexware-Export vorgemerkt.");
+        setMessage("Beleg freigegeben und für den Lexware-Export bereit.");
     });
 
     return <TimeTrackingLayout><div className="space-y-6">
@@ -188,6 +189,7 @@ export default function Documents() {
         {error && <p role="alert" className="rounded-lg bg-red-50 text-red-800 p-4">{error}</p>}
         {message && <p role="status" className="rounded-lg bg-green-50 text-green-800 p-4">{message}</p>}
         {list?.counts && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{Object.entries({ review: "Prüfen", ready: "Bereit", approved: "Freigegeben", exported: "Exportiert", received: "Eingegangen" }).map(([key, label]) => <div key={key} className="card p-4"><p className="text-xs text-neutral-500">{label}</p><strong className="text-2xl">{list.counts[key] || 0}</strong></div>)}</div>}
+        <ExportPanel onCreated={async () => { await loadList(); if (selectedId) await loadDetail(selectedId); }} />
         <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
             <DocumentList data={list} selectedId={selectedId} select={(id) => run(() => loadDetail(id))} filters={filters} setFilters={setFilters} busy={busy} />
             <Detail data={detail} busy={busy} saveLine={saveLine} approve={approve} deleteDocument={deleteDocument} />
