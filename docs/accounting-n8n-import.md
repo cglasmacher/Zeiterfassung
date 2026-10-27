@@ -17,7 +17,7 @@ Absender `noreply@myvectron.com` wird bereits im IMAP-Suchfilter und zusätzlich
 
 Der Payload-Node holt das Original über das verknüpfte Anhangsitem. Der bisherige Merge nach Position entfällt. Die erste PDF behält die bisherige Message-ID als Quellreferenz; weitere PDFs erhalten einen Anhangsschlüssel als Zusatz. Ein IMAP-Fallback ist nur mit UIDVALIDITY und UID zulässig. Schlüssel über 255 Zeichen werden nicht gekürzt, sondern abgewiesen.
 
-Original-Prompt, Modell und vorhandene Summenprüfung bleiben erhalten. Gato-Steuerkennzeichnung, strukturierter Analysefehlerprozess und weitere fachliche Extraktion folgen mit Original-Testrechnungen. Der Textfilter ist eine zusätzliche Barriere, kein allgemeiner Belegtypklassifikator. Nichtrechnungen anderer Absender sind damit noch nicht vollständig ausgeschlossen.
+Original-Prompt, Modell und vorhandene Summenprüfung bleiben für andere Lieferanten erhalten. Erkannte Gato-Mails werden ohne GPT an die deterministische Portalverarbeitung übergeben; siehe `docs/accounting-gato.md`. Der Textfilter ist eine zusätzliche Barriere, kein allgemeiner Belegtypklassifikator. Nichtrechnungen anderer Absender sind damit noch nicht vollständig ausgeschlossen.
 
 ## Grenzen und Tests
 
@@ -25,4 +25,4 @@ Original-Prompt, Modell und vorhandene Summenprüfung bleiben erhalten. Gato-Ste
 
 Die Tests führen den eingebetteten JavaScript-Code mit n8n-Eingaben und verknüpften Items als Testdoubles aus. Sie prüfen mehrere Anhänge, beide Absenderformate, stabile Referenzen, Kassenberichtfilter und die Identität zwischen analysiertem und hochgeladenem PDF. Der echte n8n-Lauf einschließlich Item-Verknüpfung und IMAP-Verhalten muss vor Aktivierung bestätigt werden.
 
-OCR, automatische Fehlerablage im Portal und Änderungen des Gelesen-Status nach erfolgreichem Import sind nicht Teil dieses Schrittes. Fehlerausführungen müssen in n8n geprüft und gezielt erneut ausgeführt werden. Zwei Mails mit unterschiedlichen Message-IDs können weiterhin dieselbe Rechnung enthalten; eine inhaltliche Dublettenerkennung folgt separat.
+OCR und Änderungen des Gelesen-Status nach erfolgreichem Import sind nicht Teil dieses Schrittes. Gato-Analysefehler werden mit Original im Portal gespeichert; andere Fehlerausführungen müssen weiterhin in n8n geprüft und gezielt erneut ausgeführt werden. Zwei Mails mit unterschiedlichen Message-IDs können weiterhin dieselbe Rechnung enthalten; eine inhaltliche Dublettenerkennung folgt separat.

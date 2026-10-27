@@ -5,6 +5,7 @@ import Button from "@/Components/ui/Button";
 import { formatMoney } from "@/lib/navigation";
 
 const statusLabels = {
+    analysis_failed: "Analyse fehlgeschlagen",
     received: "Eingegangen",
     analyzed: "Analysiert",
     review: "Prüfung erforderlich",
@@ -14,6 +15,7 @@ const statusLabels = {
 };
 
 const statusClass = {
+    analysis_failed: "bg-red-50 text-red-800",
     received: "bg-neutral-100 text-neutral-700",
     analyzed: "bg-blue-50 text-blue-800",
     review: "bg-amber-50 text-amber-800",
@@ -40,6 +42,7 @@ function DocumentList({ data, selectedId, select, filters, setFilters, busy }) {
                 <select className="rounded-lg border-neutral-300" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}>
                     <option value="">Alle Status</option>
                     <option value="review">Prüfung erforderlich</option>
+                    <option value="analysis_failed">Analyse fehlgeschlagen</option>
                     <option value="ready">Bereit zur Freigabe</option>
                     <option value="approved">Freigegeben</option>
                     <option value="exported">Exportiert</option>
@@ -112,7 +115,7 @@ function AccountingLine({ line, accounts, busy, save }) {
                 {(changed || remember || line.status === "review") && <Button size="sm" disabled={busy || !accountId} onClick={() => save(line.id, Number(accountId), remember)}>Kontierung übernehmen</Button>}
             </div>
         </td>
-        <td className="py-3"><span className={line.status === "approved" ? "text-green-700" : line.status === "review" ? "text-amber-700" : "text-neutral-600"}>{line.status === "approved" ? "Bestätigt" : line.status === "review" ? "Prüfen" : "Vorschlag"}</span>{line.confidence !== null && <p className="text-xs text-neutral-500">{line.confidence}%</p>}</td>
+        <td className="py-3"><span className={line.status === "approved" ? "text-green-700" : line.status === "review" ? "text-amber-700" : "text-neutral-600"}>{line.status === "approved" ? "Bestätigt" : line.status === "review" ? "Prüfen" : "Vorschlag"}</span>{line.rule_key && <p className="text-xs text-neutral-500">{line.classification_source === "learned_rule" ? "Gelernte Regel" : "Regel"}: {line.rule_key}</p>}{line.confidence !== null && <p className="text-xs text-neutral-500">{line.confidence}%</p>}</td>
     </tr>;
 }
 

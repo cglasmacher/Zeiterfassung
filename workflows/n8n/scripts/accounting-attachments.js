@@ -44,6 +44,7 @@ for (let index = 0; index < inputs.length; index++) {
         result.push({
             json: {
                 ...data,
+                accounting_supplier: addresses.some(address => address.toLowerCase().endsWith('@getraenke-gato.de')) ? 'gato' : null,
                 accounting_attachment: {
                     source_reference: reference,
                     original_filename: binaries[key].fileName ?? `${key}.pdf`,

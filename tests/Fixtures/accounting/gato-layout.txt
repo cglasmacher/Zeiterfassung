@@ -1,0 +1,54 @@
+         Testrestaurant GmbH                                                                Seite 1/2
+         Testweg 1                                                     Rechnung
+         40000 Teststadt                                                 Kunden-Nr.:        18000
+                                                                      Beleg-Nr.:         RE26-TEST01
+                                                                      Datum:             17.06.2026 MEMÜ
+                                                                            Bei Rückfragen bitte angeben
+
+
+                                                                  Lieferdatum:         Mi, 17.06.2026
+                                                                  Vorgang:             60000
+                                                                  Lieferschein         LI26-TEST01 vom 17.06.26
+                                                                  Bestelldatum         15.06.2026
+                                                                  Bestellnr.           000000000001
+Art.     Artikelbezeichnung                        Inhalt   Menge Einheit    Pfand          Preis    Betrag €
+04205    CONCA d'ORO Prosecco Frizzante              0,75      18 Fl                      5,6500      101,70
+         Collina
+11388    Bitburger Alkoholfrei 0,0%             24 x 0,33        2   Ka         6,84    16,9400        33,88
+20103    Engelbert Classic       PET            12 x 1,00        7   Ka        31,50     5,5400        38,78
+21004    Coca Cola PET                          12 x 1,00        1   Ka         3,30    14,4900        14,49
+21011    Coca Cola ZERO PET                     12 x 1,00        1   Ka         3,30    14,4900        14,49
+21012    Coca Cola ZERO GLAS                    24 x 0,20        2   Ka        10,20    12,4400        24,88
+22254    Sprite Ohne Zucker PET                 12 x 1,00        1   Ka         3,30    14,4900        14,49
+59054    Giffard KOKOSNUSS Sirup                     1,00        1   Fl                  7,6900         7,69    *
+59063    Giffard Maracuja Sirup                      1,00        1   Fl                  7,6900         7,69    *
+59064    Giffard Pfirsich Sirup                      1,00        1   Fl                  7,6900         7,69    *
+59084    Giffard Limette Sirup                       1,00        1   Fl                  6,5500         6,55    *
+80400    Lieferpauschale                                         1   Stk                 5,9900         5,99
+
+                 Warenwert           Pfand    Nettowert      % MwSt.        MwSt.                     Gesamt
+                    278,32            2,38-       29,62      *   7,00         2,07                     324,81
+                                                 246,32         19,00        46,80
+Zahlungsziel 8 Tage fällig am: 25.06.2026
+Bankabbuchung
+         Testrestaurant GmbH                                                            Seite 2/2
+         Testweg 1                                              Rechnung
+         40000 Teststadt                                          Kunden-Nr.:           18000
+                                                               Beleg-Nr.:            RE26-TEST01
+                                                               Datum:                17.06.2026 MEMÜ
+                                                                        Bei Rückfragen bitte angeben
+
+
+Art.     Artikelbezeichnung                  Inhalt   Menge Einheit       Pfand        Preis      Betrag €
+
+Leergutart                         Zugang Leergut-Rückgabe Differenz              Pfand            Betrag
+00100 __KA+FL 20er 3,10 €                                1         1-              3,10             3,10-
+00101 __KA+FL 24er 3,42 €               2                1         1               3,42              3,42
+00200 __KA+FL 12er 3,30 €                                2         2-              3,30             6,60-
+00205 __KA+FL 6er 2,40 €                                 1         1-              2,40             2,40-
+00207 __KA+FL 12er 1,00 L 3,30 €        3                4         1-              3,30             3,30-
+00211 __KA+FL 24er 5,10 €               2                2                         5,10
+00216 __KA+FL 20er 4,50€                                 4         4-              4,50                18,00-
+00232 __KA+FL 24er 3,90€                                 1         1-              3,90                 3,90-
+00234 __KA+FL 12er 4,50 €               7                          7               4,50                31,50
+

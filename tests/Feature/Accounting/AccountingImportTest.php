@@ -117,7 +117,7 @@ class AccountingImportTest extends TestCase
         $this->rule(['active' => false]);
         $other = AccountingSupplier::create(['name' => 'Anderer Lieferant', 'creditor_account' => '70012']);
         $this->rule(['supplier_id' => $other->id]);
-        $this->upload()->assertCreated()->assertJsonPath('document.lines.0.account_number_snapshot', '5133')
+        $this->upload(['lines' => [['description' => 'Unbekannter Artikel']]])->assertCreated()->assertJsonPath('document.lines.0.account_number_snapshot', '5133')
             ->assertJsonPath('document.lines.0.classification_source', 'ai');
     }
 
@@ -222,7 +222,7 @@ class AccountingImportTest extends TestCase
 
     public function test_inactive_account_blocks_approval_and_cannot_be_selected(): void
     {
-        $id = $this->upload()->assertCreated()->json('document.id');
+        $id = $this->upload(['lines' => [['description' => 'Unbekannter Artikel']]])->assertCreated()->json('document.id');
         $line = AccountingDocument::find($id)->lines()->first();
         $this->wine->update(['active' => false]);
         $this->login();
