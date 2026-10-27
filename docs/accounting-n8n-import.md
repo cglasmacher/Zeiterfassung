@@ -6,7 +6,7 @@ Basis ist der vom Betreiber am 27.10.2026 exportierte Workflow „01 - Hemingway
 
 1. Zuerst Portaländerungen aus PR #62 ausrollen und Migrationen ausführen.
 2. Bestehenden n8n-Workflow sichern. Die Datei `workflows/n8n/Hemingway-Eingangsrechnungen.json` als **inaktiven** Workflow importieren.
-3. Im IMAP- und OpenAI-Node die vorhandenen Zugangsdaten auswählen. Im HTTP-Node den Platzhalter durch den vorhandenen Portal-Bearer-Token ersetzen (nicht ins Repository schreiben).
+3. Im IMAP- und OpenAI-Node die vorhandenen Zugangsdaten auswählen. In beiden HTTP-Nodes (Lieferantenerkennung und Belegübergabe) den Platzhalter durch den vorhandenen Portal-Bearer-Token ersetzen (nicht ins Repository schreiben).
 4. Mit einer neuen Testmail und zwei PDF-Rechnungen testen. Es müssen zwei Belege mit jeweils passendem Dateinamen, Inhalt und eigener Quellreferenz entstehen. Erneuter Import muss dieselben Belege liefern.
 5. Eine myVectron-Mail, eine weitergeleitete Finanzbericht-PDF, eine Mail ohne PDF und eine Mail mit Logo vor der PDF testen. Kassenberichte dürfen nicht bei GPT oder im Rechnungsportal ankommen.
 6. Den alten Workflow deaktivieren, bevor der neue aktiviert wird. Beide verwenden dasselbe UNSEEN-Postfach; paralleler Betrieb ist ungeeignet. Während des Wechsels keine alten Mails pauschal als ungelesen markieren.

@@ -2,7 +2,7 @@
 
 ## Datenfluss
 
-Der inaktive n8n-Importworkflow erkennt Mailabsender der exakten Domain `getraenke-gato.de`. Nach PDF-/Kassenberichtfilter wird der Gato-Zweig ohne GPT verwendet. Er übergibt Original-PDF, Originalnamen, stabile Anhangsreferenz und `extraction_profile=gato_layout_v1` an den bestehenden Portalimport. Andere Absender behalten den bisherigen KI-Zweig. Weitergeleitete Gato-Rechnungen werden nicht anhand einer beliebigen Rechnungstextähnlichkeit automatisch als Gato eingestuft.
+Der inaktive n8n-Importworkflow bestimmt den Lieferanten nach dem PDF-/Kassenberichtfilter über den Bearer-geschützten, rein lesenden Endpunkt `/api/integrations/accounting/inspect`. Der Mailabsender ist kein Kriterium für den Lieferanten. Eindeutige Gato-Angaben im PDF-Text (Name plus Domain/USt-ID) oder der SHA-256-Abgleich des bekannten eingebetteten Briefkopfs erkennen Gato. Danach wird der Gato-Zweig ohne GPT verwendet. Er übergibt Original-PDF, Originalnamen, stabile Anhangsreferenz und `extraction_profile=gato_layout_v1` an den bestehenden Portalimport. Nicht eindeutig erkannte PDFs behalten den bisherigen KI-Zweig. Weiterleitungen von privater Adresse oder buchhaltung@ funktionieren identisch; ein unbekannter oder neu komprimierter Briefkopf wird nicht allein anhand ähnlicher Positionen als Gato eingestuft. Die Prüfung speichert keinen Beleg und entfernt temporäre Bilddateien.
 
 Das Portal verlangt den aktiven Kreditor 70007 und extrahiert mit `pdftotext -layout` selbst den Text aus dem hochgeladenen Original. Der mitgelieferte n8n-Text ist keine Grundlage für Geldbeträge. Damit ist die Erkennung unabhängig vom als Grafik eingebetteten Gato-Briefkopf und von der Reihenfolge, in der PDF.js Textstücke ausliest.
 
@@ -31,7 +31,7 @@ Das bekannte native Gato-Layout ist abgedeckt. Andere Layouts, Scans/OCR, komple
 ## Deployment
 
 1. Portaländerungen ausrollen, vorhandene Konten und Kreditor 70007 prüfen. Dieser Schritt benötigt keine neue Migration.
-2. Auf Plesk muss PHP den Befehl `/usr/bin/pdftotext -v` ausführen können. Optional `ACCOUNTING_PDFTOTEXT_BINARY` auf den installierten Pfad setzen. Ohne verfügbaren Befehl bleibt die Analyse sichtbar fehlgeschlagen.
+2. Auf Plesk muss PHP `/usr/bin/pdftotext -v` und `/usr/bin/pdfimages -v` ausführen können (Poppler). Optional `ACCOUNTING_PDFTOTEXT_BINARY` und `ACCOUNTING_PDFIMAGES_BINARY` auf die installierten Pfade setzen. Ohne verfügbaren Befehl bleibt die Analyse sichtbar fehlgeschlagen.
 3. Frontend mit `npm install` und `npm run build` bauen; Laravel-Konfigurationscache nach Umgebungsänderungen erneuern.
-4. Aktualisierte Workflow-JSON importieren. IMAP-/OpenAI-Zugangsdaten auswählen und den Platzhalter im HTTP-Authorization-Header ersetzen. Alten Rechnungsworkflow deaktivieren, bevor der neue aktiv wird.
+4. Aktualisierte Workflow-JSON importieren. IMAP-/OpenAI-Zugangsdaten auswählen und die Platzhalter in beiden HTTP-Authorization-Headern (Lieferantenerkennung und Belegübergabe) mit demselben ACCOUNTING_IMPORT_TOKEN ersetzen. Alten Rechnungsworkflow deaktivieren, bevor der neue aktiv wird.
 5. Mit einer neuen Gato-Mail testen: Gato-Zweig ohne GPT, 324,81 € brutto, Pfand −2,38 €, vollständiges Original im Review. Wiederholung derselben Referenz darf den Beleg nicht verändern. Alte Mails nicht pauschal erneut als ungelesen markieren.

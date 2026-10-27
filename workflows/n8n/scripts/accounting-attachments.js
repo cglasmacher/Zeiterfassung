@@ -17,7 +17,6 @@ for (let index = 0; index < inputs.length; index++) {
         }
     }
     collect(sender);
-    if (!addresses.length) throw new Error('Absender fehlt; Mail nicht automatisch verarbeiten.');
     if (addresses.some(address => address.toLowerCase() === 'noreply@myvectron.com')) continue;
 
     const binaries = mail.binary ?? {};
@@ -44,7 +43,6 @@ for (let index = 0; index < inputs.length; index++) {
         result.push({
             json: {
                 ...data,
-                accounting_supplier: addresses.some(address => address.toLowerCase().endsWith('@getraenke-gato.de')) ? 'gato' : null,
                 accounting_attachment: {
                     source_reference: reference,
                     original_filename: binaries[key].fileName ?? `${key}.pdf`,

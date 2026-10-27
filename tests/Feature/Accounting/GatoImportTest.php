@@ -145,4 +145,47 @@ class GatoImportTest extends \Tests\TestCase
         Process::assertRan(fn ($process) => $process->command[0] === '/usr/bin/pdftotext'
             && array_slice($process->command, 1, 3) === ['-layout', '-enc', 'UTF-8'] && $process->timeout === 20);
     }
+
+    public function test_pdf_text_identifies_supplier_without_mail_sender(): void
+    {
+        Process::fake(fn () => Process::result(output: 'Getränke Gato GmbH www.getraenke-gato.de Rechnung'));
+        $this->withToken('accounting-test-import-token-at-least-32-characters')->post('/api/integrations/accounting/inspect', [
+            'file' => UploadedFile::fake()->createWithContent('gato.pdf', "%PDF-1.4\n%test\n%%EOF"),
+        ], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('supplier', 'gato')
+            ->assertJsonPath('evidence', 'pdf_supplier_identifiers');
+        $this->assertDatabaseCount('accounting_documents', 0);
+        $this->postJson('/api/integrations/accounting/inspect')->assertUnprocessable();
+        $this->withToken('wrong')->postJson('/api/integrations/accounting/inspect')->assertUnauthorized();
+    }
+
+    public function test_known_embedded_letterhead_identifies_gato_and_temp_image_is_removed(): void
+    {
+        $bytes = 'test-letterhead-jpeg';
+        config(['accounting.gato_letterhead_hashes' => [hash('sha256', $bytes)]]);
+        $image = null;
+        Process::fake(function ($process) use ($bytes, &$image) {
+            if (in_array('-list', $process->command, true)) {
+                return Process::result(output: '1 0 image 2457 3475 icc 3 8 jpeg no 32 0');
+            }
+            if (in_array('-j', $process->command, true)) {
+                $image = end($process->command).'-000.jpg';
+                file_put_contents($image, $bytes);
+            }
+
+            return Process::result(output: '');
+        });
+        $result = app(\App\Services\Accounting\InvoiceSupplierDetector::class)->detect('/tmp/input.pdf');
+        $this->assertSame('gato', $result['supplier']);
+        $this->assertNotNull($image);
+        $this->assertFileDoesNotExist($image);
+        $this->assertDirectoryDoesNotExist(dirname($image));
+    }
+
+    public function test_unknown_pdf_is_never_forced_to_gato(): void
+    {
+        Process::fake(fn () => Process::result(output: 'Other supplier, invoice 100'));
+        $result = app(\App\Services\Accounting\InvoiceSupplierDetector::class)->detect('/tmp/input.pdf');
+        $this->assertNull($result['supplier']);
+        $this->assertNull($result['profile']);
+    }
 }

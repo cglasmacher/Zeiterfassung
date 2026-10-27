@@ -47,7 +47,7 @@ test('mixed mail batch preserves original item index and ignores attachment-free
 
 test('missing identity/sender fails instead of creating unstable duplicate keys', () => {
     assert.throws(() => run('PDF normalisieren', [mail({ messageId: null })]), /Stabile Message-ID/);
-    assert.throws(() => run('PDF normalisieren', [mail({ from: null })]), /Absender fehlt/);
+    assert.equal(run('PDF normalisieren', [mail({ from: null })]).length, 2);
     const output = run('PDF normalisieren', [mail({ messageId: null, attributes: { uid: 8, uidValidity: 42 } })]);
     assert.equal(output[0].json.accounting_attachment.source_reference, 'imap:rechnung@hemingway-hilden.de:42:8');
     assert.throws(() => run('PDF normalisieren', [mail({ messageId: 'a'.repeat(256) })]), /255/);
@@ -96,23 +96,27 @@ test('import template is inactive, has no credentials/secrets and no positional 
 });
 
 test('embedded code matches the reviewable script sources', () => {
-    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js']]) {
+    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
         assert.equal(node(name).parameters.jsCode, fs.readFileSync(new URL(`../../workflows/n8n/scripts/${file}`, import.meta.url), 'utf8'));
     }
 });
 
-test('Gato sender is recognized exactly and sends original to deterministic portal profile', () => {
-    const [attachment] = run('PDF normalisieren', [mail({ from: 'Rechnung <info@getraenke-gato.de>' })]);
-    assert.equal(attachment.json.accounting_supplier, 'gato');
-    assert.equal(run('PDF normalisieren', [mail({ from: 'info@getraenke-gato.de.evil.test' })])[0].json.accounting_supplier, null);
-    const output = run('Gato Original ans Portal', [], {
-        $json: { text: 'extracted text' }, $: () => ({ item: attachment }),
-    });
-    assert.equal(output.json.portal_payload.extraction_profile, 'gato_layout_v1');
-    assert.equal(output.json.portal_payload.supplier_name, 'Getränke Gato GmbH');
-    assert.equal(output.binary.eingangsrechnung_0.data, 'PDF_ONE');
-    assert.equal(output.json.portal_payload.extracted_text, 'extracted text');
-    assert.equal(output.json.portal_payload.lines, undefined);
+test('forwarding sender never determines supplier; PDF inspection chooses the Gato branch', () => {
+    for (const from of ['chris@example.test', 'buchhaltung@example.test', 'info@getraenke-gato.de', null]) {
+        const [attachment] = run('PDF normalisieren', [mail({ from })]);
+        assert.equal(attachment.json.accounting_supplier, undefined);
+        const output = run('Gato Original ans Portal', [], {
+            $json: { supplier: 'gato', profile: 'gato_layout_v1' },
+            $: name => ({ item: name === 'PDF normalisieren' ? attachment : { json: { text: 'original text' } } }),
+        });
+        assert.equal(output.json.portal_payload.extraction_profile, 'gato_layout_v1');
+        assert.equal(output.binary.eingangsrechnung_0.data, 'PDF_ONE');
+        assert.equal(output.json.portal_payload.extracted_text, 'original text');
+        assert.equal(output.json.portal_payload.lines, undefined);
+    }
+    assert.equal(workflow.connections['Kassenberichte ausschließen'].main[0][0].node, 'Original für Lieferantenprüfung');
+    assert.equal(workflow.connections['Original für Lieferantenprüfung'].main[0][0].node, 'Lieferant aus PDF erkennen');
+    assert.equal(workflow.connections['Lieferant aus PDF erkennen'].main[0][0].node, 'Gato ohne KI?');
     assert.equal(workflow.connections['Gato ohne KI?'].main[0][0].node, 'Gato Original ans Portal');
     assert.equal(workflow.connections['Gato ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
 });

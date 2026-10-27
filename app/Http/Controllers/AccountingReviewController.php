@@ -18,6 +18,14 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AccountingReviewController extends Controller
 {
+    public function inspect(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:pdf', 'max:20480']]);
+
+        return response()->json(app(\App\Services\Accounting\InvoiceSupplierDetector::class)
+            ->detect($request->file('file')->getRealPath()));
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = AccountingDocument::query()
