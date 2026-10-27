@@ -32,6 +32,7 @@ class BookingSummary
         }
         usort($groups, fn ($a, $b) => strnatcmp($a['account_number'], $b['account_number']) ?: ((float) $a['tax_rate'] <=> (float) $b['tax_rate']));
 
-        return ['rows' => array_values($groups), 'unresolved_lines' => $unresolved];
+        return ['rows' => array_values($groups), 'unresolved_lines' => $unresolved,
+            'deposit_postings' => app(DepositPostings::class)->forGroups($document, array_values($groups))];
     }
 }

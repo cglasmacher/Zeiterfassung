@@ -11,7 +11,7 @@ class AccountingAccountSeeder extends Seeder
     {
         $accounts = [
             ['account_number' => '1141', 'name' => 'Pfand', 'kind' => 'interim'],
-            ['account_number' => '1406', 'name' => 'Vorsteuer Pfand', 'kind' => 'tax'],
+            ['account_number' => '1461', 'name' => 'Vorsteuer Pfand', 'kind' => 'tax'],
             ['account_number' => '1462', 'name' => 'Geldtransit Shift4', 'kind' => 'interim'],
             ['account_number' => '1600', 'name' => 'Kasse', 'kind' => 'asset'],
             ['account_number' => '1800', 'name' => 'Bank', 'kind' => 'asset'],
