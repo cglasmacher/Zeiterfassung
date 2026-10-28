@@ -57,11 +57,15 @@ Es werden die vorhandenen Tabellen AccountingExportBatch und AccountingDocument 
 Deployment:
 
 1. `git pull` und `npm run build`.
-2. **Bestätigtes Konto 1370** als steuerfreies Verrechnungskonto für den Rechnungsimport in Lexware einrichten bzw. das vorhandene dafür bestimmte Konto verwenden. Kein DATEV-Automatikkonto, keine automatische Steuer auf diesem Konto. Das Portal kann diese Lexware-Konteneigenschaften nicht auslesen.
-3. Dasselbe Konto in `accounting_accounts` mit `account_number` als Zeichenfolge, `kind = interim` und `active = true` hinterlegen. Bestehende Stammdaten nicht pauschal durch einen Seeder überschreiben. Der gezielte Befehl `php artisan db:seed --class=AccountingInvoiceClearingAccountSeeder --force` legt das bestätigte Konto 1370 nur an, wenn es fehlt. Bestehende Namen, Aktivierung und Kontoart bleiben unverändert; eine abweichende bestehende Nutzung muss vor dem Export geklärt werden.
-4. In der Portal-`.env` `ACCOUNTING_LEXWARE_CLEARING_ACCOUNT=1370` setzen, anschließend `php artisan config:clear`.
+2. **Bestätigtes Konto 1371** als steuerfreies Verrechnungskonto für den Rechnungsimport in Lexware einrichten bzw. das vorhandene dafür bestimmte Konto verwenden. Kein DATEV-Automatikkonto, keine automatische Steuer auf diesem Konto. Das Portal kann diese Lexware-Konteneigenschaften nicht auslesen.
+3. Dasselbe Konto in `accounting_accounts` mit `account_number` als Zeichenfolge, `kind = interim` und `active = true` hinterlegen. Bestehende Stammdaten nicht pauschal durch einen Seeder überschreiben. Der gezielte Befehl `php artisan db:seed --class=AccountingInvoiceClearingAccountSeeder --force` legt das bestätigte Konto 1371 nur an, wenn es fehlt. Bestehende Namen, Aktivierung und Kontoart bleiben unverändert; eine abweichende bestehende Nutzung muss vor dem Export geklärt werden.
+4. In der Portal-`.env` `ACCOUNTING_LEXWARE_CLEARING_ACCOUNT=1371` setzen, anschließend `php artisan config:clear`.
 5. Vorschau neu erstellen und prüfen: je Rechnung nur eine Kreditorenzeile mit voller Rechnungssumme und Text nur Rechnungsnummer; die Aufteilung bleibt detailliert beschrieben. Eine kleine Datei in einen Teststapel der konkreten Lexware-Installation importieren und Kreditor-OP, Steuer und Verrechnungssaldo prüfen.
 
-Ohne konfiguriertes/aktives Konto blockiert der neue Export mit einem konkreten Hinweis. Bereits gespeicherte Exporte lassen sich auch ohne neue Konfiguration weiter herunterladen. Pfand 1141, Vorsteuer 1461, Shift4 1462, Kasse 1600, Bank 1800, Kreditorenkonten und die verwendeten Aufwandskonten werden als Verrechnungskonto abgewiesen. Standard und `.env.example` verwenden das bestätigte Konto 1370. Ein bereits vorhandener leerer oder abweichender `.env`-Wert überschreibt den Standard und muss angepasst werden.
+Ohne konfiguriertes/aktives Konto blockiert der neue Export mit einem konkreten Hinweis. Bereits gespeicherte Exporte lassen sich auch ohne neue Konfiguration weiter herunterladen. Pfand 1141, Vorsteuer 1461, Shift4 1462, Kasse 1600, Bank 1800, Kreditorenkonten und die verwendeten Aufwandskonten werden als Verrechnungskonto abgewiesen. Standard und `.env.example` verwenden das bestätigte Konto 1371. Ein bereits vorhandener leerer oder abweichender `.env`-Wert überschreibt den Standard und muss angepasst werden.
 
 Tests: `php artisan test --filter='AccountingBookingExportTest|AccountingDeleteTest|AccountingImportTest|GatoImportTest|HandelshofImportTest'`.
+
+### Wechsel von 1370 auf 1371
+
+Für neue Rechnungsimporte ist **1371 „Import Durchlauf“** vorgesehen. 1370 „Durchlaufende Posten“ bleibt unverändert. Einen bereits gesetzten `.env`-Wert ausdrücklich auf 1371 ändern und den Konfigurationscache leeren. Der gezielte Seeder legt ausschließlich ein fehlendes Konto 1371 an; vorhandene Stammdaten auf beiden Konten bleiben erhalten. Bestehende Exportdateien und bereits gebuchte Bewegungen werden nicht umgeschrieben.

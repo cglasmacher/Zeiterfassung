@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'lexware_clearing_account' => env('ACCOUNTING_LEXWARE_CLEARING_ACCOUNT', '1370'),
+    'lexware_clearing_account' => env('ACCOUNTING_LEXWARE_CLEARING_ACCOUNT', '1371'),
     'import_token' => env('ACCOUNTING_IMPORT_TOKEN'),
     'pdftotext_binary' => env('ACCOUNTING_PDFTOTEXT_BINARY', '/usr/bin/pdftotext'),
     'pdfimages_binary' => env('ACCOUNTING_PDFIMAGES_BINARY', '/usr/bin/pdfimages'),

@@ -37,7 +37,7 @@ class AccountingBookingExportTest extends TestCase
         config(['accounting.import_token' => str_repeat('x', 40)]);
         $this->seed([\Database\Seeders\AccountingSupplierSeeder::class, \Database\Seeders\AccountingAccountSeeder::class]);
         // Test-only account: production must configure its own dedicated account explicitly.
-        AccountingAccount::create(['account_number' => '1599', 'name' => 'Test Verrechnung Rechnungsimport', 'kind' => 'interim', 'active' => true]);
+        AccountingAccount::create(['account_number' => '1599', 'name' => 'Test Import Durchlauf', 'kind' => 'interim', 'active' => true]);
         config(['accounting.lexware_clearing_account' => '1599']);
         Process::fake(fn () => Process::result(output: file_get_contents(base_path('tests/Fixtures/accounting/gato-layout.txt'))));
         $this->actingAs(User::factory()->create());
@@ -323,19 +323,22 @@ class AccountingBookingExportTest extends TestCase
         $this->assertSame($csv, $this->get('/api/accounting/exports/'.$batch->id.'/download')->assertOk()->getContent());
     }
 
-    public function test_selected_1370_account_is_seeded_once_and_existing_settings_are_preserved(): void
+    public function test_selected_1371_account_is_seeded_once_and_existing_settings_are_preserved(): void
     {
+        AccountingAccount::create(['account_number' => '1370', 'name' => 'Durchlaufende Posten', 'kind' => 'asset', 'active' => true]);
         $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
+        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1370', 'name' => 'Durchlaufende Posten', 'kind' => 'asset', 'active' => true]);
+        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1371', 'name' => 'Import Durchlauf', 'kind' => 'interim', 'active' => true]);
         $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
-        $this->assertSame(1, AccountingAccount::where('account_number', '1370')->count());
-        config(['accounting.lexware_clearing_account' => '1370']);
+        $this->assertSame(1, AccountingAccount::where('account_number', '1371')->count());
+        config(['accounting.lexware_clearing_account' => '1371']);
         $doc = AccountingDocument::find($this->approved());
         $preview = $this->preview();
-        $this->assertSame('1370', $preview['clearing_account']);
+        $this->assertSame('1371', $preview['clearing_account']);
         $this->assertSingleCreditor($preview['rows'], $doc);
-        AccountingAccount::where('account_number', '1370')->update(['name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
+        AccountingAccount::where('account_number', '1371')->update(['name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
         $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
-        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1370', 'name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
+        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1371', 'name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
         $this->postJson('/api/accounting/exports/preview', ['year' => 2026])->assertUnprocessable();
     }
 }

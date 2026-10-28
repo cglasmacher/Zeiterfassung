@@ -10,8 +10,8 @@ class AccountingInvoiceClearingAccountSeeder extends Seeder
     public function run(): void
     {
         // Explicitly chosen for invoice imports. Preserve existing names, kind and activation.
-        AccountingAccount::firstOrCreate(['account_number' => '1370'], [
-            'name' => 'Verrechnung Rechnungsimport', 'kind' => 'interim', 'active' => true,
+        AccountingAccount::firstOrCreate(['account_number' => '1371'], [
+            'name' => 'Import Durchlauf', 'kind' => 'interim', 'active' => true,
         ]);
     }
 }
