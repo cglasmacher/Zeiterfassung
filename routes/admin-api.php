@@ -20,3 +20,10 @@ Route::prefix('haccp/compliance')->controller(\App\Http\Controllers\HaccpComplia
 Route::prefix('haccp/documentation')->controller(\App\Http\Controllers\HaccpDocumentationController::class)->group(function(){Route::get('/{year}/{month}','preview')->whereNumber(['year','month']);Route::get('/{year}/{month}/pdf','pdf')->whereNumber(['year','month']);Route::post('/{year}/{month}/close','close')->whereNumber(['year','month']);});
 Route::prefix('haccp/corrections')->controller(\App\Http\Controllers\HaccpCorrectionController::class)->group(function(){Route::get('/','index');Route::get('/month/{year}/{month}','month')->whereNumber(['year','month']);Route::get('/{type}/{id}','show')->whereNumber('id');Route::post('/{type}/{id}','store')->whereNumber('id');});
 Route::prefix('haccp/settings')->controller(\App\Http\Controllers\HaccpSettingsController::class)->group(function(){Route::get('/','show');Route::put('/','update');});
+
+Route::prefix('accounting/exports')->controller(\App\Http\Controllers\AccountingBookingExportController::class)->group(function () {
+    Route::get('/', 'index');
+    Route::post('/preview', 'preview');
+    Route::post('/', 'store');
+    Route::get('/{id}/download', 'download')->whereNumber('id');
+});
