@@ -322,4 +322,20 @@ class AccountingBookingExportTest extends TestCase
         config(['accounting.lexware_clearing_account' => null]);
         $this->assertSame($csv, $this->get('/api/accounting/exports/'.$batch->id.'/download')->assertOk()->getContent());
     }
+
+    public function test_selected_1370_account_is_seeded_once_and_existing_settings_are_preserved(): void
+    {
+        $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
+        $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
+        $this->assertSame(1, AccountingAccount::where('account_number', '1370')->count());
+        config(['accounting.lexware_clearing_account' => '1370']);
+        $doc = AccountingDocument::find($this->approved());
+        $preview = $this->preview();
+        $this->assertSame('1370', $preview['clearing_account']);
+        $this->assertSingleCreditor($preview['rows'], $doc);
+        AccountingAccount::where('account_number', '1370')->update(['name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
+        $this->seed(\Database\Seeders\AccountingInvoiceClearingAccountSeeder::class);
+        $this->assertDatabaseHas('accounting_accounts', ['account_number' => '1370', 'name' => 'Eigene Nutzung', 'active' => false, 'kind' => 'asset']);
+        $this->postJson('/api/accounting/exports/preview', ['year' => 2026])->assertUnprocessable();
+    }
 }
