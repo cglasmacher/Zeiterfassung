@@ -100,7 +100,7 @@ test('import template is inactive, has no credentials/secrets and no positional 
 });
 
 test('embedded code matches the reviewable script sources', () => {
-    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-polling-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
+    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-polling-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Handelshof Original ans Portal', 'accounting-handelshof-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
         assert.equal(node(name).parameters.jsCode, fs.readFileSync(new URL(`../../workflows/n8n/scripts/${file}`, import.meta.url), 'utf8'));
     }
 });
@@ -123,7 +123,8 @@ test('forwarding sender never determines supplier; PDF inspection chooses the Ga
     assert.equal(workflow.connections['Original für Lieferantenprüfung'].main[0][0].node, 'Lieferant aus PDF erkennen');
     assert.equal(workflow.connections['Lieferant aus PDF erkennen'].main[0][0].node, 'Gato ohne KI?');
     assert.equal(workflow.connections['Gato ohne KI?'].main[0][0].node, 'Gato Original ans Portal');
-    assert.equal(workflow.connections['Gato ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
+    assert.equal(workflow.connections['Gato ohne KI?'].main[1][0].node, 'Handelshof ohne KI?');
+    assert.equal(workflow.connections['Handelshof ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
 });
 
 test('poller downloads invoice mails but never selects direct Vectron mail for download', () => {
@@ -193,4 +194,26 @@ test('one PDF loop finishes before mail move; processing errors continue to the 
         assert.equal(workflow.connections[name].main[1][0].node, 'PDF fehlgeschlagen');
     }
     assert.equal(node('IMAP - Erfolgreiche Mail archivieren').parameters.destinationMailbox.value, 'INBOX/Eingangsrechnungen');
+});
+
+
+test('Handelshof bypasses AI and transfers the linked original without client amounts', () => {
+    const originals = run('PDF normalisieren', [mail({ from: 'buchhaltung@example.test' })]);
+    for (const original of originals) {
+        const output = run('Handelshof Original ans Portal', [], {
+            $json: { supplier: 'handelshof', profile: 'handelshof_facturx_v1' },
+            $: () => ({ item: original }),
+        });
+        assert.equal(output.json.portal_payload.extraction_profile, 'handelshof_facturx_v1');
+        assert.equal(output.json.portal_payload.source_reference, original.json.accounting_attachment.source_reference);
+        assert.equal(output.binary.eingangsrechnung_0.data, original.binary.eingangsrechnung_0.data);
+        assert.equal(output.json.portal_payload.lines, undefined);
+        assert.equal(output.json.portal_payload.gross_cents, undefined);
+    }
+    assert.throws(() => run('Handelshof Original ans Portal', [], {
+        $json: { supplier: 'gato', profile: 'gato_layout_v1' }, $: () => ({ item: originals[0] }),
+    }), /Handelshof-Lieferant/);
+    assert.equal(workflow.connections['Handelshof ohne KI?'].main[0][0].node, 'Handelshof Original ans Portal');
+    assert.equal(workflow.connections['Handelshof Original ans Portal'].main[0][0].node, 'Hemingway Portal - Beleg übergeben');
+    assert.equal(workflow.connections['Handelshof Original ans Portal'].main[1][0].node, 'PDF fehlgeschlagen');
 });

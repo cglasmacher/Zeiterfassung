@@ -117,6 +117,18 @@ class AccountingReviewController extends Controller
             ]);
         }
 
+        if ($request->input('extraction_profile') === 'handelshof_facturx_v1') {
+            $supplier = AccountingSupplier::where('creditor_account', '70012')->where('active', true)->first();
+            if (! $supplier) {
+                throw ValidationException::withMessages(['supplier_name' => 'Handelshof-Profil benötigt den aktiven Kreditor 70012.']);
+            }
+            $request->merge([
+                ...app(\App\Services\Accounting\HandelshofImport::class)->prepare($request),
+                'supplier_id' => $supplier->id,
+                'supplier_name' => $supplier->name,
+            ]);
+        }
+
         $data = $request->validate([
             'source' => ['nullable', 'string', 'max:32'],
             'source_reference' => ['required', 'string', 'max:255'],
@@ -138,6 +150,7 @@ class AccountingReviewController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.position_no' => ['nullable', 'integer', 'min:0'],
             'lines.*.article_number' => ['nullable', 'string', 'max:255'],
+            'lines.*.invoice_group' => ['nullable', 'string', 'max:255'],
             'lines.*.description' => ['required', 'string'],
             'lines.*.quantity' => ['nullable', 'numeric'],
             'lines.*.unit' => ['nullable', 'string', 'max:20'],
@@ -221,6 +234,9 @@ class AccountingReviewController extends Controller
                 $confidence = $resolved['confidence'];
                 $taxRate = $line['tax_rate'] ?? null;
                 $lineStatus = $account && $confidence >= 90 ? 'proposed' : 'review';
+
+                // Group evidence stays in raw_payload; it is not a document-line column.
+                unset($line['invoice_group']);
 
                 $document->lines()->create([
                     ...$line,
@@ -417,6 +433,16 @@ class AccountingReviewController extends Controller
 
                 return ['account' => $account, 'tax_rate' => null, 'confidence' => $account ? 99 : 0,
                     'source' => 'supplier_rule', 'rule_key' => $gato[1]];
+            }
+        }
+
+        if ($supplier?->creditor_account === '70012' && ! empty($line['invoice_group'])) {
+            $match = app(\App\Services\Accounting\HandelshofAccount::class)->resolve($line);
+            if ($match) {
+                $account = AccountingAccount::where('account_number', $match[0])->where('active', true)->first();
+
+                return ['account' => $account, 'tax_rate' => null, 'confidence' => $account ? 99 : 0,
+                    'source' => 'supplier_rule', 'rule_key' => $match[1]];
             }
         }
 

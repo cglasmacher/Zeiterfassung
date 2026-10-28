@@ -63,6 +63,13 @@ class DocumentValidation
             }
         }
 
+        foreach (($document->raw_payload['handelshof']['tax_groups'] ?? []) as $rate => $group) {
+            $lines = $document->lines->filter(fn ($line) => (float) $line->tax_rate === (float) $rate);
+            if ($lines->sum('net_cents') !== $group['net_cents'] || $lines->sum('tax_cents') !== $group['tax_cents']) {
+                $errors[] = 'Handelshof-Steuergruppe '.$rate.' % stimmt nicht mit dem Original überein.';
+            }
+        }
+
         if ($document->lines->contains(fn ($line) => $line->account?->account_number === '1141' && $line->tax_cents !== null && $line->tax_cents != 0)
             && ! \App\Models\AccountingAccount::where('account_number', '1461')->where('active', true)->exists()) {
             $errors[] = 'Aktives Vorsteuerkonto 1461 für Pfand fehlt.';

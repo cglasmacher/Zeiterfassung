@@ -18,6 +18,11 @@ class InvoiceSupplierDetector
                 '-f', '1', '-l', '1', '-enc', 'UTF-8', $pdf, '-',
             ]);
             if ($text->successful()
+                && preg_match('/Handelshof\s+Köln\s+Stiftung\s*&\s*Co\.\s*KG/iu', $text->output())
+                && preg_match('/DE\s*123\s*046\s*183/iu', $text->output())) {
+                return ['supplier' => 'handelshof', 'profile' => 'handelshof_facturx_v1', 'evidence' => 'pdf_supplier_identifiers'];
+            }
+            if ($text->successful()
                 && preg_match('/getr(?:ä|ae)nke\s+gato\s*(?:gmbh)?/iu', $text->output())
                 && preg_match('/(?:getraenke-gato\.de|DE\s*247\s*349\s*452)/iu', $text->output())) {
                 return ['supplier' => 'gato', 'profile' => 'gato_layout_v1', 'evidence' => 'pdf_supplier_identifiers'];

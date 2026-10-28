@@ -4,6 +4,7 @@ return [
     'import_token' => env('ACCOUNTING_IMPORT_TOKEN'),
     'pdftotext_binary' => env('ACCOUNTING_PDFTOTEXT_BINARY', '/usr/bin/pdftotext'),
     'pdfimages_binary' => env('ACCOUNTING_PDFIMAGES_BINARY', '/usr/bin/pdfimages'),
+    'pdfdetach_binary' => env('ACCOUNTING_PDFDETACH_BINARY', '/usr/bin/pdfdetach'),
     'gato_letterhead_hashes' => [
         '94a12b4ed66bc0ea418b47efb4da9abfe652e4cc40f34c64b46d0c174b4a68a6',
     ],
