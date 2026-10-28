@@ -35,6 +35,8 @@ class HandelshofImportTest extends \Tests\TestCase
         Storage::fake('local');
         config(['accounting.import_token' => 'accounting-test-import-token-at-least-32-characters']);
         $this->seed([\Database\Seeders\AccountingSupplierSeeder::class, \Database\Seeders\AccountingAccountSeeder::class]);
+        AccountingAccount::create(['account_number' => '1599', 'name' => 'Test Verrechnung Rechnungsimport', 'kind' => 'interim', 'active' => true]);
+        config(['accounting.lexware_clearing_account' => '1599']);
     }
 
     private function fixture(string $name): string
@@ -115,7 +117,12 @@ class HandelshofImportTest extends \Tests\TestCase
         $this->assertSame(9510, $postings['70012']['credit_cents']);
         $this->postJson('/api/accounting/documents/'.$id.'/approve')->assertOk();
         $preview = $this->postJson('/api/accounting/exports/preview', ['year' => 2026, 'document_ids' => [$id]])
-            ->assertOk()->assertJsonPath('row_count', 10)->assertJsonPath('total_cents', 148119)->json();
+            ->assertOk()->assertJsonPath('row_count', 11)->assertJsonPath('total_cents', 148119)->json();
+        $creditorRows = collect($preview['rows'])->filter(fn ($r) => $r['debit_account'] === '70012' || $r['credit_account'] === '70012');
+        $this->assertCount(1, $creditorRows);
+        $this->assertSame(148119, $creditorRows->first()['amount_cents']);
+        $this->assertSame('TEST-HH-41922', $creditorRows->first()['text']);
+        $this->assertSame('', $creditorRows->first()['tax_key']);
         $ice = collect($preview['rows'])->first(fn ($r) => $r['debit_account'] === '5110' && $r['tax_key'] === '9');
         $this->assertSame(4329, $ice['amount_cents']);
         $batch = $this->postJson('/api/accounting/exports', ['year' => 2026, 'document_ids' => [$id], 'fingerprint' => $preview['fingerprint']])

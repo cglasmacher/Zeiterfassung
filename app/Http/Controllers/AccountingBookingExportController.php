@@ -59,7 +59,7 @@ class AccountingBookingExportController extends Controller
             $batch = AccountingExportBatch::create([
                 'status' => 'generated', 'generated_by' => $request->user()->id, 'generated_at' => now(),
                 'row_count' => $prepared['row_count'], 'total_cents' => $prepared['total_cents'],
-                'metadata' => ['format' => 'lexware_ascii_ansi_v1', 'year' => $data['year'],
+                'metadata' => ['format' => $prepared['format'], 'clearing_account' => $prepared['clearing_account'], 'year' => $data['year'],
                     'documents' => $prepared['documents'], 'rows' => $prepared['rows'],
                     'csv_base64' => base64_encode($prepared['csv']), 'sha256' => hash('sha256', $prepared['csv'])],
             ]);

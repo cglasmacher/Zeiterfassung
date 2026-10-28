@@ -37,6 +37,7 @@ export default function ExportPanel({ onCreated }) {
         {error && <p role="alert" className="rounded-lg bg-red-50 text-red-800 p-3">{error}</p>}
         {preview && <div className="space-y-3 border-t pt-4">
             <p><strong>{preview.documents.length} Beleg(e), {preview.row_count} Buchungssätze</strong> · Rechnungsbrutto gesamt {formatMoney(preview.total_cents)}</p>
+            <p className="text-sm text-neutral-600">Je Rechnung eine Kreditorenbuchung über den Gesamtbetrag mit der Rechnungsnummer als Text. Die Aufteilungen laufen über Verrechnungskonto {preview.clearing_account}, das je Rechnung ausgeglichen ist.</p>
             <p className="text-sm text-neutral-600">Bitte die Vorschau prüfen. Mit „Export erstellen“ werden diese Belege als exportiert markiert. Die Datei lässt sich danach unverändert erneut herunterladen.</p>
             <div className="max-h-96 overflow-auto"><table className="min-w-full text-sm">
                 <thead><tr className="border-b text-left"><th className="p-2">Datum</th><th className="p-2">Beleg</th><th className="p-2">Buchungstext</th><th className="p-2">Betrag</th><th className="p-2">Soll</th><th className="p-2">Haben</th><th className="p-2">St.-Schlüssel</th></tr></thead>

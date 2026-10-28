@@ -2,12 +2,16 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\AccountingAccount;
 use App\Models\AccountingDocument;
+use App\Models\AccountingSupplier;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class LexwareBookingExport
 {
+    public const FORMAT = 'lexware_ascii_ansi_single_creditor_v2';
+
     private function reject(string $message): never
     {
         throw ValidationException::withMessages(['export' => $message]);
@@ -15,6 +19,7 @@ class LexwareBookingExport
 
     public function prepare(Collection $documents): array
     {
+        $clearing = $this->clearingAccount();
         $rows = [];
         $snapshots = [];
         $total = 0;
@@ -49,7 +54,7 @@ class LexwareBookingExport
             $start = count($rows);
             foreach ($summary['rows'] as $group) {
                 $account = $group['account_number'];
-                if (! preg_match('/^[1-9]\d{0,8}$/', $account) || $account === $creditor) {
+                if (! preg_match('/^[1-9]\d{0,8}$/', $account) || $account === $creditor || $account === $clearing) {
                     $this->reject($label.': ungültiges Sachkonto.');
                 }
                 if ($group['gross_cents'] !== $group['net_cents'] + $group['tax_cents']) {
@@ -57,8 +62,8 @@ class LexwareBookingExport
                 }
                 if ($account === '1141') {
                     // Two double-entry records, not a second gross posting on 1141.
-                    $this->append($rows, $document, '1141', $creditor, $group['net_cents'], '', 'Pfand netto');
-                    $this->append($rows, $document, '1461', $creditor, $group['tax_cents'], '', 'Vorsteuer Pfand');
+                    $this->append($rows, $document, '1141', $clearing, $group['net_cents'], '', 'Pfand netto');
+                    $this->append($rows, $document, '1461', $clearing, $group['tax_cents'], '', 'Vorsteuer Pfand');
 
                     continue;
                 }
@@ -73,20 +78,31 @@ class LexwareBookingExport
                 if ($calculated !== $group['tax_cents']) {
                     $this->reject($label.': Steuer bei Konto '.$account.' weicht von der automatischen Lexware-Berechnung ab; keine geratene Rundungsbuchung.');
                 }
-                $this->append($rows, $document, $account, $creditor, $group['gross_cents'], $key, $group['account_name']);
+                $this->append($rows, $document, $account, $clearing, $group['gross_cents'], $key, $group['account_name']);
             }
             $documentRows = array_slice($rows, $start);
             if (! $documentRows) {
                 $this->reject($label.': keine Buchungssätze mit einem Betrag ungleich null.');
             }
-            $creditorMovement = array_sum(array_map(fn ($row) => $row['credit_account'] === $creditor ? $row['amount_cents'] : -$row['amount_cents'], $documentRows));
-            if ($creditorMovement !== $document->gross_cents) {
-                $this->reject($label.': Kreditorensumme ist nicht ausgeglichen.');
+            if ($document->gross_cents === 0) {
+                $this->reject($label.': Nullbeleg benötigt eine gesonderte Prüfung; keine Kreditorenbuchung über null.');
+            }
+            // A single creditor movement creates the invoice-sized OP. Detail rows never touch it.
+            $header = [];
+            $this->append($header, $document, $clearing, $creditor, $document->gross_cents, '', '', true);
+            array_splice($rows, $start, 0, $header);
+            $documentRows = array_slice($rows, $start);
+            $creditorRows = array_filter($documentRows, fn ($row) => in_array($creditor, [$row['debit_account'], $row['credit_account']], true));
+            $movement = fn ($account) => array_sum(array_map(fn ($row) => ($row['debit_account'] === $account ? $row['amount_cents'] : 0)
+                - ($row['credit_account'] === $account ? $row['amount_cents'] : 0), $documentRows));
+            if (count($creditorRows) !== 1 || $movement($creditor) !== -$document->gross_cents || $movement($clearing) !== 0) {
+                $this->reject($label.': Kreditorensumme oder Verrechnungskonto ist nicht ausgeglichen.');
             }
             $snapshots[] = ['id' => $document->id, 'invoice_number' => $document->invoice_number,
                 'supplier' => $document->supplier->name, 'creditor' => $creditor,
                 'invoice_date' => $document->invoice_date->format('Y-m-d'), 'gross_cents' => $document->gross_cents,
-                'approved_at' => $document->approved_at->toISOString(), 'row_count' => count($documentRows)];
+                'approved_at' => $document->approved_at->toISOString(), 'row_count' => count($documentRows),
+                'clearing_account' => $clearing];
             $total += $document->gross_cents;
         }
         if (! $rows) {
@@ -97,11 +113,27 @@ class LexwareBookingExport
         }
         $csv = $this->csv($rows);
 
-        return ['documents' => $snapshots, 'rows' => $rows, 'row_count' => count($rows),
+        return ['format' => self::FORMAT, 'clearing_account' => $clearing,
+            'documents' => $snapshots, 'rows' => $rows, 'row_count' => count($rows),
             'total_cents' => $total, 'fingerprint' => hash('sha256', $csv.json_encode($snapshots)), 'csv' => $csv];
     }
 
-    private function append(array &$rows, AccountingDocument $document, string $account, string $creditor, int $amount, string $taxKey, string $description): void
+    private function clearingAccount(): string
+    {
+        $number = (string) config('accounting.lexware_clearing_account');
+        if (! preg_match('/^[1-9]\d{0,8}$/D', $number)) {
+            $this->reject('ACCOUNTING_LEXWARE_CLEARING_ACCOUNT fehlt oder ist ungültig. Eigenes steuerfreies Verrechnungskonto für den Rechnungsimport konfigurieren.');
+        }
+        $account = AccountingAccount::where('account_number', $number)->where('active', true)->where('kind', 'interim')->first();
+        if (! $account || in_array($number, ['1141', '1461', '1462', '1600', '1800'], true)
+            || AccountingSupplier::where('creditor_account', $number)->exists()) {
+            $this->reject('Aktives eigenes Verrechnungskonto für den Rechnungsimport fehlt. Pfand-, Steuer-, Shift4-, Kassen-, Bank- oder Kreditorenkonten sind dafür nicht zulässig.');
+        }
+
+        return $number;
+    }
+
+    private function append(array &$rows, AccountingDocument $document, string $account, string $counterAccount, int $amount, string $taxKey, string $description, bool $creditorHeader = false): void
     {
         if ($amount === 0) {
             return;
@@ -111,9 +143,11 @@ class LexwareBookingExport
         }
         $rows[] = ['document_id' => $document->id, 'date' => $document->invoice_date->format('d.m.Y'),
             'invoice_number' => $document->invoice_number,
-            'text' => mb_substr(preg_replace('/[\x00-\x1F\x7F]/u', ' ', $document->supplier->name.' · '.$description), 0, 79),
-            'amount_cents' => abs($amount), 'debit_account' => $amount > 0 ? $account : $creditor,
-            'credit_account' => $amount > 0 ? $creditor : $account, 'tax_key' => $taxKey];
+            'text' => $creditorHeader ? $document->invoice_number
+                : mb_substr(preg_replace('/[\x00-\x1F\x7F]/u', ' ', $document->supplier->name.' · '.$description), 0, 79),
+            'amount_cents' => abs($amount), 'debit_account' => $amount > 0 ? $account : $counterAccount,
+            'credit_account' => $amount > 0 ? $counterAccount : $account, 'tax_key' => $taxKey,
+            'role' => $creditorHeader ? 'creditor' : 'allocation'];
     }
 
     private function csv(array $rows): string

@@ -51,7 +51,7 @@ Der bereitgestellte vierseitige Beleg vom 01.07.2026 enthält 58 XML-Positionen,
 - 19 %: 160,18 EUR netto / 30,43 EUR Steuer.
 - Darin Pfand: 79,92 EUR netto / 15,18 EUR Vorsteuer; Kreditoranteil 95,10 EUR.
 - Eiswürfel: 36,38 EUR netto / 6,91 EUR Vorsteuer auf der 19-%-Gruppe von 5110.
-- Mit den Standardzuordnungen: neun Konten-/Steuergruppen, zehn CSV-Buchungssätze inklusive gesonderter Pfandvorsteuer.
+- Mit den Standardzuordnungen: neun Konten-/Steuergruppen, elf CSV-Buchungssätze: eine Kreditorenbuchung über die volle Rechnungssumme und zehn Aufteilungen inklusive gesonderter Pfandvorsteuer. Die Aufteilungen laufen über das konfigurierte steuerfreie Verrechnungskonto; siehe [Lexware-Export](accounting-lexware-export.md).
 
 Fixtures enthalten anonymisierte XML-/Layoutdaten, nicht die Original-PDF. Tests decken Import, Freigabe, Exportvorschau/-erstellung/-download, gelernte Regeln, Steuergruppenänderungen, inaktive Stammdaten und ungültige/abweichende XML-/PDF-Daten ab. Zusätzlich wird der n8n-Code mit Testdoubles geprüft. Der Parser wird lokal auch gegen das bereitgestellte Original ausgeführt. Ein produktiver n8n-Lauf und ein echter Lexware-Import sind nicht Teil dieser lokalen Tests.
 
