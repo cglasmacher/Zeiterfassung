@@ -13,7 +13,7 @@ Basis ist der bereitgestellte funktionierende Z-Workflow „Hemingway - IONOS Z-
 
 ## Ablauf und Wiederholungen
 
-Zeitplan → ungelesene Mails in INBOX suchen → direkte Vectron-Mails ausschließen → Anhänge laden → jede PDF einzeln → Kassenberichtfilter → PDF-Lieferantenerkennung → Gato / Handelshof ohne GPT oder bisheriger KI-Zweig → Portalbestätigung → vollständige Mails nach `INBOX/Eingangsrechnungen` verschieben.
+Zeitplan → ungelesene Mails in INBOX suchen → direkte Vectron-Mails ausschließen → Anhänge laden → jede PDF einzeln → Kassenberichtfilter → PDF-Lieferantenerkennung → Gato / Handelshof / ISB ohne GPT oder bisheriger KI-Zweig → Portalbestätigung → vollständige Mails nach `INBOX/Eingangsrechnungen` verschieben.
 
 Handelshof: Der neue Zweig „Handelshof ohne KI?“ liegt am Nein-Ausgang von „Gato ohne KI?“. Bei erkanntem Profil geht das Original direkt zum Portal; dort werden die eingebettete `factur-x.xml` und der sichtbare PDF-Text unabhängig von n8n ausgelesen und abgeglichen. Auch ohne eingebettetes XML bleibt ein erkannter Handelshof-Beleg in diesem Zweig und erhält im Portal einen sichtbaren Analysefehler statt erfundener KI-Beträge. Details: [Handelshof-Profil](accounting-handelshof.md).
 
@@ -34,3 +34,5 @@ Der letzte IMAP-Node verschiebt die Mail wie in der Z-Vorlage. Er setzt nicht le
 Die Tests führen den eingebetteten JavaScript-Code mit n8n-Testdoubles aus. Abgedeckt sind Community-IMAP-Metadaten, Anhangszahl, Originalzuordnung, Vectron-Ausschluss, unterschiedliche Weiterleitungsabsender, Dublettenantworten und Teilfehler. Der echte Community-Node und die Schleifenverknüpfung müssen auf dem n8n-Server mit Testmails bestätigt werden.
 
 Nicht mehrere Rechnungsworkflows gleichzeitig aktivieren. Alte Mails nicht pauschal als ungelesen markieren. Bei einem Archivierungsfehler den IMAP-Ordner prüfen; die Originale sind dann bereits im Portal gesichert. Inhaltliche Dubletten mit unterschiedlichen Message-IDs und OCR bleiben separate Aufgaben.
+
+ISB: Nach dem Handelshof-Zweig prüft „ISB ohne KI?“ das Profil `isb_layout_v1`. Das Original geht unverändert zum Portal; Laravel liest Positionen und Steuer aus dem PDF. Details: [ISB-Profil](accounting-isb.md).
