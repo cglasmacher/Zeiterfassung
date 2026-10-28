@@ -1,0 +1,205 @@
+      TEST GASTRO GMBH                                Handelshof Köln Stiftung & Co. KG
+                                                                   Betriebsstätte: Haan
+      TESTWEG 1                                                   Ginsterweg 14, 42781 Haan
+      D-12345 TESTSTADT                                               Tel.: 02129-913-0
+                                                                   Fax.: 02129-913-282
+                                                                   LGH-HA@HANDELSHOF.DE
+                                                                   WWW.HANDELSHOF.DE
+
+
+
+RECHNUNG
+Rechnungs-Nr.         : TEST-HH-41922                  Rechnungsdatum : 01.07.2026                             Seite:      1
+Ihre Kunden-Nr.       : 00000001
+
+ Pos Art.Nr Bezeichnung                              Eh. Inh. Menge        Preis                        Netto       St
+Obst/Gemüse
+ 1     112158 1KG TOMATEN GETROCKNET                             ST     1              2      10,059       20,12       2
+
+   Bei Obst- & Gemüseartikeln mit fehlender Herkunfts- und Handelsklasse entnehmen Sie diese
+   bitte der Verkaufsverpackung.
+Feinkost/Mopro
+ 10    102190 10X7,5G BAERENMARKE KONDENSMILCH 10%               KT     1             12       1,367       16,40       2
+ 11    103071 1,0L H-MILCH 3,5% FRI                              PG     1             24       0,943       22,63       2 A
+ 12    106440 125G MOZZARELLA 45% G&G                            BT     10             2       0,816       16,32       2 M
+       Ersatzartikel zu: 121299 - 125G MOZZARELLA
+ 13    106943   1KG ZIEGENKAESE- ROLLE GEREIFT SOIGN.            PG     1              4      13,450       53,80       2 K
+ 14    107119   500G TAGLIARINI NERI SASSELLA                    PG     1              6       5,289       31,73       2
+ 15    107367   500G BEEMSTER MILD SCHEIBEN 48%                  PG     1              4       7,833       31,33       2
+ 16    112716   5KG SCHMAND 24% MILRAM                           EI     1              1      22,779       22,78       2
+ 17    113649   5KG SCHLAGSAHNE 33% MILRAM                       EI     1              2      19,500       39,00       2 K
+ 18    114372   900G BRIE BROT LA BRIQUE 60%                     ST     1              2      10,589       21,18       2 A
+ 19    115840   1L MAMMA LUCIA ACETO BALSAMICO DI MODENA         FL     1              3       4,017       12,05       2
+ 20    116294   5L VERANEO POMACE OLIVENTRESTEROEL               FL     3              1      18,009       54,03       2
+ 21    117357   10L RAPSOEL EFS CL                               KA     1              2      14,829       29,66       2
+ 22    121298   2KG/8G MOZZARELLA GOURMINI BAYERNLAND            EI     1              2       9,529       19,06       2
+ 23    121299   125G MOZZARELLA BAYERNLAND                       ST     1              0       0,816        0,00       2
+       Bitte Ersatzartikel beachten
+ 24    122441 1KG GRANA PADANO FLAKES 32%                        BT     1              3      17,980       53,94       2 K
+ 25    137654 1L HAFERDRINK BARISTA EDIT.       OATLY            PG     1              6       1,473        8,84       1 A
+ 26    139344 500ML TERIYAKI SAUCE MIY                           FL     1              0       2,957        0,00       2
+       Bitte Ersatzartikel beachten
+ 27    143851   4250ML OLIVEN GRUEN OHNE STEIN 26/29 ADR         DS     1              1      14,829       14,83       2
+ 28    144957   500ML ABEL 1898 SESAMOEL                         FL     1              2       6,879       13,76       2
+ 29    146781   500G WALNUSSKERNE MARY                           BT     1              2      10,059       20,12       2
+ 30    146848   500G PINIENKERNE MARY                            BT     1              2      29,627       59,25       2
+
+
+
+
+                            Handelshof Köln Stiftung & Co. KG Betriebsstätte: Haan
+                  Sitz Köln, Amtsgericht Köln HRA 12205, USt-ID-Nr.: DE123046183, GLN: 4310289000070
+     Persönlich haftende Gesellschaft: EDEKA Foodservice Stiftung & Co. KG, Sitz Köln, Amtsgericht Köln HRA 36878
+                       Vorstand: Dr. Wilhelm von Moers (Sprecher), Martin Richrath, Holger Wulff
+                       TÜV zertifiziert nach DIN EN ISO 9001, Zertifikat: 0110080098, DE-ÖKO-039
+      TEST GASTRO GMBH                                Handelshof Köln Stiftung & Co. KG
+                                                                   Betriebsstätte: Haan
+      TESTWEG 1                                                   Ginsterweg 14, 42781 Haan
+      D-12345 TESTSTADT                                               Tel.: 02129-913-0
+                                                                   Fax.: 02129-913-282
+                                                                   LGH-HA@HANDELSHOF.DE
+                                                                   WWW.HANDELSHOF.DE
+
+
+
+RECHNUNG
+Rechnungs-Nr.         : TEST-HH-41922                  Rechnungsdatum : 01.07.2026                             Seite:      2
+Ihre Kunden-Nr.       : 00000001
+
+Pos Art.Nr Bezeichnung                                           Eh.    Inh.   Menge        Preis       Netto       St
+ 31    151031 975ML TERIYAKI MARINADE&SAUCE        KIK           FL     1              1       5,914        5,91       2 M
+       Ersatzartikel zu: 139344 - 500ML TERIYAKI SAUCE
+ 32    160548   1KG SAHNEJOGHURT GRIECH.ART 10%    G&G           EI     1              4       2,173        8,69       2
+ 33    164251   1,5KG FRISCHKAESE PRO 60%          ARLA          EI     1              2      15,041       30,08       2
+ 34    164255   3200ML GRIECH.KALAM. OLIVEN M.KERN      ILI      PG     1              1      23,309       23,31       2
+ 35    167506   1L FRISCHER DIREKTS. ORANGE O.FRUCHT.G&G         FL     1              6       2,311       13,87       1
+       Übermenge
+ 36    216266 470ML KORIANDER GANZ             WIB               DS     1              2       2,321        4,64       2
+ 37    216573 470ML TANDOORI IND. GEWUERZMISCHUNG WIB            BO     1              1       7,939        7,94       2
+Fleisch/Wurst/Geflügel
+ 2     100077 RINDER STEAKHUEFTE ARGENTINIEN CORONA              KG     1           9,47      15,990     151,43        2 M
+       Ersatzartikel zu: 103225 - TK RINDER STEAK-
+ 3     103225 TK RINDER STEAK- HUEFTE ARG. CORONA                KG     1              0      15,889        0,00       2
+       Bitte Ersatzartikel beachten
+ 4     160577   1KG FRUEHSTUECKS- BACON ROH                      PG     1              3      10,450       31,35       2 K
+ 5     160965   SERRANO SCHINKEN CA.2,3 KG                       KG     1           4,34      21,950       95,26       2 K
+ 6     161289   BAUCHSPECK GEWUER- FELT CA.1,0KG                 KG     1          1,516      11,649       17,66       2
+ 7     166950   500 GR.SALAME MACINATO GROSSO                    ST     1              1      11,119       11,12       2
+       Mindermenge, keine Nachlieferung
+ 8     167525 GRILLBRATWURST 10 X CA.180 GR.                     KG     1            5,4      11,119       60,04       2
+Tiefkühlkost
+ 38    124436   500G AVOCADO DICES/ WUERFEL            SALUD     BT     1              6       6,137       36,82       2
+ 39    127064   5KG VOLLEIS-WUERFEL SOLID CUBES                  BT     1              8       4,547       36,38       1
+ 40    132134   25X340G STEINOFEN- BAGUETTE                      KT     1              1      23,950       23,95       2 K
+ 41    156314   1600G ASIAN DELIGHTS SELECTION                   PG     1              2      34,927       69,85       2
+Lebensmittel
+ 42    121508 500G RUMMO RIGATONI NR.50                          PG     1              4       2,109        8,44       2
+ 43    185947 50G BOURBON VANILLE PASTE                    OE    TB     1              6       4,123       24,74       2
+ 44    190114 5KG BASMATI REIS PARBOILED                         PG     1              1      20,129       20,13       2
+Konserven
+ 45    222147 4250ML TOMATENMARK 2-FACH KONZ.            EFS     DS     1              1      14,829       14,83       2
+
+Non-Food
+ 46    713346 150ER TRINKHALM 25CM 8MM SCHWARZ PAPIER            ST     1              2       6,349       12,70       1
+
+
+
+
+                            Handelshof Köln Stiftung & Co. KG Betriebsstätte: Haan
+                  Sitz Köln, Amtsgericht Köln HRA 12205, USt-ID-Nr.: DE123046183, GLN: 4310289000070
+     Persönlich haftende Gesellschaft: EDEKA Foodservice Stiftung & Co. KG, Sitz Köln, Amtsgericht Köln HRA 36878
+                       Vorstand: Dr. Wilhelm von Moers (Sprecher), Martin Richrath, Holger Wulff
+                       TÜV zertifiziert nach DIN EN ISO 9001, Zertifikat: 0110080098, DE-ÖKO-039
+      TEST GASTRO GMBH                                Handelshof Köln Stiftung & Co. KG
+                                                                   Betriebsstätte: Haan
+      TESTWEG 1                                                   Ginsterweg 14, 42781 Haan
+      D-12345 TESTSTADT                                               Tel.: 02129-913-0
+                                                                   Fax.: 02129-913-282
+                                                                   LGH-HA@HANDELSHOF.DE
+                                                                   WWW.HANDELSHOF.DE
+
+
+
+RECHNUNG
+Rechnungs-Nr.         : TEST-HH-41922                  Rechnungsdatum : 01.07.2026                             Seite:      3
+Ihre Kunden-Nr.       : 00000001
+
+Pos Art.Nr Bezeichnung                                           Eh.    Inh.   Menge        Preis       Netto       St
+Pfand/Leergut
+ 47    337004 ROLLB.HH-GRUEN                                     ST     1              -2     60,000    -120,00        1 L
+ 48    337004 ROLLB.HH-GRUEN                                     ST     1               3     60,000     180,00        1 L
+ 49    337024 GITTER    HH-GRUEN                                 ST     1              -2     18,000     -36,00        1 L
+ 50    337024 GITTER    HH-GRUEN                                 ST     1               3     18,000       54,00       1 L
+ 51    337046 E2 - WANNE ROT                                     ST     1              -3      3,000       -9,00       1 L
+ 52    337046 E2 - WANNE ROT                                     ST     1               2      3,000        6,00       1 L
+ 53    337056 HH TRANSPORTBOX                                    KI     1              -4     15,000     -60,00        1 L
+ 54    337056 HH TRANSPORTBOX                                    KI     1               5     15,000       75,00       1 L
+ 55    909170 PFAND DPG LOGO                                     ST     1               6      0,250        1,50       1 L
+       Übermenge
+ 56    998052 O+G KISTE KLAPP GRUEN                              ST     1              -3      3,860     -11,58        1 L
+Service/Gutscheine
+ 57    336937 TRANSPORTKOSTEN ANTEIL 19%                         ST     1               1      0,530        0,53       1 M
+       Lieferung vom 2026-07-01
+ 58    338564 TRANSPORTKOSTEN ANTEIL 7%                          ST     1               1      7,970        7,97       2 M
+Getränke/Spirituosen
+ 9     315310 0,7 CHANTRE 36%                                    FL     1               1      7,939        7,94       1
+
+
+
+
+                            Handelshof Köln Stiftung & Co. KG Betriebsstätte: Haan
+                  Sitz Köln, Amtsgericht Köln HRA 12205, USt-ID-Nr.: DE123046183, GLN: 4310289000070
+     Persönlich haftende Gesellschaft: EDEKA Foodservice Stiftung & Co. KG, Sitz Köln, Amtsgericht Köln HRA 36878
+                       Vorstand: Dr. Wilhelm von Moers (Sprecher), Martin Richrath, Holger Wulff
+                       TÜV zertifiziert nach DIN EN ISO 9001, Zertifikat: 0110080098, DE-ÖKO-039
+    TEST GASTRO GMBH                                Handelshof Köln Stiftung & Co. KG
+                                                                 Betriebsstätte: Haan
+    TESTWEG 1                                                   Ginsterweg 14, 42781 Haan
+    D-12345 TESTSTADT                                               Tel.: 02129-913-0
+                                                                 Fax.: 02129-913-282
+                                                                 LGH-HA@HANDELSHOF.DE
+                                                                 WWW.HANDELSHOF.DE
+
+
+
+RECHNUNG
+Rechnungs-Nr.       : TEST-HH-41922                  Rechnungsdatum : 01.07.2026                            Seite:    4
+Ihre Kunden-Nr.     : 00000001
+
+Pos Art.Nr Bezeichnung                                         Eh.    Inh.    Menge       Preis       Netto       St
+
+
+
+
+Rechnungsstatistik (in EUR):
+Rechnungsgruppe                         Warenwert Netto        Anteil in %        Anzahl Pos.        Anteil in %
+Obst/Gemüse                                       20,12               1,47                 1                1,82
+Feinkost/Mopro                                   635,15              46,49                26               47,27
+Fleisch/Wurst/Geflügel                           366,86              26,85                 6               10,91
+Tiefkühlkost                                     167,00              12,22                 4                7,27
+Lebensmittel                                      53,31               3,90                 3                5,45
+Konserven                                         14,83               1,09                 1                1,82
+Non-Food                                          12,70               0,93                 1                1,82
+Pfand/Leergut                                     79,92               5,85                10               18,18
+Service/Gutscheine                                 8,50               0,62                 2                3,64
+Getränke/Spirituosen                               7,94               0,58                 1                1,82
+
+
+Summen:                                          1.366,33            100,00                 55             100,00
+
+Bzgl. Entgeltminderungen verweisen wir auf die aktuellen Konditionsvereinbarungen.
+
+Kolli      Warenwert       Leergut     Netto/Warenwert         MwSt-%Kz       MwSt-Betrag         Betrag/Brutto
+   24           80,26        79,92              160,18        (19,0%=1)             30,43
+  118        1.206,15         0,00            1.206,15        ( 7,0%=2)             84,43         1.481,19 EUR
+
+Der Rechnungsbetrag (EUR 1481,19) wird per Lastschrift eingezogen
+
+
+
+                          Handelshof Köln Stiftung & Co. KG Betriebsstätte: Haan
+                Sitz Köln, Amtsgericht Köln HRA 12205, USt-ID-Nr.: DE123046183, GLN: 4310289000070
+   Persönlich haftende Gesellschaft: EDEKA Foodservice Stiftung & Co. KG, Sitz Köln, Amtsgericht Köln HRA 36878
+                     Vorstand: Dr. Wilhelm von Moers (Sprecher), Martin Richrath, Holger Wulff
+                     TÜV zertifiziert nach DIN EN ISO 9001, Zertifikat: 0110080098, DE-ÖKO-039
+

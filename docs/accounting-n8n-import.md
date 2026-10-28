@@ -4,7 +4,7 @@ Basis ist der bereitgestellte funktionierende Z-Workflow „Hemingway - IONOS Z-
 
 ## Einrichtung
 
-1. Portaländerungen ausrollen. `pdftotext` und `pdfimages` müssen für die PDF-/Gato-Erkennung ausführbar sein.
+1. Portaländerungen ausrollen. `pdftotext`, `pdfimages` und für Handelshof `pdfdetach` müssen ausführbar sein (Paket `poppler-utils`).
 2. Alten Rechnungsworkflow sichern und deaktivieren. `workflows/n8n/Hemingway-Eingangsrechnungen.json` als inaktiven Workflow importieren.
 3. Bei den drei Community-IMAP-Nodes (Suchen, Anhänge laden, Archivieren) dasselbe bestehende IMAP-Konto wie beim funktionierenden Z-Poller auswählen. Node: `n8n-nodes-imap.imap`, Version 1, Authentifizierung `coreImapAccount`. Im Downloadnode müssen **All Attachments** und **Include Inline Attachments** aktiv sein. Sichtbare PDFs können insbesondere bei Weiterleitungen als Inline-MIME-Teil vorliegen, auch wenn `attachmentsInfo` in der Suchantwort leer ist. Die nachgelagerte Auswahl verarbeitet weiterhin nur PDFs. Kein zusätzlicher Listener und keine neue IMAP-Bibliothek erforderlich.
 4. Den Ordner `INBOX/Eingangsrechnungen` im Postfach anlegen und im Archivierungsnode auswählen. Falls der Anbieter einen anderen internen Ordnerpfad meldet, den vorhandenen Ordner aus der Liste wählen.
@@ -13,7 +13,9 @@ Basis ist der bereitgestellte funktionierende Z-Workflow „Hemingway - IONOS Z-
 
 ## Ablauf und Wiederholungen
 
-Zeitplan → ungelesene Mails in INBOX suchen → direkte Vectron-Mails ausschließen → Anhänge laden → jede PDF einzeln → Kassenberichtfilter → PDF-Lieferantenerkennung → Gato ohne GPT oder bisheriger KI-Zweig → Portalbestätigung → vollständige Mails nach `INBOX/Eingangsrechnungen` verschieben.
+Zeitplan → ungelesene Mails in INBOX suchen → direkte Vectron-Mails ausschließen → Anhänge laden → jede PDF einzeln → Kassenberichtfilter → PDF-Lieferantenerkennung → Gato / Handelshof ohne GPT oder bisheriger KI-Zweig → Portalbestätigung → vollständige Mails nach `INBOX/Eingangsrechnungen` verschieben.
+
+Handelshof: Der neue Zweig „Handelshof ohne KI?“ liegt am Nein-Ausgang von „Gato ohne KI?“. Bei erkanntem Profil geht das Original direkt zum Portal; dort werden die eingebettete `factur-x.xml` und der sichtbare PDF-Text unabhängig von n8n ausgelesen und abgeglichen. Auch ohne eingebettetes XML bleibt ein erkannter Handelshof-Beleg in diesem Zweig und erhält im Portal einen sichtbaren Analysefehler statt erfundener KI-Beträge. Details: [Handelshof-Profil](accounting-handelshof.md).
 
 IMAP-Such-/Downloadparameter stammen aus der funktionierenden Z-Vorlage. Der Rechnungsworkflow wählt keine Lieferanten anhand des Weiterleitungsabsenders aus. Direkte Mails von `noreply@myvectron.com` werden vor dem Download ausgeschlossen; weitergeleitete erkennbare Kassenbericht-PDFs werden vor GPT übersprungen.
 

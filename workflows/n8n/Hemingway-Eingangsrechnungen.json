@@ -466,6 +466,55 @@
         2400,
         -300
       ]
+    },
+    {
+      "id": "dc4ce655-d06a-4786-bad7-a3fa553feda3",
+      "name": "Handelshof ohne KI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3800,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b063039-7248-4d1a-9919-e9afcda64a0e",
+              "leftValue": "={{ $json.supplier === 'handelshof' && $json.profile === 'handelshof_facturx_v1' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0808dbff-1ca3-4e57-b44f-09780e562068",
+      "name": "Handelshof Original ans Portal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4100,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Laravel extracts the embedded Factur-X from the exact original, without AI amounts.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif ($json.supplier !== 'handelshof' || $json.profile !== 'handelshof_facturx_v1' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Handelshof-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Handelshof',\n            extraction_profile: 'handelshof_facturx_v1',\n            original_filename: metadata.original_filename,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
+      },
+      "onError": "continueErrorOutput"
     }
   ],
   "connections": {
@@ -563,7 +612,7 @@
         ],
         [
           {
-            "node": "Rechnung mit GPT auslesen",
+            "node": "Handelshof ohne KI?",
             "type": "main",
             "index": 0
           }
@@ -771,6 +820,42 @@
         [
           {
             "node": "IMAP - Erfolgreiche Mail archivieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handelshof ohne KI?": {
+      "main": [
+        [
+          {
+            "node": "Handelshof Original ans Portal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechnung mit GPT auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handelshof Original ans Portal": {
+      "main": [
+        [
+          {
+            "node": "Hemingway Portal - Beleg übergeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
             "type": "main",
             "index": 0
           }
