@@ -10,3 +10,71 @@
 @media(max-width:700px){.rb-reservation-list,.rb-reservation-list tbody{display:block}.rb-reservation-list thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.rb-reservation-row{display:grid;grid-template-columns:24px 1fr auto;gap:6px 9px;padding:12px 14px;border-bottom:1px solid #e5eadc}.rb-reservation-list .rb-reservation-row td{border:0;padding:0}.rb-row-type{grid-column:1;grid-row:1}.rb-row-time{grid-column:2;grid-row:1}.rb-row-time button{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}.rb-row-time small{margin:0}.rb-row-name{grid-column:1/3;grid-row:2}.rb-row-count{grid-column:3;grid-row:1;text-align:right}.rb-mobile-label{display:inline;font-size:10px;color:#929d85;margin-right:6px}.rb-row-tables{grid-column:1/-1;grid-row:3}.rb-row-notes{grid-column:1/-1;grid-row:4}.rb-row-notes:has(.rb-note-empty){display:none}.rb-row-status{grid-column:1/3;grid-row:5;display:flex;align-items:center;gap:8px}.rb-status-control{width:auto;min-width:136px}.rb-row-promote{margin:0}.rb-row-edit{grid-column:3;grid-row:5;justify-self:end}.rb-row-details{display:block}.rb-row-details td{display:block;padding:14px!important}.rb-list-wrap .rb-empty{border:0}.rb-row-tags{margin-top:3px}.rb-note-preview{-webkit-line-clamp:2}}
 
 .rb-status-select-wrap{position:relative;display:inline-block;width:100%}.rb-status-select-wrap>svg{position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:#6c805b}@media(max-width:700px){.rb-status-select-wrap{width:auto}}
+
+/* Compact service overview; full notes remain available on demand. */
+.rb-mobile-guest-meta{display:none}
+.rb-service-messages{margin-top:24px}
+.rb-service-messages>.rb-actions{margin-bottom:10px}
+.rb-service-messages .rb-alert{margin-bottom:10px}
+.rb-stats{display:flex;flex-wrap:wrap;gap:8px 20px;padding:10px 0;margin-bottom:10px;border-block:1px solid #e1e7d8}
+.rb-stats>div{display:flex;align-items:baseline;gap:6px;padding:0;border:0;border-radius:0;background:none}
+.rb-stats strong{display:inline;font-size:19px}
+.rb-stats span{display:inline;font-size:11px;margin:0}
+@media(max-width:700px){
+ .rb-page{padding:12px 10px}
+ .rb-header{gap:10px;margin-bottom:10px}
+ .rb-header h1{font-size:22px}
+ .rb-header .rb-eyebrow,.rb-header p:not(.rb-eyebrow){display:none}
+ .rb-header>.rb-actions{display:flex;flex-wrap:wrap;gap:5px;width:100%}
+ .rb-header>.rb-actions .rb-btn{flex:1;padding:8px 6px;font-size:11px;min-height:38px;white-space:nowrap}
+ .rb-header>.rb-actions svg{width:15px;height:15px}
+ .rb-daybar{gap:8px;margin:10px 0}
+ .rb-daybar>.rb-actions:first-child{display:flex;flex-wrap:nowrap;width:100%;gap:5px}
+ .rb-daybar input{flex:1;min-width:0;text-align:center;min-height:40px;font-size:16px;padding:5px}
+ .rb-daybar>.rb-actions:last-child{gap:6px}
+ .rb-stats{gap:6px 14px;padding:8px 0;margin-bottom:8px}
+ .rb-stats>div{padding:0;gap:5px}
+ .rb-stats strong{font-size:17px}
+ .rb-stats span{font-size:10px}
+ .rb-filterbar{gap:8px;margin:8px 0 10px}
+ .rb-filterbar nav{width:100%;display:flex;flex-wrap:nowrap;gap:2px}
+ .rb-filterbar nav button{flex:1;padding:8px 4px;font-size:11px;white-space:nowrap;min-height:36px}
+ .rb-filterbar input{font-size:16px;padding:8px 10px}
+ .rb-list-wrap{border-radius:8px}
+ .rb-reservation-list thead{position:static;display:block;width:auto;height:auto;clip-path:none;overflow:visible}
+ .rb-reservation-list thead tr{display:grid;grid-template-columns:48px minmax(0,1fr) 106px;gap:8px;padding:8px}
+ .rb-reservation-list thead th{display:none!important;width:auto!important;padding:0;border:0;background:none;font-size:11px}
+ .rb-reservation-list thead th:nth-child(2),.rb-reservation-list thead th:nth-child(3),.rb-reservation-list thead th:nth-child(7){display:block!important}
+ .rb-reservation-list thead{background:#f6f8f1;border-bottom:1px solid #dfe5d6}
+ .rb-reservation-row{grid-template-columns:48px minmax(0,1fr) 106px;gap:3px 8px;padding:9px 8px;align-items:start}
+ .rb-reservation-list .rb-row-type,.rb-reservation-list .rb-row-count,.rb-reservation-list .rb-row-tables,.rb-reservation-list .rb-row-edit{display:none}
+ .rb-row-time{grid-column:1;grid-row:1/3}
+ .rb-row-time button{display:block;min-height:40px}
+ .rb-row-time strong{font-size:13px}
+ .rb-row-time small{display:none}
+ .rb-row-name{grid-column:2;grid-row:1;min-width:0}
+ .rb-row-guest{font-size:13px;line-height:1.4;display:block;min-height:22px}
+ .rb-mobile-guest-meta{display:block;color:#7b876e;font-size:11px;line-height:1.45}
+ .rb-row-tags{gap:3px;margin-top:3px}
+ .rb-row-tags span{font-size:9px;padding:1px 4px}
+ .rb-row-status{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0}
+ .rb-status-select-wrap{width:100%;min-width:0}
+ .rb-row-status .rb-status-control{width:100%;min-width:0;min-height:40px;font-size:11px;padding:7px 22px 7px 6px}
+ .rb-row-status>small{font-size:9px}
+ .rb-row-status .rb-row-promote{min-height:34px;font-size:10px;margin:0}
+ .rb-row-notes{grid-column:2;grid-row:2;min-width:0}
+ .rb-note-toggle{align-items:center;gap:4px;min-height:30px}
+ .rb-note-preview{-webkit-line-clamp:1;font-size:11px;white-space:normal}
+ .rb-row-notes .rb-row-warning{font-size:10px;margin:0}
+ .rb-row-notes .rb-row-warning~.rb-note-preview{display:none}
+ .rb-note-toggle>span{display:flex;gap:5px;align-items:center}
+ .rb-row-details td{padding:12px!important}
+ .rb-service-messages{margin-top:20px}
+ .rb-service-messages .rb-alert{font-size:11px;padding:10px;flex-wrap:wrap}
+}
+@media(max-width:360px){
+ .rb-reservation-row,.rb-reservation-list thead tr{grid-template-columns:43px minmax(0,1fr) 96px;gap:3px 6px}
+ .rb-row-status .rb-status-control{font-size:10px}
+}
+
+.rb-status-control{appearance:none;-webkit-appearance:none}
