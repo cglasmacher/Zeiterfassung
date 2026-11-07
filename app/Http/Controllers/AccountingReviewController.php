@@ -129,6 +129,17 @@ class AccountingReviewController extends Controller
             ]);
         }
 
+        if ($request->input('extraction_profile') === 'isb_layout_v1') {
+            $supplier = AccountingSupplier::where('creditor_account', '70018')->where('active', true)->first();
+            if (! $supplier) {
+                throw ValidationException::withMessages(['supplier_name' => 'ISB-Profil benötigt den aktiven Kreditor 70018.']);
+            }
+            $request->merge([
+                ...app(\App\Services\Accounting\IsbImport::class)->prepare($request),
+                'supplier_id' => $supplier->id, 'supplier_name' => $supplier->name,
+            ]);
+        }
+
         $data = $request->validate([
             'source' => ['nullable', 'string', 'max:32'],
             'source_reference' => ['required', 'string', 'max:255'],
@@ -438,6 +449,16 @@ class AccountingReviewController extends Controller
 
         if ($supplier?->creditor_account === '70012' && ! empty($line['invoice_group'])) {
             $match = app(\App\Services\Accounting\HandelshofAccount::class)->resolve($line);
+            if ($match) {
+                $account = AccountingAccount::where('account_number', $match[0])->where('active', true)->first();
+
+                return ['account' => $account, 'tax_rate' => null, 'confidence' => $account ? 99 : 0,
+                    'source' => 'supplier_rule', 'rule_key' => $match[1]];
+            }
+        }
+
+        if ($supplier?->creditor_account === '70018') {
+            $match = app(\App\Services\Accounting\IsbAccount::class)->resolve($line);
             if ($match) {
                 $account = AccountingAccount::where('account_number', $match[0])->where('active', true)->first();
 

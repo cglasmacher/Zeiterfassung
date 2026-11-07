@@ -515,6 +515,55 @@
         "jsCode": "// Laravel extracts the embedded Factur-X from the exact original, without AI amounts.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif ($json.supplier !== 'handelshof' || $json.profile !== 'handelshof_facturx_v1' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('Handelshof-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'Handelshof',\n            extraction_profile: 'handelshof_facturx_v1',\n            original_filename: metadata.original_filename,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
       },
       "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b9ff6e60-71a2-4e71-88a9-5f4479117ad5",
+      "name": "ISB ohne KI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4000,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b063039-7248-4d1a-9919-e9afcda64a0e",
+              "leftValue": "={{ $json.supplier === 'isb' && $json.profile === 'isb_layout_v1' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6389e31e-ce6b-4af0-b2bd-838aa1fa72d0",
+      "name": "ISB Original ans Portal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4300,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Laravel parses the exact native PDF, without AI amounts.\nconst attachment = $('PDF normalisieren').item;\nconst metadata = attachment.json.accounting_attachment;\nif ($json.supplier !== 'isb' || $json.profile !== 'isb_layout_v1' || !metadata?.source_reference || !attachment.binary?.eingangsrechnung_0) {\n    throw new Error('ISB-Lieferant, Referenz oder Original fehlt.');\n}\nreturn {\n    json: {\n        portal_payload: {\n            source: 'n8n',\n            source_reference: metadata.source_reference,\n            supplier_name: 'ISB',\n            extraction_profile: 'isb_layout_v1',\n            original_filename: metadata.original_filename,\n        },\n    },\n    binary: { eingangsrechnung_0: attachment.binary.eingangsrechnung_0 },\n};\n"
+      },
+      "onError": "continueErrorOutput"
     }
   ],
   "connections": {
@@ -837,7 +886,7 @@
         ],
         [
           {
-            "node": "Rechnung mit GPT auslesen",
+            "node": "ISB ohne KI?",
             "type": "main",
             "index": 0
           }
@@ -845,6 +894,42 @@
       ]
     },
     "Handelshof Original ans Portal": {
+      "main": [
+        [
+          {
+            "node": "Hemingway Portal - Beleg übergeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF fehlgeschlagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ISB ohne KI?": {
+      "main": [
+        [
+          {
+            "node": "ISB Original ans Portal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechnung mit GPT auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ISB Original ans Portal": {
       "main": [
         [
           {
