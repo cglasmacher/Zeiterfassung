@@ -14,31 +14,33 @@
    Anschließend `php artisan config:clear`. Token nicht in Git oder die Workflow-JSON schreiben.
 4. `workflows/n8n/IONOS-Vectron-Z-Bericht.json` in n8n importieren.
 5. Im Knoten **IONOS Posteingang** IMAP-Zugangsdaten auswählen: Host `imap.ionos.de`, Port `993`, SSL/TLS aktiv, Benutzername = vollständige E-Mail-Adresse, Passwort des Postfachs. TLS-Prüfung aktiviert lassen. Quelle: https://www.ionos.de/hilfe/e-mail/allgemeine-themen/serverinformationen-fuer-imap-pop3-und-smtp/
-6. Im Knoten **Konfiguration** `platformUrl` auf die echte HTTPS-Adresse der Zeiterfassung setzen. Optional die tatsächlich beobachtete Absenderadresse in `allowedSender` eintragen; bei leerem Wert werden alle PDF-Anhänge dieses dedizierten Postfachs verarbeitet.
+6. Im Knoten **Konfiguration** `platformUrl` auf die echte HTTPS-Adresse der Zeiterfassung setzen. Optional die tatsächlich beobachtete Absenderadresse in `allowedSender` eintragen; bei leerem Wert werden alle Absender zugelassen. Jeder PDF-Anhang muss unabhängig davon die Inhaltsprüfung bestehen.
 7. Im letzten HTTP-Knoten einen **Header Auth**-Zugang auswählen: Name `Authorization`, Wert `Bearer ` gefolgt vom identischen Import-Token. In der JSON sind keine Credentials enthalten.
 8. Workflow testweise starten, Z-Bericht an das Postfach senden und in n8n die erfolgreiche HTTP-Antwort prüfen (`201`, bei identischem PDF `200` mit `duplicate: true`). Erst danach aktivieren/veröffentlichen.
 9. In der Plattform **Abrechnung** öffnen und den passenden Geschäftstag wählen. Auch die Schichtübergabe zeigt den Eingang. Die Meldung lautet **„Z-Bericht für diesen Tag verfügbar“**; das Original lässt sich öffnen.
 
 ## Tageszuordnung
 
-### Wenn n8n Seiten erkennt, aber `text: ""` liefert
+### Inhaltsprüfung vor jedem Upload
 
-Die Plattform liest das hochgeladene Original selbst mit Poppler `pdftotext`, wenn `extracted_text` fehlt, leer ist oder nur Leerzeichen enthält. Der bestehende n8n-Workflow bleibt unverändert; das PDF wird bereits mitgesendet.
+Beide IONOS-Workflowvarianten prüfen jeden Anhang einzeln. In **Original und Metadaten** werden ausschließlich der aus diesem PDF extrahierte Text und seine Originaldatei verwendet. Betreff und Dateiname erteilen keine Freigabe.
 
-Auf dem **Plesk-Anwendungsserver** (Ubuntu/Debian) einmalig als Administrator installieren:
+**Nur bestaetigte Z-Berichte** lässt ausschließlich ein echtes boolesches `z_report_verified: true` zum Plattform-Upload durch. Dafür müssen die Kennung `Finanzbericht <Z1>` und genau eine unterschiedliche, positive Z-Berichtsnummer aus `Finanzbericht 1 NUMMER` in der Finanzzusammenfassung vorhanden sein. Spätere Bedienerberichte werden dafür nicht verwendet. Unicode-Leerzeichen, Zeilen-/Seitenumbrüche und unsichtbare Trennzeichen werden toleriert.
 
-```bash
-sudo apt-get update
-sudo apt-get install -y poppler-utils
-/usr/bin/pdftotext -v
-```
+Der False-Ausgang endet in **Nicht uebertragen - pruefen**, ohne Verbindung zu Plattform oder QNAP. `z_report_filter_reason` enthält den Grund. Rechnungen, X-Berichte, reine Bedienerberichte, fehlende/widersprüchliche Nummern sowie nicht lesbare, fehlerhafte oder zu lange Textausgaben werden nicht übertragen. Ein echter Z-Bericht darf „Umsatz auf Rechnung“ enthalten und wird deshalb nicht pauschal anhand des Wortes „Rechnung“ ausgeschlossen.
 
-Danach den neuen Plattformstand deployen und dieselbe n8n-Ausführung ab dem Plattform-HTTP-Aufruf erneut ausführen. Standardpfad ist `/usr/bin/pdftotext`; bei abweichendem Pfad `CASH_Z_REPORT_PDFTOTEXT_BINARY` in `.env` setzen und `php artisan config:clear` ausführen. PHP-FPM muss `proc_open` erlauben und das Programm ausführen dürfen. Es wird kein externer OCR-Dienst verwendet. Die Extraktion ist auf 20 Sekunden, die ersten 20 Seiten und 1 Mio. Ergebniszeichen begrenzt. Fehlende Software oder Ausführungsfehler werden im Laravel-Log gemeldet; das Original bleibt trotzdem gespeichert und zur manuellen Zuordnung verfügbar. Gescannte Bild-PDFs benötigen weiterhin eine manuelle Tageszuordnung.
+**Wichtig bei `text: ""`:** Der strikte Workflow reicht das Original nicht mehr an den Plattformimport zur ersatzweisen Texterkennung weiter. Die Textextraktion muss zuerst in n8n funktionieren, sonst landet auch ein echter Z-Bericht im Prüfzweig. Ein lesbarer Z-Bericht mit unklarem Geschäftstag darf hingegen weiterlaufen und wird in der Plattform manuell zugeordnet. Dieser Filter prüft die Dokumentart, nicht den Geschäftstag.
+
+Erfolgreiche n8n-Ausführungen werden jetzt ebenfalls gespeichert, damit der abgewiesene Zweig samt Original und Grund innerhalb der konfigurierten n8n-Aufbewahrung prüfbar ist. Originalmail behalten: Der IMAP-Trigger markiert auch eine später abgewiesene Mail bereits als gelesen. Nach Korrektur ab **PDF-Text lesen** erneut ausführen oder die Mail erneut zustellen; nicht lediglich direkt den Upload-Knoten starten. Bei gemischten Mails bleibt jeder Anhang separat: Nur bestätigte Z-Berichte erreichen die Plattform und gegebenenfalls QNAP.
+
+Zum Aktualisieren beide neuen Filterknoten und den geänderten Code aus **Original und Metadaten** übernehmen oder den vollständigen aktualisierten Workflow importieren. Bei einem Neuimport die vorhandenen Credentials, Plattformadresse und den tatsächlich funktionierenden QNAP-SFTP-Basispfad wieder eintragen. Mit echter Z-Bericht-Mail und einer Rechnung testen; anschließend alten Workflow deaktivieren und nur die aktualisierte Variante aktivieren. Ein Git-/Plesk-Update allein ändert keinen bereits importierten n8n-Workflow.
+
+Die Plattform besitzt für andere Aufrufer weiterhin eine eigene Poppler-Texterkennung, wenn `extracted_text` fehlt. Diese wird durch den strikten n8n-Filter nicht als Freigabeweg verwendet. Am Plattformimport selbst wird mit dieser Workflowänderung nichts geändert.
 
 Am vorhandenen Vectron-Beispiel liefert Poppler die Berichtsnummer `291` und den Erstellungszeitpunkt `16.10.26 23:21`; die erwartete Antwort enthält `report_id: "291"`, `business_date: "2026-10-16"` und `archive_filename: "Z-Bericht_2026-10-16_Z-291.pdf"`.
 
 
-Der Server liest Datum/Uhrzeit **unten in der Finanzbericht-Zusammenfassung**. Weder Empfangsdatum der Mail noch der Dateiname noch „Letzte Nullst.“ oben werden als Geschäftstag verwendet. Spätere Bedienerberichte werden für diese Entscheidung ignoriert. Die Erkennung toleriert Zeilenumbrüche, Seitenumbrüche, geschützte Leerzeichen und in eine Zeile zusammengezogene PDF-Felder. Unbekannte Layouts oder gescannte PDFs ohne Text bleiben zur manuellen Zuordnung offen.
+Der Server liest Datum/Uhrzeit **unten in der Finanzbericht-Zusammenfassung**. Weder Empfangsdatum der Mail noch der Dateiname noch „Letzte Nullst.“ oben werden als Geschäftstag verwendet. Spätere Bedienerberichte werden für diese Entscheidung ignoriert. Die Erkennung toleriert Zeilenumbrüche, Seitenumbrüche, geschützte Leerzeichen und in eine Zeile zusammengezogene PDF-Felder. Erkannte Z-Berichte ohne eindeutiges Datum bleiben zur manuellen Zuordnung offen; unlesbare oder nicht erkannte Dokumentarten werden bereits im n8n-Filter gestoppt.
 
 **Bis einschließlich 11:00:00 Uhr Europe/Berlin gehört der Bericht zum Vortag.** Beispiele: 20.10.2026 09:15 → 19.10.2026; 20.10.2026 11:00 → 19.10.2026; ab 11:00:01 → 20.10.2026. Die neue Einstellung `CASH_Z_REPORT_PREVIOUS_DAY_UNTIL=11:00` gilt ausdrücklich für diese Z-Berichtszuordnung. Die alte Einstellung `CASH_BUSINESS_DAY_START_HOUR=6` wird hier nicht mehr ausgewertet und kann aus `.env` entfernt werden. Bestehende Kassen-/Abschlusszeiträume werden nicht geändert.
 
@@ -57,7 +59,7 @@ Die Meldung aktualisiert sich beim Öffnen und alle 60 Sekunden; **Prüfen** akt
 - Originaldatei wird auf dem privaten Laravel-Datenträger gespeichert. PDF-Aufruf und Zuordnung erfordern eine angemeldete Sitzung. Kein `storage:link` erforderlich.
 - SHA-256 des PDF-Inhalts ist eindeutig. Wiederholungen und HTTP-Retries erzeugen keinen zweiten Datensatz. Gleiche Berichtsnummer bei anderem PDF-Inhalt wird nicht still überschrieben; beide Originale bleiben prüfbar.
 - Datenbank und `storage/app/private/cash/z-reports` gemeinsam sichern. Mehrere App-Server benötigen einen gemeinsamen privaten Datenträger und Cache mit Locks.
-- Der Workflow verarbeitet mehrere PDFs als einzelne Items und behält ihre Binärdaten auch bei fehlgeschlagener Textextraktion. Die Textauslese ist kein OCR. Ein fehlgeschlagener Upload wird dreimal versucht und danach als Fehler angezeigt.
+- Der Workflow verarbeitet mehrere PDFs als einzelne Items. Auch bei fehlgeschlagener Textextraktion bleibt das Original im abgewiesenen Prüfzweig erhalten. Die Textauslese ist kein OCR. Ein fehlgeschlagener Upload wird dreimal versucht und danach als Fehler angezeigt.
 - Der IMAP-Trigger markiert die Mail schon bei Empfang als gelesen. Nach einem Fehler die gespeicherte fehlgeschlagene Ausführung in n8n erneut ausführen; nicht auf einen automatischen erneuten Mailabruf verlassen. Originalmail nicht löschen. Nicht mehrfach parallel manuell starten. Die n8n-Aufbewahrung fehlgeschlagener Ausführungen samt Binärdaten ausreichend einstellen.
 - Erst neue Mails nach Aktivierung testen; zum Wiederholen eine neue Mail senden oder die gespeicherte Ausführung wiederholen. Die JSON ist beim Import absichtlich inaktiv und benötigt die beiden Zugangsdaten sowie eure Plattformadresse.
 
