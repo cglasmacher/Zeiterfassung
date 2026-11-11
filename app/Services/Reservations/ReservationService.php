@@ -249,7 +249,10 @@ class ReservationService
             if ($kind === 'waitlist') {
                 $ids = [];
             }
-            if ($active) {
+            if ($booking?->status === 'unconfirmed' && in_array($status, ['confirmed', 'seated'], true) && ! $ids) {
+                throw ValidationException::withMessages(['table_ids' => 'Bitte vor der Bestätigung einen Tisch oder eine Kombination auswählen.']);
+            }
+            if ($active && ($status !== 'unconfirmed' || $ids)) {
                 if ($ids) {
                     $ids = $this->validateTableSelection($ids, $start, $end, $size, $booking?->id, false, $data['room_id'] ?? null);
                 } else {
@@ -263,6 +266,9 @@ class ReservationService
             $booking ??= new ReservationBooking(['id' => (string) Str::uuid()]);
             $booking->fill($values)->save();
             $booking->tables()->sync($ids);
+            if (array_key_exists('tag_ids', $data)) {
+                $booking->tags()->sync($data['tag_ids']);
+            }
             $result = $booking->fresh()->load('tables');
             DB::table('reservation_events')->insert(['booking_id' => $result->id, 'user_id' => $userId, 'action' => $promote ? 'promoted' : ($before ? 'updated' : 'created'), 'details' => json_encode(['before' => $before, 'after' => $result->toArray()]), 'created_at' => now()]);
 
@@ -274,11 +280,14 @@ class ReservationService
 
     private function importedLocal(ReservationBooking $booking, array $data, int $userId): ReservationBooking
     {
+        if (array_key_exists('tag_ids', $data)) {
+            $booking->tags()->sync($data['tag_ids']);
+        }
         $previousStatus = $booking->status;
         if (($data['status'] ?? null) === 'arrived') {
             $data['status'] = 'seated';
         }
-        if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status', 'table_ids', 'reset_resmio_tables'])) {
+        if (array_diff(array_keys($data), ['version', 'notes', 'status', 'reset_resmio_status', 'table_ids', 'reset_resmio_tables', 'tag_ids'])) {
             throw ValidationException::withMessages(['source' => 'Buchungsdaten dieser Reservierung werden in Resmio gepflegt. Hier sind eigene Notizen, lokale Tischzuordnungen und Serviceaktionen möglich.']);
         }
         if (array_key_exists('notes', $data)) {

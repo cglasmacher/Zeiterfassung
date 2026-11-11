@@ -17,6 +17,13 @@ class ReservationBooking extends Model
 
     protected $guarded = [];
 
+    protected $with = ['tags'];
+
+    public function tags()
+    {
+        return $this->belongsToMany(ReservationTag::class, 'reservation_booking_tag', 'booking_id', 'tag_id')->orderBy('name');
+    }
+
     protected $hidden = ['public_request_key', 'public_request_hash'];
 
     protected $casts = ['confirmed_at' => ReservationDateTime::class, 'public_meta' => 'array', 'starts_at' => ReservationDateTime::class, 'ends_at' => ReservationDateTime::class, 'party_size' => 'integer', 'version' => 'integer', 'resmio_updated_at' => ReservationDateTime::class, 'resmio_synced_at' => ReservationDateTime::class, 'resmio_local_table_ids' => 'array', 'resmio_tags' => 'array', 'customer_tags' => 'array', 'resmio_tables' => 'array', 'resmio_data' => 'array', 'resmio_issues' => 'array', 'resmio_unassigned' => 'boolean', 'resmio_missing' => 'boolean'];

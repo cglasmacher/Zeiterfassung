@@ -35,6 +35,29 @@ class ReservationWidgetTest extends TestCase
         $this->room = $this->makeRoom('Restaurant');
     }
 
+    public function test_requests_hold_no_table_and_confirmation_requires_explicit_available_selection(): void
+    {
+        $this->enable(['confirmation_mode' => 'manual']);
+        $payload = $this->requestData();
+        $this->postJson('/api/public/reservations/book', $payload)->assertCreated();
+        $booking = ReservationBooking::firstOrFail();
+        $this->assertCount(0, $booking->tables);
+        $received = $booking->created_at;
+        $this->postJson('/api/public/reservations/book', $payload)->assertCreated();
+        $this->assertDatabaseCount('reservation_bookings', 1);
+        $this->actingAs($this->admin);
+        $url = '/api/reservations/bookings/'.$booking->id;
+        $this->putJson($url, ['version' => 1, 'status' => 'confirmed'])->assertUnprocessable()->assertJsonValidationErrors('table_ids');
+        $table = $this->room->tables->first();
+        $other = app(ReservationService::class)->write(['kind' => 'reservation', 'date' => '2026-10-26', 'time' => '14:00', 'party_size' => 2, 'guest_name' => 'Andere Gruppe', 'phone' => '123', 'table_ids' => [$table->id]], $this->admin->id);
+        $this->putJson($url, ['version' => 1, 'status' => 'confirmed', 'table_ids' => [$table->id]])->assertUnprocessable();
+        $other->update(['status' => 'cancelled']);
+        $this->putJson($url, ['version' => 1, 'status' => 'confirmed', 'table_ids' => [$table->id]])->assertOk()->assertJsonPath('status', 'confirmed');
+        $this->assertTrue($booking->fresh()->created_at->eq($received));
+        $this->assertCount(1, $booking->fresh()->tables);
+        $this->putJson($url, ['version' => 1, 'status' => 'confirmed', 'table_ids' => [$table->id]])->assertConflict();
+    }
+
     private function makeRoom(string $name): ReservationRoom
     {
         $room = ReservationRoom::create(['id' => (string) Str::uuid(), 'name' => $name, 'width' => 800, 'height' => 600, 'elements' => []]);

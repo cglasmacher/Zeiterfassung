@@ -237,3 +237,16 @@ npm run build
 ```
 
 Die Featuretests verwenden die Benutzer-/Berechtigungs-, Builder- und Buchungs-Migrationen samt benötigten Abhängigkeiten isoliert. Eine bestehende HACCP-Migration verwendet MySQL-spezifisches `SHOW INDEX` und blockiert ansonsten den SQLite-Testlauf unabhängig vom Builder. Die Gesamtanwendung wird damit nicht als vollständig getestet ausgewiesen.
+
+
+## Anfragen, Bestätigung und Tags (November 2026)
+
+Unter Verwaltung → Reservierungswidget → Online-Bestätigung stehen automatisch, manuell und automatisch bis zu einer Gruppengröße zur Wahl. Die Regeln gelten für neue Homepage-Buchungen; bestehende Buchungen werden nicht rückwirkend geändert. Automatische Buchungen erhalten weiter sofort einen passenden Tisch bzw. eine erlaubte Kombination. Manuelle Online-Anfragen werden ohne Tisch angelegt und halten keine Plätze frei. Sie erhalten beim eingeschalteten Mailversand die bestehende Anfrage-Eingangsmail, keine verbindliche Zusage. Verfügbarkeit und Warteliste im Widget bleiben aktiv.
+
+In der Liste gibt es den Filter „Anfragen“. Die unveränderliche Erstellungszeit wird für lokale Anfragen als „Eingang“ in Berliner Zeit gezeigt (kein Importzeitpunkt als vermeintlicher Resmio-Eingang). Beim Wechsel von Anfrage zu bestätigt/eingetroffen öffnet sich die Bearbeitung. Ohne ausgewählte Tische ist eine Bestätigung nicht möglich; bestehende Tischzuordnungen können verwendet werden. Der gemeinsame Datenbank-Lock und die Versionsprüfung sichern die erneute Prüfung auf Belegung/Sperren. Erst bei erfolgreicher Bestätigung wird die Bestätigungsmail in den bestehenden Outbox-Prozess eingestellt. Manuelle Zusatzstühle und hinterlegte Kombinationskapazitäten bleiben unterstützt.
+
+Die Migration `2026_11_11_100000_create_reservation_tags.php` legt 30 Standard-Tags und eine getrennte Zuordnungstabelle an. Admins können Tags anlegen, umbenennen und archivieren; das Serviceteam kann Tags an lokale und importierte Buchungen hängen. Namen sind nach Whitespace-/Kleinschreibungsnormalisierung eindeutig. Archivierte Tags bleiben an bestehenden Buchungen sowie suchbar und können dort entfernt werden. Lokale Tags werden beim Resmio-Abgleich nicht überschrieben. Importierte Reservierungs-/Gast-Tags bleiben separat.
+
+Im Tagesbuch steht ein Tagfilter zur Verfügung. „Tags & Zeitraum“ sucht serverseitig nach dem Reservierungsbeginn von/bis einschließlich beider Berliner Kalendertage. Ein Tagname wird in lokalen sowie importierten Reservierungs-/Gast-Tags gesucht; Mehrfachtreffer derselben Buchung werden nur einmal gezählt. Ein optionaler Statusfilter grenzt das Ergebnis ein; sonst sind auch Stornos/No-Shows/Warteliste enthalten. Treffer werden mit Datum, Gesamtzahl und Seiten zu 50 Einträgen dargestellt, und können direkt bearbeitet werden. Ein importierter Tagname kann im Tagfeld auch frei eingegeben werden.
+
+Deployment: `php artisan migrate --force`, `npm run build`, `php artisan optimize:clear`. Kein neuer Mailworker nötig, der bestehende Scheduler/SMTP-Versand bleibt zuständig. Vorhandene Anfragen mit bereits zugeordneten Tischen behalten diese Zuordnung.
