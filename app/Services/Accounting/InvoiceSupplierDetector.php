@@ -17,6 +17,10 @@ class InvoiceSupplierDetector
                 config('accounting.pdftotext_binary', '/usr/bin/pdftotext'),
                 '-f', '1', '-l', '1', '-enc', 'UTF-8', $pdf, '-',
             ]);
+            if ($text->successful() && preg_match('/ISB\s+Seafood\s+GmbH/iu', $text->output())
+                && preg_match('/DE\s*236\s*175\s*659/iu', $text->output())) {
+                return ['supplier' => 'isb', 'profile' => 'isb_layout_v1', 'evidence' => 'pdf_supplier_identifiers'];
+            }
             if ($text->successful()
                 && preg_match('/Handelshof\s+Köln\s+Stiftung\s*&\s*Co\.\s*KG/iu', $text->output())
                 && preg_match('/DE\s*123\s*046\s*183/iu', $text->output())) {

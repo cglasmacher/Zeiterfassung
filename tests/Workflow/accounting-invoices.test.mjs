@@ -100,7 +100,7 @@ test('import template is inactive, has no credentials/secrets and no positional 
 });
 
 test('embedded code matches the reviewable script sources', () => {
-    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-polling-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Handelshof Original ans Portal', 'accounting-handelshof-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
+    for (const [name, file] of [['PDF normalisieren', 'accounting-attachments.js'], ['Kassenberichte ausschließen', 'accounting-polling-document-filter.js'], ['Gato Original ans Portal', 'accounting-gato-payload.js'], ['Handelshof Original ans Portal', 'accounting-handelshof-payload.js'], ['ISB Original ans Portal', 'accounting-isb-payload.js'], ['Original für Lieferantenprüfung', 'accounting-inspect-pdf.js']]) {
         assert.equal(node(name).parameters.jsCode, fs.readFileSync(new URL(`../../workflows/n8n/scripts/${file}`, import.meta.url), 'utf8'));
     }
 });
@@ -124,7 +124,8 @@ test('forwarding sender never determines supplier; PDF inspection chooses the Ga
     assert.equal(workflow.connections['Lieferant aus PDF erkennen'].main[0][0].node, 'Gato ohne KI?');
     assert.equal(workflow.connections['Gato ohne KI?'].main[0][0].node, 'Gato Original ans Portal');
     assert.equal(workflow.connections['Gato ohne KI?'].main[1][0].node, 'Handelshof ohne KI?');
-    assert.equal(workflow.connections['Handelshof ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
+    assert.equal(workflow.connections['Handelshof ohne KI?'].main[1][0].node, 'ISB ohne KI?');
+    assert.equal(workflow.connections['ISB ohne KI?'].main[1][0].node, 'Rechnung mit GPT auslesen');
 });
 
 test('poller downloads invoice mails but never selects direct Vectron mail for download', () => {
@@ -216,4 +217,20 @@ test('Handelshof bypasses AI and transfers the linked original without client am
     assert.equal(workflow.connections['Handelshof ohne KI?'].main[0][0].node, 'Handelshof Original ans Portal');
     assert.equal(workflow.connections['Handelshof Original ans Portal'].main[0][0].node, 'Hemingway Portal - Beleg übergeben');
     assert.equal(workflow.connections['Handelshof Original ans Portal'].main[1][0].node, 'PDF fehlgeschlagen');
+});
+
+
+test('ISB bypasses AI and preserves each original attachment and reference', () => {
+    for (const original of run('PDF normalisieren', [mail({ from: 'buchhaltung@example.test' })])) {
+        const output = run('ISB Original ans Portal', [], {
+            $json: { supplier: 'isb', profile: 'isb_layout_v1' }, $: () => ({ item: original }),
+        });
+        assert.equal(output.json.portal_payload.extraction_profile, 'isb_layout_v1');
+        assert.equal(output.json.portal_payload.source_reference, original.json.accounting_attachment.source_reference);
+        assert.equal(output.binary.eingangsrechnung_0.data, original.binary.eingangsrechnung_0.data);
+        assert.equal(output.json.portal_payload.lines, undefined);
+    }
+    assert.equal(workflow.connections['ISB ohne KI?'].main[0][0].node, 'ISB Original ans Portal');
+    assert.equal(workflow.connections['ISB Original ans Portal'].main[0][0].node, 'Hemingway Portal - Beleg übergeben');
+    assert.equal(workflow.connections['ISB Original ans Portal'].main[1][0].node, 'PDF fehlgeschlagen');
 });
