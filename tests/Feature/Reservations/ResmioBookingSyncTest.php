@@ -79,6 +79,21 @@ class ResmioBookingSyncTest extends TestCase
         return ReservationBooking::where('resmio_id', '100')->firstOrFail()->load('tables');
     }
 
+    public function test_local_tags_survive_resmio_updates_and_remote_tag_removal(): void
+    {
+        app(ResmioSync::class)->run();
+        $booking = $this->imported();
+        $tag = \App\Models\ReservationTag::where('name', 'Kinderstuhl')->firstOrFail();
+        $this->putJson('/api/reservations/bookings/'.$booking->id, ['version' => $booking->version, 'tag_ids' => [$tag->id]])->assertOk();
+        $this->rows = [$this->row(['tags' => [], 'updated' => '2026-10-26T11:00:00Z'])];
+        app(ResmioSync::class)->run();
+        app(ResmioSync::class)->run();
+        $this->assertSame([], $this->imported()->resmio_tags);
+        $this->assertSame([$tag->id], $this->imported()->tags->pluck('id')->all());
+        $this->assertDatabaseCount('reservation_bookings', 1);
+        $this->assertDatabaseCount('reservation_booking_tag', 1);
+    }
+
     public function test_imports_full_notes_tags_contacts_duration_and_table_once_and_never_writes_to_resmio(): void
     {
         $this->assertSame(1, app(ResmioSync::class)->run());

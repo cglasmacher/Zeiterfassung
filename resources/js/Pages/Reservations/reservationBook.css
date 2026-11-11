@@ -78,3 +78,17 @@
 }
 
 .rb-status-control{appearance:none;-webkit-appearance:none}
+
+/* Tags and range search remain compact on mobile. */
+.rb-received { display:block; color:#78856b; font-size:11px; margin-top:3px; }
+.rb-tag-picker { margin:12px 0; }
+.rb-tag-picker .rb-checks { max-height:180px; overflow:auto; gap:8px 14px; }
+.rb-tag-management { max-height:320px; overflow:auto; margin-top:12px; }
+.rb-tag-management > div { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 0; border-bottom:1px solid #e3e6db; }
+.rb-tag-management > div > span { flex:1; min-width:100px; }
+.rb-search-switch { margin:12px 0; flex-wrap:wrap; }
+.rb-search-switch select { max-width:100%; }
+.rb-range-search .rb-grid { margin-bottom:12px; }
+@media(max-width:700px) { .rb-range-search .rb-grid {grid-template-columns:repeat(2,minmax(0,1fr));} .rb-range-search input,.rb-range-search select {min-width:0;max-width:100%;font-size:16px;} }
+
+@media(max-width:700px){.rb-row-time small.rb-row-date{display:block;font-size:9px;white-space:normal;overflow-wrap:anywhere;line-height:1.4;margin-top:3px}.rb-filterbar nav{overflow-x:auto}.rb-filterbar nav button{flex-shrink:0}}

@@ -24,6 +24,60 @@ class ReservationBookController extends Controller
         abort_unless(in_array($request->user()?->access_role, $admin ? ['admin'] : ['admin', 'operations'], true), 403);
     }
 
+    public function tags(Request $request)
+    {
+        $this->access($request);
+
+        return response()->json(\App\Models\ReservationTag::orderBy('name')->get());
+    }
+
+    public function saveTag(Request $request, ?string $tag = null)
+    {
+        $this->access($request, true);
+        $data = $request->validate(['name' => ['required', 'string', 'max:80', 'not_regex:/^\s*$/u'], 'active' => ['sometimes', 'boolean']]);
+
+        return DB::transaction(function () use ($data, $tag) {
+            $this->service->lock();
+            $name = preg_replace('/\s+/u', ' ', trim($data['name']));
+            $normalized = mb_strtolower($name);
+            $model = $tag ? \App\Models\ReservationTag::findOrFail($tag) : new \App\Models\ReservationTag(['id' => (string) Str::uuid()]);
+            if (\App\Models\ReservationTag::where('normalized_name', $normalized)->where('id', '!=', $model->id)->exists()) {
+                throw ValidationException::withMessages(['name' => 'Dieser Tag existiert bereits.']);
+            }
+            $model->fill(['name' => $name, 'normalized_name' => $normalized, 'active' => $data['active'] ?? true])->save();
+
+            return response()->json($model, $tag ? 200 : 201);
+        });
+    }
+
+    public function search(Request $request)
+    {
+        $this->access($request);
+        $data = $request->validate([
+            'from' => ['required', 'date_format:Y-m-d'], 'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'tag' => ['nullable', 'string', 'max:80'], 'status' => ['nullable', Rule::in(ReservationBooking::STATUSES)],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+        $start = $this->service->localTime($data['from'], '00:00');
+        $end = $this->service->localTime($data['to'], '00:00')->addDay();
+
+        return response()->json(ReservationBooking::with('tables')
+            ->where('starts_at', '>=', ReservationService::stamp($start))->where('starts_at', '<', ReservationService::stamp($end))
+            ->when($data['tag'] ?? null, fn ($q, $name) => $q->where(function ($q) use ($name) {
+                $q->whereHas('tags', fn ($q) => $q->where('name', $name));
+                foreach (['resmio_tags', 'customer_tags'] as $column) {
+                    // SQLite's JSON contains compares whole objects; match the name field explicitly.
+                    if (DB::connection()->getDriverName() === 'sqlite') {
+                        $q->orWhereRaw("exists (select 1 from json_each($column) where json_extract(json_each.value, '$.name') = ?)", [$name]);
+                    } else {
+                        $q->orWhereJsonContains($column, ['name' => $name]);
+                    }
+                }
+            }))
+            ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->orderBy('starts_at')->orderBy('id')->paginate(50));
+    }
+
     public function index(Request $request)
     {
         $this->access($request);
@@ -35,6 +89,7 @@ class ReservationBookController extends Controller
             'date' => $data['date'], 'server_now' => CarbonImmutable::now('Europe/Berlin')->toIso8601String(),
             'can_manage' => $request->user()->access_role === 'admin',
             'resmio' => $this->resmioState(),
+            'tags' => \App\Models\ReservationTag::orderBy('name')->get(),
             'settings' => $this->service->settings(),
             'rooms' => ReservationRoom::with('tables')->orderBy('created_at')->orderBy('id')->get(),
             'combinations' => ReservationCombination::orderBy('name')->get(),
@@ -49,6 +104,8 @@ class ReservationBookController extends Controller
     private function bookingData(Request $request, bool $update = false): array
     {
         return $request->validate([
+            'tag_ids' => ['sometimes', 'array', 'max:30'],
+            'tag_ids.*' => ['uuid', 'distinct', Rule::exists('reservation_tags', 'id')],
             'kind' => [$update ? 'sometimes' : 'required', Rule::in(['reservation', 'walkin', 'waitlist'])],
             'date' => [$update ? 'sometimes' : 'required_unless:kind,walkin', 'date_format:Y-m-d', 'required_with:time'],
             'time' => [$update ? 'sometimes' : 'required_unless:kind,walkin', 'date_format:H:i', 'required_with:date'],

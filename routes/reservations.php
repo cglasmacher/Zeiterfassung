@@ -13,6 +13,10 @@ Route::get('/reservierungen/verwaltung', function (Request $request) {
 })->name('reservations.management');
 Route::prefix('api/reservations')->controller(ReservationBookController::class)->group(function () {
     Route::get('/book', 'index');
+    Route::get('/search', 'search');
+    Route::get('/tags', 'tags');
+    Route::post('/tags', 'saveTag');
+    Route::put('/tags/{tag}', 'saveTag')->whereUuid('tag');
     Route::get('/mails', [\App\Http\Controllers\ReservationMailController::class, 'index']);
     Route::put('/mails/settings', [\App\Http\Controllers\ReservationMailController::class, 'settings']);
     Route::post('/mails/{id}/retry', [\App\Http\Controllers\ReservationMailController::class, 'retry'])->whereUuid('id');

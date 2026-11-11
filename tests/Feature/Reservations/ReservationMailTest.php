@@ -111,7 +111,8 @@ class ReservationMailTest extends TestCase
         app(ReservationMailService::class)->sendDue();
         $booking = $this->change($booking, ['notes' => 'Interne Kücheninformation']);
         $this->assertDatabaseCount('reservation_mail_outbox', 1);
-        $booking = $this->change($booking, ['status' => 'confirmed']);
+        $this->assertCount(0, $booking->tables);
+        $booking = $this->change($booking, ['status' => 'confirmed', 'table_ids' => [\App\Models\ReservationTable::firstOrFail()->id]]);
         $this->assertDatabaseHas('reservation_mail_outbox', ['type' => 'confirmed']);
         $booking = $this->change($booking, ['status' => 'confirmed']);
         $this->assertDatabaseCount('reservation_mail_outbox', 2);

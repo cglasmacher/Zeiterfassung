@@ -28,6 +28,7 @@ class ReservationBookTest extends TestCase
             'database/migrations/2026_10_26_140000_create_reservation_widget.php',
             'database/migrations/2026_10_26_150000_create_reservation_mail_outbox.php',
             'database/migrations/2026_10_26_160000_add_reservation_guest_actions.php',
+            'database/migrations/2026_11_11_100000_create_reservation_tags.php',
         ]];
     }
 
